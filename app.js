@@ -19,30 +19,27 @@
     }
 
     // ================================================================
-    //  卡牌数据库 (CardDB) — 官方 cards.json + 本地自定义卡牌
+    //  卡牌数据库 (CardDB) — data/cards.js 全局变量 + 本地自定义卡牌
+    //  数据文件 data/cards.js 通过 <script> 标签在 index.html 中加载，
+    //  定义全局变量 CARD_DB_DATA。直接编辑该文件即可增删卡牌。
     // ================================================================
     const CardDB = (() => {
       const _cards = new Map();
-      let _ready = false;
       const STORAGE_KEY = 'bwp_custom_cards';
 
       async function init() {
-        // 1. 加载官方数据库
-        try {
-          const resp = await fetch('data/cards.json');
-          if (resp.ok) {
-            const data = await resp.json();
-            for (const card of data.cards) {
-              _cards.set(card.name, card);
-            }
-            console.log(`[CardDB] 官方数据库加载完成，共 ${data.cards.length} 张卡牌`);
+        // 加载 data/cards.js 中的全局数据（<script> 已同步加载，直接可用）
+        if (typeof CARD_DB_DATA !== 'undefined' && Array.isArray(CARD_DB_DATA)) {
+          for (const card of CARD_DB_DATA) {
+            _cards.set(card.name, card);
           }
-        } catch (e) {
-          console.warn('[CardDB] 官方数据库加载失败:', e.message);
+          console.log(`[CardDB] ✅ data/cards.js 加载完成，共 ${CARD_DB_DATA.length} 张卡牌`);
+        } else {
+          console.error('[CardDB] ❌ 未找到 CARD_DB_DATA，请检查 index.html 中是否引用了 data/cards.js');
         }
-        // 2. 加载本地自定义卡牌（后加载，可覆盖同名官方卡）
+
+        // 加载本地自定义卡牌（最后加载，优先级最高）
         _loadCustom();
-        _ready = true;
       }
 
       function _loadCustom() {
@@ -129,7 +126,7 @@
         return count;
       }
 
-      function isReady() { return _ready; }
+      function isReady() { return _cards.size > 0; }
       function size() { return _cards.size; }
 
       return { init, lookup, addCustom, removeCustom, exportCustom, importCustom, isReady, size };
@@ -142,30 +139,56 @@
       let el = null;
       let timer = null;
       let currentCard = null;
-      const DELAY = 350;
+      let hoveredEl = null;
+      const DELAY = 300;
 
       function init() {
         el = document.getElementById('card-tooltip');
-        if (!el) { console.warn('[Tooltip] 未找到 #card-tooltip 元素'); return; }
-        document.addEventListener('mouseover', _onMouseOver);
-        document.addEventListener('mouseout', _onMouseOut);
-        document.addEventListener('mousemove', _onMouseMove);
-        console.log('[Tooltip] 已初始化，监听卡牌名悬浮');
+        if (!el) { console.error('[Tooltip] ❌ 未找到 #card-tooltip DOM元素！'); return; }
+        console.log('[Tooltip] ✅ 找到 tooltip 元素:', el);
+
+        // 自检：直接显示 tooltip 1.5 秒，确认渲染管线正常
+        _selfTest();
+
+        // 事件委托
+        document.addEventListener('mouseover', _onMouseOver, true);
+        document.addEventListener('mouseout', _onMouseOut, true);
+        console.log('[Tooltip] ✅ 事件监听已绑定 (mouseover/mouseout)');
       }
 
-      /** 从事件目标中提取卡牌名称（含父元素回退） */
+      function _selfTest() {
+        const testCard = CardDB.lookup('桃花妖');
+        if (!testCard) {
+          console.warn('[Tooltip] ⚠️ 自检失败：数据库中无"桃花妖"，请检查 cards.json 是否加载');
+          return;
+        }
+        console.log('[Tooltip] 🧪 自检：显示桃花妖浮窗 1.5 秒...');
+        _render(testCard);
+        el.hidden = false;
+        el.style.left = '50%';
+        el.style.top = '50%';
+        el.style.transform = 'translate(-50%, -50%)';
+        el.style.outline = '3px solid lime';
+        setTimeout(() => {
+          el.hidden = true;
+          el.style.transform = '';
+          el.style.outline = '';
+          console.log('[Tooltip] 🧪 自检完成，tooltip 已隐藏，等待鼠标悬浮');
+        }, 1500);
+      }
+
       function _findCardName(target) {
         if (!target) return null;
         // 直接命中
         if (target.classList.contains('card-name')) return target.value;
         if (target.classList.contains('card-list-item__name')) return target.textContent;
         if (target.classList.contains('chat-card-name')) return target.textContent;
-        // label 包裹的 input：鼠标可能落在 label 而非 input 上
+        // label 包裹的 input
         if (target.classList.contains('card-badge--name')) {
           const input = target.querySelector('.card-name');
           if (input) return input.value;
         }
-        // 卡牌槽内任意位置 → 查找名称 input
+        // 卡牌槽内任意位置
         const slot = target.closest('.card-slot');
         if (slot) {
           const input = slot.querySelector('.card-name');
@@ -175,41 +198,50 @@
       }
 
       function _onMouseOver(e) {
-        const name = _findCardName(e.target);
+        const target = e.target;
+        const name = _findCardName(target);
+
+        // 每 2 秒最多输出一次调试日志，避免刷屏
+        if (!CardTooltip._lastDebug || Date.now() - CardTooltip._lastDebug > 2000) {
+          CardTooltip._lastDebug = Date.now();
+          const tag = target.tagName || '';
+          const cls = target.className || '';
+          console.log('[Tooltip] hover:', tag + (cls ? '.' + cls.split(' ')[0] : ''), '→ 名称:', name || '(无)');
+        }
+
         if (!name) { hide(); return; }
         const card = CardDB.lookup(name);
         if (!card) { hide(); return; }
+        console.log('[Tooltip] 🎯 匹配到卡牌:', card.name, '(' + card.type + ')');
         currentCard = card;
+        hoveredEl = target;
         clearTimeout(timer);
-        // ★ 立即捕获坐标，避免 setTimeout 中 event 对象被浏览器复用
         const mx = e.clientX;
         const my = e.clientY;
         timer = setTimeout(() => _show(mx, my), DELAY);
       }
 
       function _onMouseOut(e) {
-        if (_findCardName(e.target)) {
+        if (e.target === hoveredEl || _findCardName(e.target)) {
           clearTimeout(timer);
           hide();
         }
-      }
-
-      function _onMouseMove(e) {
-        if (!el || el.hidden) return;
-        _position(e.clientX, e.clientY);
       }
 
       function _show(mx, my) {
         if (!currentCard || !el) return;
         _render(currentCard);
         el.hidden = false;
-        // 等待一帧确保布局计算完成再定位
-        requestAnimationFrame(() => _position(mx, my));
+        requestAnimationFrame(() => {
+          _position(mx, my);
+          el.style.outline = ''; // 清除自检边框
+        });
       }
 
       function hide() {
         clearTimeout(timer);
         currentCard = null;
+        hoveredEl = null;
         if (el) el.hidden = true;
       }
 
