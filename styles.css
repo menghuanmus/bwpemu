@@ -1744,3 +1744,115 @@
       vertical-align: middle;
       margin-right: 6px;
     }
+
+    /* ================================================================
+       卡牌信息浮窗 (Card Tooltip)
+       ================================================================ */
+    .card-tooltip {
+      position: fixed;
+      z-index: 9999;
+      min-width: 220px;
+      max-width: 320px;
+      padding: 12px 14px;
+      border-radius: 10px;
+      background: linear-gradient(160deg, #1e2a3a 0%, #162030 100%);
+      border: 2px solid rgba(255, 215, 0, 0.5);
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(255, 215, 0, 0.15);
+      pointer-events: none;
+      font-size: 13px;
+      color: #e0d8c8;
+      line-height: 1.5;
+      transition: opacity 0.15s ease;
+    }
+    .card-tooltip[hidden] {
+      display: none;
+    }
+
+    .card-tooltip__header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 8px;
+      padding-bottom: 6px;
+      border-bottom: 1px solid rgba(255, 215, 0, 0.25);
+    }
+
+    .card-tooltip__badge {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 4px;
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      flex-shrink: 0;
+    }
+    .card-tooltip__badge--shikigami { background: #3a5a8a; color: #c0d8ff; }
+    .card-tooltip__badge--summon    { background: #4a7a5a; color: #c0ffd0; }
+    .card-tooltip__badge--spell     { background: #6a4a8a; color: #d8c0ff; }
+    .card-tooltip__badge--battle    { background: #8a3a3a; color: #ffc0c0; }
+    .card-tooltip__badge--form      { background: #3a6a4a; color: #c0ffc0; }
+    .card-tooltip__badge--realm     { background: #6a6a2a; color: #ffffc0; }
+
+    .card-tooltip__name {
+      font-size: 15px;
+      font-weight: 700;
+      color: #ffd700;
+      flex: 1;
+      min-width: 0;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .card-tooltip__tag {
+      display: inline-block;
+      padding: 1px 6px;
+      border-radius: 3px;
+      font-size: 10px;
+      font-weight: 600;
+      flex-shrink: 0;
+    }
+    .card-tooltip__tag--awakened { background: #c04040; color: #ffd0d0; }
+    .card-tooltip__tag--derivative { background: #555; color: #ccc; }
+
+    .card-tooltip__stats {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 4px 12px;
+      margin-bottom: 6px;
+      font-size: 12px;
+      color: #c8c0b0;
+    }
+    .card-tooltip__stats .stat {
+      display: inline-flex;
+      align-items: center;
+      gap: 3px;
+      white-space: nowrap;
+    }
+    .card-tooltip__stats .stat--atk  { color: #ff9070; }
+    .card-tooltip__stats .stat--hp   { color: #70d070; }
+    .card-tooltip__stats .stat--shield { color: #70b0ff; }
+    .card-tooltip__stats .stat--durability { color: #d0a0f0; }
+    .card-tooltip__stats .stat--faction { color: #c0b080; }
+    .card-tooltip__stats .stat--penalty { color: #ff7060; }
+
+    .card-tooltip__effect {
+      font-size: 12px;
+      color: #b0a890;
+      line-height: 1.55;
+      padding-top: 6px;
+      border-top: 1px solid rgba(255, 255, 255, 0.08);
+    }
+
+    /* 系统消息中可悬浮的卡牌名 */
+    .chat-card-name {
+      color: #ffd700;
+      font-weight: 600;
+      cursor: default;
+      border-bottom: 1px dotted rgba(255, 215, 0, 0.35);
+      transition: color 0.15s;
+    }
+    .chat-card-name:hover {
+      color: #ffe860;
+    }

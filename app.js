@@ -8,6 +8,286 @@
     if (roomTitleEl) roomTitleEl.textContent = `🎴 ${APP_TITLE} ${APP_VERSION}`;
 
     // ================================================================
+    //  工具函数
+    // ================================================================
+
+    /** HTML 转义，防止 XSS */
+    function escapeHTML(str) {
+      const div = document.createElement('div');
+      div.appendChild(document.createTextNode(str));
+      return div.innerHTML;
+    }
+
+    // ================================================================
+    //  卡牌数据库 (CardDB) — 官方 cards.json + 本地自定义卡牌
+    // ================================================================
+    const CardDB = (() => {
+      const _cards = new Map();
+      let _ready = false;
+      const STORAGE_KEY = 'bwp_custom_cards';
+
+      async function init() {
+        // 1. 加载官方数据库
+        try {
+          const resp = await fetch('data/cards.json');
+          if (resp.ok) {
+            const data = await resp.json();
+            for (const card of data.cards) {
+              _cards.set(card.name, card);
+            }
+            console.log(`[CardDB] 官方数据库加载完成，共 ${data.cards.length} 张卡牌`);
+          }
+        } catch (e) {
+          console.warn('[CardDB] 官方数据库加载失败:', e.message);
+        }
+        // 2. 加载本地自定义卡牌（后加载，可覆盖同名官方卡）
+        _loadCustom();
+        _ready = true;
+      }
+
+      function _loadCustom() {
+        try {
+          const raw = localStorage.getItem(STORAGE_KEY);
+          if (raw) {
+            const cards = JSON.parse(raw);
+            for (const card of cards) {
+              card._custom = true;
+              _cards.set(card.name, card);
+            }
+            console.log(`[CardDB] 本地自定义卡牌加载完成，共 ${cards.length} 张`);
+          }
+        } catch (e) {
+          console.warn('[CardDB] 本地自定义卡牌读取失败:', e.message);
+        }
+      }
+
+      function _saveCustom() {
+        const customs = [];
+        for (const card of _cards.values()) {
+          if (card._custom) customs.push(card);
+        }
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(customs));
+      }
+
+      /** 查询卡牌：精确匹配 → 前缀匹配 → 包含匹配 */
+      function lookup(name) {
+        if (!name) return null;
+        const key = name.trim();
+        if (_cards.has(key)) return _cards.get(key);
+        // 前缀匹配（「桃花妖·觉醒」→ 可匹配到「桃花妖」）
+        for (const [k, card] of _cards) {
+          if (key.startsWith(k) || k.startsWith(key)) return card;
+        }
+        // 包含匹配
+        for (const [k, card] of _cards) {
+          if (k.includes(key) || key.includes(k)) return card;
+        }
+        return null;
+      }
+
+      /** 添加自定义卡牌 */
+      function addCustom(card) {
+        if (!card || !card.name || !card.type) return false;
+        card._custom = true;
+        _cards.set(card.name, card);
+        _saveCustom();
+        return true;
+      }
+
+      /** 删除自定义卡牌 */
+      function removeCustom(name) {
+        const card = _cards.get(name);
+        if (card && card._custom) {
+          _cards.delete(name);
+          _saveCustom();
+          return true;
+        }
+        return false;
+      }
+
+      /** 导出所有自定义卡牌为 JSON 字符串 */
+      function exportCustom() {
+        const customs = [];
+        for (const card of _cards.values()) {
+          if (card._custom) customs.push(card);
+        }
+        return JSON.stringify(customs, null, 2);
+      }
+
+      /** 批量导入自定义卡牌 JSON，返回成功导入数量 */
+      function importCustom(jsonStr) {
+        const cards = JSON.parse(jsonStr);
+        if (!Array.isArray(cards)) throw new Error('格式错误：需要 JSON 数组');
+        let count = 0;
+        for (const card of cards) {
+          if (!card.name || !card.type) continue;
+          card._custom = true;
+          _cards.set(card.name, card);
+          count++;
+        }
+        _saveCustom();
+        return count;
+      }
+
+      function isReady() { return _ready; }
+      function size() { return _cards.size; }
+
+      return { init, lookup, addCustom, removeCustom, exportCustom, importCustom, isReady, size };
+    })();
+
+    // ================================================================
+    //  卡牌信息浮窗 (CardTooltip) — 鼠标悬浮展示卡牌详情
+    // ================================================================
+    const CardTooltip = (() => {
+      let el = null;
+      let timer = null;
+      let currentCard = null;
+      const DELAY = 350;
+
+      function init() {
+        el = document.getElementById('card-tooltip');
+        if (!el) { console.warn('[Tooltip] 未找到 #card-tooltip 元素'); return; }
+        document.addEventListener('mouseover', _onMouseOver);
+        document.addEventListener('mouseout', _onMouseOut);
+        document.addEventListener('mousemove', _onMouseMove);
+        console.log('[Tooltip] 已初始化，监听卡牌名悬浮');
+      }
+
+      /** 从事件目标中提取卡牌名称（含父元素回退） */
+      function _findCardName(target) {
+        if (!target) return null;
+        // 直接命中
+        if (target.classList.contains('card-name')) return target.value;
+        if (target.classList.contains('card-list-item__name')) return target.textContent;
+        if (target.classList.contains('chat-card-name')) return target.textContent;
+        // label 包裹的 input：鼠标可能落在 label 而非 input 上
+        if (target.classList.contains('card-badge--name')) {
+          const input = target.querySelector('.card-name');
+          if (input) return input.value;
+        }
+        // 卡牌槽内任意位置 → 查找名称 input
+        const slot = target.closest('.card-slot');
+        if (slot) {
+          const input = slot.querySelector('.card-name');
+          if (input && input.value) return input.value;
+        }
+        return null;
+      }
+
+      function _onMouseOver(e) {
+        const name = _findCardName(e.target);
+        if (!name) { hide(); return; }
+        const card = CardDB.lookup(name);
+        if (!card) { hide(); return; }
+        currentCard = card;
+        clearTimeout(timer);
+        // ★ 立即捕获坐标，避免 setTimeout 中 event 对象被浏览器复用
+        const mx = e.clientX;
+        const my = e.clientY;
+        timer = setTimeout(() => _show(mx, my), DELAY);
+      }
+
+      function _onMouseOut(e) {
+        if (_findCardName(e.target)) {
+          clearTimeout(timer);
+          hide();
+        }
+      }
+
+      function _onMouseMove(e) {
+        if (!el || el.hidden) return;
+        _position(e.clientX, e.clientY);
+      }
+
+      function _show(mx, my) {
+        if (!currentCard || !el) return;
+        _render(currentCard);
+        el.hidden = false;
+        // 等待一帧确保布局计算完成再定位
+        requestAnimationFrame(() => _position(mx, my));
+      }
+
+      function hide() {
+        clearTimeout(timer);
+        currentCard = null;
+        if (el) el.hidden = true;
+      }
+
+      function _position(mx, my) {
+        const rect = el.getBoundingClientRect();
+        let x = mx + 14;
+        let y = my - rect.height / 2;
+        if (x + rect.width > window.innerWidth - 10) x = mx - rect.width - 14;
+        if (y < 10) y = 10;
+        if (y + rect.height > window.innerHeight - 10) y = window.innerHeight - rect.height - 10;
+        el.style.left = x + 'px';
+        el.style.top = y + 'px';
+      }
+
+      function _render(card) {
+        const typeNames = { shikigami: '式神', summon: '召唤物', spell: '法术', battle: '战斗', form: '形态', realm: '幻境' };
+        const typeCN = typeNames[card.type] || card.type;
+
+        // 类型徽章
+        const badge = el.querySelector('.card-tooltip__badge');
+        badge.textContent = typeCN;
+        badge.className = 'card-tooltip__badge card-tooltip__badge--' + card.type;
+
+        // 卡牌名称
+        el.querySelector('.card-tooltip__name').textContent = card.name;
+
+        // 标签：觉醒 / 衍生物
+        const tagEl = el.querySelector('.card-tooltip__tag');
+        let tags = [];
+        if (card.awakened) tags.push('<span class="card-tooltip__tag card-tooltip__tag--awakened">觉醒</span>');
+        if (card.derivative) tags.push('<span class="card-tooltip__tag card-tooltip__tag--derivative">衍生物</span>');
+        tagEl.innerHTML = tags.join(' ');
+
+        // 属性区
+        const statsEl = el.querySelector('.card-tooltip__stats');
+        let statsHTML = '';
+        switch (card.type) {
+          case 'shikigami':
+          case 'summon':
+            if (card.faction) statsHTML += `<span class="stat stat--faction">🎌 ${card.faction}</span>`;
+            statsHTML += `<span class="stat stat--atk">⚔ 攻击:${card.attack}</span>`;
+            statsHTML += `<span class="stat stat--hp">❤ 生命:${card.hp}</span>`;
+            break;
+          case 'spell':
+            statsHTML += `<span class="stat">⭐ Lv.${card.level}</span>`;
+            if (card.atkBonus > 0) statsHTML += `<span class="stat stat--atk">⚔ +${card.atkBonus}攻击</span>`;
+            if (card.hpBonus > 0) statsHTML += `<span class="stat stat--hp">❤ +${card.hpBonus}生命</span>`;
+            break;
+          case 'battle':
+            statsHTML += `<span class="stat">⭐ Lv.${card.level}</span>`;
+            if (card.atkBonus > 0) statsHTML += `<span class="stat stat--atk">⚔ +${card.atkBonus}攻击</span>`;
+            if (card.atkPenalty > 0) statsHTML += `<span class="stat stat--penalty">⚔ -${card.atkPenalty}攻击</span>`;
+            if (card.shieldBonus > 0) statsHTML += `<span class="stat stat--shield">🛡 +${card.shieldBonus}护盾</span>`;
+            if (card.shieldPenalty > 0) statsHTML += `<span class="stat stat--penalty">🛡 -${card.shieldPenalty}护盾</span>`;
+            break;
+          case 'form':
+            statsHTML += `<span class="stat">⭐ Lv.${card.level}</span>`;
+            statsHTML += `<span class="stat stat--atk">⚔ 攻击:${card.attack}</span>`;
+            statsHTML += `<span class="stat stat--hp">❤ 生命:${card.hp}</span>`;
+            break;
+          case 'realm':
+            statsHTML += `<span class="stat">⭐ Lv.${card.level}</span>`;
+            statsHTML += `<span class="stat stat--durability">🔮 耐久:${card.durability}</span>`;
+            break;
+        }
+        statsEl.innerHTML = statsHTML;
+
+        // 效果/能力描述
+        const effectEl = el.querySelector('.card-tooltip__effect');
+        const effectText = card.effect || card.ability || '';
+        effectEl.textContent = effectText;
+        effectEl.style.display = effectText ? '' : 'none';
+      }
+
+      return { init, hide };
+    })();
+
+    // ================================================================
     //  JS-1：PeerJS 联机系统 —— 房间管理
     // ================================================================
 
@@ -1378,7 +1658,8 @@
       try {
         const bubble = document.createElement('div');
         bubble.className = 'chat-bubble chat-bubble--system';
-        bubble.textContent = text;
+        // 将「卡牌名」包裹为可悬浮的高亮标签，其余文本做 HTML 转义
+        bubble.innerHTML = escapeHTML(text).replace(/「(.+?)」/g, '<span class="chat-card-name">$1</span>');
         chatSystemLog.appendChild(bubble);
         chatSystemLog.scrollTop = chatSystemLog.scrollHeight;
       } catch (e) {
@@ -2125,6 +2406,15 @@
 
     document.addEventListener('keydown', (e) => {
       if (e.key === 'Escape' && !cardListOverlay.hidden) closeCardListDialog();
+    });
+
+    // ---- 初始化卡牌数据库与浮窗 ----
+    CardDB.init().then(() => {
+      console.log('[CardDB] 初始化完成，共 ' + CardDB.size() + ' 张卡牌');
+      CardTooltip.init();
+    }).catch(() => {
+      // 网络失败也初始化 tooltip（用空库 + 本地自定义卡牌）
+      CardTooltip.init();
     });
 
     updateAllDeckButtons();
