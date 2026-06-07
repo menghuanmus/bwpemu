@@ -2,7 +2,7 @@
 //  百闻牌模拟器 — 卡牌数据库
 //  直接编辑此文件来增删卡牌，保存后刷新页面即可生效
 //  type: shikigami=式神, summon=召唤物, spell=法术牌,
-//        battle=战斗牌, form=形态牌, realm=幻境牌
+//        battle=战斗牌, form=形态牌, realm=幻境牌, curse=灵咒
 // ================================================================
 var CARD_DB_DATA = [
   { "name":"桃花妖","type":"shikigami","faction":"紫岩","attack":2,"hp":5,"ability":"进场时，为己方所有式神恢复2点生命。","derivative":false },
@@ -19,5 +19,7 @@ var CARD_DB_DATA = [
   { "name":"桃花仙","type":"form","level":2,"awakened":false,"attack":3,"hp":6,"effect":"你的回合开始时，为己方所有式神恢复1点生命。桃花妖受到伤害时，该伤害-1。","derivative":false },
   { "name":"萤草·治愈之光","type":"form","level":1,"awakened":false,"attack":1,"hp":5,"effect":"进场时，为己方所有式神恢复2点生命。","derivative":false },
   { "name":"蓬莱之境","type":"realm","level":2,"awakened":false,"durability":4,"effect":"你的回合开始时，抽1张牌。","derivative":false },
-  { "name":"龙首之玉","type":"realm","level":3,"awakened":false,"durability":5,"effect":"你的回合结束时，对敌方所有式神造成1点伤害。","derivative":false }
+  { "name":"龙首之玉","type":"realm","level":3,"awakened":false,"durability":5,"effect":"你的回合结束时，对敌方所有式神造成1点伤害。","derivative":false },
+  { "name":"友切","type":"curse","effect":"结附于鬼切。结附式神获得+1攻击。" },
+  { "name":"影缚","type":"curse","effect":"结附于一名敌方式神。结附式神不能进行攻击。" }
 ];
