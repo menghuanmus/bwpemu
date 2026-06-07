@@ -458,6 +458,55 @@
       50% { box-shadow: 0 0 16px rgba(200,140,220,0.8); }
     }
 
+    /* 灵咒瞄准面板 + 按钮 */
+    .curse-target-panel {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      padding: 4px 8px;
+      border: 2px solid rgba(200, 120, 180, 0.5);
+      border-radius: 8px;
+      background: rgba(40, 20, 40, 0.75);
+      flex-shrink: 0;
+    }
+    .curse-target-panel input {
+      width: 60px;
+      padding: 4px 6px;
+      border: 1px solid #7a4a6a;
+      border-radius: 4px;
+      background: #1e1a28;
+      color: #ffc0e0;
+      font-size: 12px;
+      text-align: center;
+      outline: none;
+    }
+    .curse-target-panel input:focus { border-color: #f8a0d0; }
+    .curse-target-panel input::placeholder { color: rgba(200,140,180,0.4); font-size: 10px; }
+
+    .btn-curse-target {
+      padding: 5px 10px;
+      font-size: 12px;
+      font-weight: 600;
+      background: linear-gradient(180deg, #7a3a6a, #5a1a4a);
+      border: 1px solid rgba(220, 140, 190, 0.55);
+      border-radius: 6px;
+      color: #fce;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: background 0.2s;
+      flex-shrink: 0;
+    }
+    .btn-curse-target:hover { background: linear-gradient(180deg, #8a4a7a, #6a2a5a); }
+    .btn-curse-target.active {
+      background: linear-gradient(180deg, #b05090, #903070);
+      border-color: #f8c;
+      animation: pulse-curse 0.8s ease-in-out infinite;
+    }
+    @keyframes pulse-curse {
+      0%, 100% { box-shadow: 0 0 6px rgba(255,140,200,0.4); }
+      50% { box-shadow: 0 0 16px rgba(255,140,200,0.8); }
+    }
+
     /* 气绝遮罩 */
     .ko-overlay {
       position: absolute;
@@ -1256,6 +1305,54 @@
       cursor: not-allowed;
     }
 
+    /* 其他 下拉菜单 */
+    .dropdown-other {
+      position: relative;
+      flex-shrink: 0;
+    }
+    .btn-dropdown-toggle {
+      padding: 6px 10px;
+      font-size: 12px;
+      font-weight: 600;
+      background: linear-gradient(180deg, #5a5a6a, #3a3a4a);
+      border: 1px solid rgba(180, 180, 200, 0.5);
+      border-radius: 6px;
+      color: #d0d0e0;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: background 0.2s;
+    }
+    .btn-dropdown-toggle:hover { background: linear-gradient(180deg, #6a6a7a, #4a4a5a); }
+    .dropdown-other__menu {
+      position: absolute;
+      bottom: calc(100% + 6px);
+      right: 0;
+      min-width: 140px;
+      background: #1e2a3a;
+      border: 2px solid rgba(180, 180, 200, 0.5);
+      border-radius: 8px;
+      padding: 4px;
+      z-index: 100;
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+    .dropdown-other__menu[hidden] { display: none; }
+    .dropdown-other__item {
+      display: block;
+      width: 100%;
+      padding: 6px 10px;
+      background: transparent;
+      border: none;
+      border-radius: 4px;
+      color: #d0d0e0;
+      font-size: 12px;
+      cursor: pointer;
+      text-align: left;
+      white-space: nowrap;
+    }
+    .dropdown-other__item:hover { background: rgba(180, 180, 220, 0.15); }
+
     .chat-bubble {
       padding: 8px 10px;
       border-radius: 10px;
@@ -1402,6 +1499,52 @@
       gap: 8px;
       margin-bottom: 12px;
     }
+
+    .curse-random-bar {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      margin-bottom: 10px;
+      padding: 6px 8px;
+      background: rgba(40, 20, 50, 0.6);
+      border: 1px solid rgba(255, 140, 200, 0.3);
+      border-radius: 6px;
+    }
+    .curse-random-bar input {
+      flex: 1;
+      padding: 4px 8px;
+      background: #121a28;
+      border: 1px solid #5a4a6a;
+      border-radius: 4px;
+      color: #ffc0e0;
+      font-size: 12px;
+      outline: none;
+    }
+    .curse-random-bar input:focus { border-color: #f8a0d0; }
+    .btn-curse-random {
+      padding: 4px 10px;
+      border-radius: 4px;
+      border: 1px solid #8a5a7a;
+      background: #4a2a3a;
+      color: #ffc0e0;
+      cursor: pointer;
+      font-size: 12px;
+      font-weight: 600;
+      white-space: nowrap;
+    }
+    .btn-curse-random:hover { background: #5a3a4a; }
+    .btn-curse-toggle {
+      padding: 4px 8px;
+      border-radius: 4px;
+      border: 1px solid #5a7a8a;
+      background: #2a3a4a;
+      color: #b0d0e0;
+      cursor: pointer;
+      font-size: 11px;
+      font-weight: 600;
+      white-space: nowrap;
+    }
+    .btn-curse-toggle:hover { background: #3a4a5a; }
 
     .card-list-item {
       display: flex;
@@ -1793,6 +1936,7 @@
     .card-tooltip__badge--battle    { background: #8a3a3a; color: #ffc0c0; }
     .card-tooltip__badge--form      { background: #3a6a4a; color: #c0ffc0; }
     .card-tooltip__badge--realm     { background: #6a6a2a; color: #ffffc0; }
+    .card-tooltip__badge--curse     { background: #8a3a6a; color: #ffc0e0; }
 
     .card-tooltip__name {
       font-size: 15px;
@@ -1855,4 +1999,186 @@
     }
     .chat-card-name:hover {
       color: #ffe860;
+    }
+
+    /* ================================================================
+       灵咒系统 — 徽章（卡牌右侧，倒计时下方）+ 管理面板
+       ================================================================ */
+    .card-curses {
+      position: absolute;
+      top: 44px;
+      right: 0;
+      transform: translateX(50%);
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      z-index: 3;
+      pointer-events: auto;
+    }
+    .curse-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 2px;
+      padding: 1px 5px;
+      background: rgba(100, 35, 75, 0.92);
+      border: 1px solid rgba(255, 140, 200, 0.65);
+      border-radius: 4px;
+      font-size: 10px;
+      font-weight: 600;
+      color: #ffc0e0;
+      white-space: nowrap;
+      cursor: pointer;
+      line-height: 1.4;
+    }
+    .curse-badge:hover {
+      background: rgba(130, 50, 95, 0.95);
+      border-color: rgba(255, 170, 220, 0.85);
+    }
+    .curse-badge__icon { font-size: 11px; }
+    .curse-badge__layers { font-weight: 700; color: #ffd0e8; }
+
+    .btn-curse-manage {
+      position: absolute;
+      bottom: 30px;
+      right: 0;
+      transform: translateX(50%);
+      width: 18px; height: 18px;
+      border-radius: 50%;
+      background: rgba(100,35,75,0.85);
+      border: 1px solid rgba(255,140,200,0.55);
+      color: #ffc0e0;
+      font-size: 11px;
+      cursor: pointer;
+      z-index: 3;
+      display: flex; align-items: center; justify-content: center;
+      padding: 0; line-height: 1;
+    }
+    .btn-curse-manage:hover { background: rgba(130,50,95,0.95); }
+
+    #curse-panel-overlay {
+      position: fixed; inset: 0;
+      background: rgba(0,0,0,0.45);
+      z-index: 5000;
+      display: flex; align-items: center; justify-content: center;
+    }
+    #curse-panel-overlay[hidden] { display: none; }
+    .curse-panel {
+      background: linear-gradient(160deg, #1e2a3a, #162030);
+      border: 2px solid rgba(255,140,200,0.55);
+      border-radius: 10px;
+      padding: 14px 16px;
+      min-width: 250px;
+      max-width: 300px;
+      color: #e0d8c8; font-size: 13px;
+    }
+    .curse-panel h3 { margin: 0 0 10px; font-size: 14px; color: #ffc0e0; }
+    .curse-panel__add { display: flex; gap: 6px; margin-bottom: 10px; }
+    .curse-panel__add input {
+      padding: 4px 8px; background: #121a28; border: 1px solid #5a4a6a;
+      border-radius: 4px; color: #eee; font-size: 12px; outline: none;
+    }
+    .curse-panel__add input:focus { border-color: #ff80b0; }
+    .curse-panel__add .inp-name { flex: 2; }
+    .curse-panel__add .inp-layers { width: 44px; text-align: center; }
+    .curse-panel__add button {
+      padding: 4px 10px; border-radius: 4px; border: 1px solid #8a5a7a;
+      background: #4a2a3a; color: #ffc0e0; cursor: pointer; font-size: 12px; font-weight: 600;
+    }
+    .curse-panel__list { max-height: 180px; overflow-y: auto; }
+    .curse-panel__item {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 5px 0; border-bottom: 1px solid rgba(255,255,255,0.06); gap: 8px;
+    }
+    .curse-panel__item-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .curse-panel__item-actions { display: flex; align-items: center; gap: 4px; flex-shrink: 0; }
+    .curse-panel__item-actions button {
+      width: 20px; height: 20px; border-radius: 50%; border: 1px solid #555;
+      background: #2a3a4a; color: #ccc; cursor: pointer; font-size: 13px;
+      line-height: 1; padding: 0; display: flex; align-items: center; justify-content: center;
+    }
+    .curse-panel__item-actions button:hover { background: #3a4a5a; }
+    .curse-panel__item-layers { font-size: 13px; font-weight: 600; min-width: 18px; text-align: center; color: #ffd0e8; }
+    .curse-panel__close {
+      display: block; margin: 10px auto 0; padding: 4px 20px; border-radius: 4px;
+      border: 1px solid #666; background: #2a3a4a; color: #ccc; cursor: pointer; font-size: 12px;
+    }
+    .curse-panel__close:hover { background: #3a4a5a; }
+
+    /* 手牌/牌库列表中的灵咒标签 */
+    .card-list-curse-tag {
+      display: inline-block;
+      padding: 0 4px;
+      margin-left: 4px;
+      background: rgba(100,35,75,0.55);
+      border-radius: 3px;
+      font-size: 10px;
+      color: #ffc0e0;
+      white-space: nowrap;
+      cursor: pointer;
+    }
+    .card-list-curse-tag:hover { background: rgba(130,50,95,0.75); }
+
+    .card-list-item__info {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 2px 6px;
+      flex: 1;
+      min-width: 0;
+    }
+    .card-list-item__curses {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 2px;
+      width: 100%;
+    }
+    .btn-card-curse-add {
+      width: 20px; height: 20px;
+      border-radius: 50%;
+      border: 1px solid rgba(255,140,200,0.45);
+      background: rgba(100,35,75,0.5);
+      color: #ffc0e0;
+      font-size: 11px;
+      cursor: pointer;
+      padding: 0;
+      line-height: 1;
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0;
+    }
+    .btn-card-curse-add:hover { background: rgba(130,50,95,0.7); }
+
+    /* 灵咒浮窗中的条目 */
+    .card-tooltip__curses {
+      margin-top: 8px;
+      padding-top: 6px;
+      border-top: 1px dashed rgba(255,140,200,0.35);
+    }
+    .card-tooltip__curse-item {
+      padding: 3px 0;
+      border-bottom: 1px solid rgba(255,255,255,0.04);
+    }
+    .card-tooltip__curse-head {
+      font-size: 12px;
+      color: #ffc0e0;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .card-tooltip__curse-head .curse-name { font-weight: 600; }
+    .card-tooltip__curse-head .curse-layers { color: #ffd0e8; font-size: 11px; }
+    .card-tooltip__curse-eff {
+      font-size: 11px;
+      color: #b090a0;
+      padding-left: 18px;
+      line-height: 1.4;
+      word-break: break-word;
+    }
+
+    .card-tooltip__effect {
+      font-size: 12px;
+      color: #b0a890;
+      line-height: 1.55;
+      padding-top: 6px;
+      border-top: 1px solid rgba(255, 255, 255, 0.08);
+      word-break: break-word;
     }

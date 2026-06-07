@@ -170,6 +170,18 @@
         <button type="button" class="btn-ko" id="btn-ko">💀 气绝/复活</button>
         <button type="button" class="btn-countdown" id="btn-countdown">⏳ 倒计时</button>
         <button type="button" class="btn-energy" id="btn-energy">🏮 能量</button>
+        <div class="curse-target-panel">
+          <input type="text" id="curse-name-input" placeholder="灵咒名" maxlength="12" aria-label="灵咒名称">
+          <button type="button" class="btn-curse-target" id="btn-curse-target">⛓️ 灵咒</button>
+        </div>
+        <div class="dropdown-other" id="dropdown-other">
+          <button type="button" class="btn-dropdown-toggle" id="btn-dropdown-toggle">📋 其他 ▾</button>
+          <div class="dropdown-other__menu" id="dropdown-other-menu" hidden>
+            <button type="button" class="dropdown-other__item" data-action="upload-cards">📤 上传卡牌</button>
+            <button type="button" class="dropdown-other__item" data-action="save-game">💾 保存对局</button>
+            <button type="button" class="dropdown-other__item" data-action="load-game">📥 导入对局</button>
+          </div>
+        </div>
         <button type="button" class="btn-speak-unified" id="btn-speak-unified">💬 发言</button>
       </div>
 
@@ -278,6 +290,11 @@
     <div class="speak-dialog card-list-dialog" role="dialog" aria-labelledby="card-list-dialog-title">
       <h3 id="card-list-dialog-title">列表</h3>
       <div class="card-list" id="card-list-dialog-body"></div>
+      <div class="curse-random-bar" id="curse-random-bar">
+        <input type="text" id="curse-random-input" placeholder="灵咒名" maxlength="12">
+        <button type="button" class="btn-curse-random" id="btn-curse-random">🎲 随机结附灵咒</button>
+        <button type="button" class="btn-curse-toggle" id="btn-curse-toggle">🔄 优先不重复</button>
+      </div>
       <div class="speak-dialog-actions">
         <button type="button" class="btn-dialog-confirm" id="card-list-dialog-close">关闭</button>
       </div>

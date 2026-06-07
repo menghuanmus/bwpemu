@@ -1,9 +1,9 @@
 ﻿    // ================================================================
     //  全局常量
     // ================================================================
-    const APP_VERSION = 'v1.0';
+    const APP_VERSION = 'v0.21';
     const APP_TITLE = '百闻牌模拟器';
-    document.title = `${APP_TITLE} ${APP_VERSION} by流光 Q群：1078494503`;
+    document.title = `${APP_TITLE} ${APP_VERSION}`;
     const roomTitleEl = document.getElementById('room-title');
     if (roomTitleEl) roomTitleEl.textContent = `🎴 ${APP_TITLE} ${APP_VERSION}`;
 
@@ -139,42 +139,19 @@
       let el = null;
       let timer = null;
       let currentCard = null;
+      let currentSlot = null;
+      let currentCardCurses = null;
       let hoveredEl = null;
       const DELAY = 300;
 
       function init() {
         el = document.getElementById('card-tooltip');
         if (!el) { console.error('[Tooltip] ❌ 未找到 #card-tooltip DOM元素！'); return; }
-        console.log('[Tooltip] ✅ 找到 tooltip 元素:', el);
-
-        // 自检：直接显示 tooltip 1.5 秒，确认渲染管线正常
-        _selfTest();
 
         // 事件委托
         document.addEventListener('mouseover', _onMouseOver, true);
         document.addEventListener('mouseout', _onMouseOut, true);
-        console.log('[Tooltip] ✅ 事件监听已绑定 (mouseover/mouseout)');
-      }
-
-      function _selfTest() {
-        const testCard = CardDB.lookup('桃花妖');
-        if (!testCard) {
-          console.warn('[Tooltip] ⚠️ 自检失败：数据库中无"桃花妖"，请检查 cards.json 是否加载');
-          return;
-        }
-        console.log('[Tooltip] 🧪 自检：显示桃花妖浮窗 1.5 秒...');
-        _render(testCard);
-        el.hidden = false;
-        el.style.left = '50%';
-        el.style.top = '50%';
-        el.style.transform = 'translate(-50%, -50%)';
-        el.style.outline = '3px solid lime';
-        setTimeout(() => {
-          el.hidden = true;
-          el.style.transform = '';
-          el.style.outline = '';
-          console.log('[Tooltip] 🧪 自检完成，tooltip 已隐藏，等待鼠标悬浮');
-        }, 1500);
+        console.log('[Tooltip] ✅ 已初始化，监听卡牌名悬浮');
       }
 
       function _findCardName(target) {
@@ -183,6 +160,17 @@
         if (target.classList.contains('card-name')) return target.value;
         if (target.classList.contains('card-list-item__name')) return target.textContent;
         if (target.classList.contains('chat-card-name')) return target.textContent;
+        if (target.classList.contains('effect-name')) return target.value;
+        // 手牌/牌库灵咒标签
+        if (target.classList.contains('card-list-curse-tag')) {
+          return target.dataset.curseName || '';
+        }
+        // 灵咒徽章内的名字
+        if (target.classList.contains('curse-badge__name')) return target.textContent;
+        if (target.classList.contains('curse-badge')) {
+          const nameEl = target.querySelector('.curse-badge__name');
+          if (nameEl) return nameEl.textContent;
+        }
         // label 包裹的 input
         if (target.classList.contains('card-badge--name')) {
           const input = target.querySelector('.card-name');
@@ -201,20 +189,17 @@
         const target = e.target;
         const name = _findCardName(target);
 
-        // 每 2 秒最多输出一次调试日志，避免刷屏
-        if (!CardTooltip._lastDebug || Date.now() - CardTooltip._lastDebug > 2000) {
-          CardTooltip._lastDebug = Date.now();
-          const tag = target.tagName || '';
-          const cls = target.className || '';
-          console.log('[Tooltip] hover:', tag + (cls ? '.' + cls.split(' ')[0] : ''), '→ 名称:', name || '(无)');
-        }
-
         if (!name) { hide(); return; }
         const card = CardDB.lookup(name);
         if (!card) { hide(); return; }
-        console.log('[Tooltip] 🎯 匹配到卡牌:', card.name, '(' + card.type + ')');
         currentCard = card;
         hoveredEl = target;
+        // 记录卡牌槽引用（战场，悬停灵咒徽章本身时跳过）
+        const isCurseEl = target.closest('.curse-badge, .card-list-curse-tag');
+        currentSlot = isCurseEl ? null : (target.closest('.card-slot') || null);
+        // 记录手牌/牌库卡牌数据
+        const info = target.closest('.card-list-item__info');
+        currentCardCurses = (!isCurseEl && info && info.dataset.cardCurses) ? JSON.parse(info.dataset.cardCurses) : null;
         clearTimeout(timer);
         const mx = e.clientX;
         const my = e.clientY;
@@ -234,13 +219,14 @@
         el.hidden = false;
         requestAnimationFrame(() => {
           _position(mx, my);
-          el.style.outline = ''; // 清除自检边框
         });
       }
 
       function hide() {
         clearTimeout(timer);
         currentCard = null;
+        currentSlot = null;
+        currentCardCurses = null;
         hoveredEl = null;
         if (el) el.hidden = true;
       }
@@ -257,7 +243,7 @@
       }
 
       function _render(card) {
-        const typeNames = { shikigami: '式神', summon: '召唤物', spell: '法术', battle: '战斗', form: '形态', realm: '幻境' };
+        const typeNames = { shikigami: '式神', summon: '召唤物', spell: '法术', battle: '战斗', form: '形态', realm: '幻境', curse: '灵咒' };
         const typeCN = typeNames[card.type] || card.type;
 
         // 类型徽章
@@ -306,6 +292,9 @@
             statsHTML += `<span class="stat">⭐ Lv.${card.level}</span>`;
             statsHTML += `<span class="stat stat--durability">🔮 耐久:${card.durability}</span>`;
             break;
+          case 'curse':
+            statsHTML += `<span class="stat">📎 结附效果</span>`;
+            break;
         }
         statsEl.innerHTML = statsHTML;
 
@@ -314,6 +303,39 @@
         const effectText = card.effect || card.ability || '';
         effectEl.textContent = effectText;
         effectEl.style.display = effectText ? '' : 'none';
+
+        // 结附灵咒（从战场卡牌槽或手牌/牌库数据读取）
+        let cursesHTML = '';
+        let curses = null;
+        if (currentSlot && (card.type === 'shikigami' || card.type === 'summon')) {
+          curses = getSlotCurses(currentSlot);
+        }
+        if (!curses || !curses.length) {
+          curses = currentCardCurses;
+        }
+        if (curses && curses.length) {
+          cursesHTML = '<div class="card-tooltip__curses">';
+          curses.forEach(c => {
+            const dbCurse = CardDB.lookup(c.name);
+            const eff = dbCurse ? (dbCurse.effect || '') : '';
+            cursesHTML += '<div class="card-tooltip__curse-item">';
+            cursesHTML += '<div class="card-tooltip__curse-head">⛓️ <span class="curse-name">' + escapeHTML(c.name) + '</span> <span class="curse-layers">×' + c.layers + '</span></div>';
+            if (eff) cursesHTML += '<div class="card-tooltip__curse-eff">' + escapeHTML(eff) + '</div>';
+            cursesHTML += '</div>';
+          });
+          cursesHTML += '</div>';
+        }
+        // 插入或更新灵咒区
+        let cursesEl = el.querySelector('.card-tooltip__curses');
+        if (cursesHTML) {
+          if (!cursesEl) {
+            cursesEl = document.createElement('div');
+            el.appendChild(cursesEl);
+          }
+          cursesEl.outerHTML = cursesHTML;
+        } else if (cursesEl) {
+          cursesEl.remove();
+        }
       }
 
       return { init, hide };
@@ -1305,6 +1327,7 @@
         countdown: cdBadge ? (cdBadge.querySelector('input').value || '') : '',
         energy: enBadge ? (enBadge.querySelector('input').value || '') : '',
         ko: slot.querySelector('.ko-overlay') ? (slot.querySelector('.ko-circle input').value || '1') : '',
+        curses: getSlotCurses(slot),
       };
     }
 
@@ -1319,6 +1342,8 @@
       updateSlotCountdownBadge(slot, state.countdown || '');
       updateSlotEnergyBadge(slot, state.energy || '');
       updateKoOverlay(slot, state.ko || '');
+      // 灵咒
+      setSlotCurses(slot, state.curses || []);
       // 所有字段就绪后再同步（若被 suppress 则跳过）
       if (!slotSyncSuppress) syncSlotToPeer(slot);
     }
@@ -1449,6 +1474,162 @@
       if (b) b.remove();
     }
 
+    // ---- 灵咒系统 JS ----
+    function getSlotCurses(slot) {
+      const container = slot.querySelector('.card-curses');
+      if (!container) return [];
+      const badges = container.querySelectorAll('.curse-badge');
+      return Array.from(badges).map(b => {
+        const nameEl = b.querySelector('.curse-badge__name');
+        const layersEl = b.querySelector('.curse-badge__layers');
+        const name = nameEl ? nameEl.textContent : '';
+        const layers = layersEl ? (parseInt(layersEl.textContent.replace('×',''), 10) || 1) : 1;
+        return { name, layers };
+      });
+    }
+
+    function setSlotCurses(slot, curses) {
+      const existing = slot.querySelector('.card-curses');
+      if (existing) existing.remove();
+      if (!curses || !curses.length) return;
+      const container = document.createElement('div');
+      container.className = 'card-curses';
+      curses.forEach(c => {
+        const badge = document.createElement('span');
+        badge.className = 'curse-badge';
+        badge.innerHTML = '<span class="curse-badge__icon">⛓️</span><span class="curse-badge__name">' + escapeHTML(c.name) + '</span><span class="curse-badge__layers">×' + c.layers + '</span>';
+        badge.addEventListener('click', (e) => { e.stopPropagation(); openCursePanel(_curseTargetForSlot(slot)); });
+        container.appendChild(badge);
+      });
+      slot.appendChild(container);
+    }
+
+    // ---- 灵咒管理面板（通用：卡牌槽 / 手牌 / 牌库） ----
+    let cursePanelTarget = null;
+
+    /** 为战场卡牌槽创建灵咒操作对象 */
+    function _curseTargetForSlot(slot) {
+      return {
+        getCurses: () => getSlotCurses(slot),
+        setCurses: (curses) => { setSlotCurses(slot, curses); syncSlotToPeer(slot); },
+        getLabel: () => slot.querySelector('.card-name').value || '未命名',
+        getPlayerId: () => slot.dataset.slotPlayer,
+        isReadOnly: () => !isMyElement(slot),
+      };
+    }
+
+    /** 为手牌/牌库卡牌创建灵咒操作对象 */
+    function _curseTargetForCard(playerId, card, location) {
+      return {
+        getCurses: () => card.curses || [],
+        setCurses: (curses) => {
+          card.curses = curses;
+          refreshOpenListDialog(playerId);
+          syncDeckState(playerId);
+        },
+        getLabel: () => card.name,
+        getLocation: () => location || '',
+        getPlayerId: () => playerId,
+        isReadOnly: () => !isMyZone(playerId),
+      };
+    }
+
+    function openCursePanel(target) {
+      if (target.isReadOnly()) return;
+      cursePanelTarget = target;
+      let overlay = document.getElementById('curse-panel-overlay');
+      if (!overlay) {
+        overlay = document.createElement('div');
+        overlay.id = 'curse-panel-overlay';
+        overlay.hidden = true;
+        overlay.innerHTML = '<div class="curse-panel">'
+          + '<h3>⛓️ 灵咒管理</h3>'
+          + '<div class="curse-panel__add">'
+          + '<input class="inp-name" placeholder="灵咒名称" maxlength="12">'
+          + '<input class="inp-layers" type="number" value="1" min="1" max="99">'
+          + '<button class="btn-add-curse">添加</button>'
+          + '</div>'
+          + '<div class="curse-panel__list"></div>'
+          + '<button class="curse-panel__close">关闭</button>'
+          + '</div>';
+        document.body.appendChild(overlay);
+        overlay.querySelector('.btn-add-curse').addEventListener('click', () => _cursePanelAdd());
+        overlay.querySelector('.inp-name').addEventListener('keydown', (e) => { if (e.key === 'Enter') _cursePanelAdd(); });
+        overlay.querySelector('.curse-panel__close').addEventListener('click', closeCursePanel);
+      }
+      overlay.hidden = false;
+      _refreshCursePanel();
+      overlay.querySelector('.inp-name').focus();
+    }
+
+    function _cursePanelAdd() {
+      if (!cursePanelTarget) return;
+      const overlay = document.getElementById('curse-panel-overlay');
+      const name = overlay.querySelector('.inp-name').value.trim();
+      if (!name) return;
+      const layers = Math.max(1, parseInt(overlay.querySelector('.inp-layers').value, 10) || 1);
+      const curses = cursePanelTarget.getCurses();
+      const existing = curses.find(c => c.name === name);
+      if (existing) { existing.layers += layers; }
+      else { curses.push({ name, layers }); }
+      cursePanelTarget.setCurses(curses);
+      broadcastSystemMsg('【系统】' + getPlayerName(cursePanelTarget.getPlayerId()) + '为' + (cursePanelTarget.getLocation ? cursePanelTarget.getLocation() : '') + '「' + cursePanelTarget.getLabel() + '」结附了灵咒「' + name + '」×' + layers);
+      overlay.querySelector('.inp-name').value = '';
+      overlay.querySelector('.inp-layers').value = '1';
+      _refreshCursePanel();
+      overlay.querySelector('.inp-name').focus();
+    }
+
+    function closeCursePanel() {
+      const overlay = document.getElementById('curse-panel-overlay');
+      if (overlay) overlay.hidden = true;
+      cursePanelTarget = null;
+    }
+
+    function _refreshCursePanel() {
+      const overlay = document.getElementById('curse-panel-overlay');
+      if (!overlay || !cursePanelTarget) return;
+      overlay.querySelector('.curse-panel h3').textContent = '⛓️ 灵咒管理 — ' + cursePanelTarget.getLabel();
+      const list = overlay.querySelector('.curse-panel__list');
+      list.innerHTML = '';
+      cursePanelTarget.getCurses().forEach((c, i) => {
+        const item = document.createElement('div');
+        item.className = 'curse-panel__item';
+        item.innerHTML = '<span class="curse-panel__item-name">' + escapeHTML(c.name) + '</span>'
+          + '<div class="curse-panel__item-actions">'
+          + '<button class="btn-layer-minus">−</button>'
+          + '<span class="curse-panel__item-layers">' + c.layers + '</span>'
+          + '<button class="btn-layer-plus">+</button>'
+          + '<button class="btn-curse-remove" style="margin-left:6px;background:#6a2a2a;border-color:#a04040;">✕</button>'
+          + '</div>';
+        item.querySelector('.btn-layer-minus').addEventListener('click', () => _changeCurseLayers(i, -1));
+        item.querySelector('.btn-layer-plus').addEventListener('click', () => _changeCurseLayers(i, 1));
+        item.querySelector('.btn-curse-remove').addEventListener('click', () => _removeCurse(i));
+        list.appendChild(item);
+      });
+    }
+
+    function _changeCurseLayers(index, delta) {
+      if (!cursePanelTarget) return;
+      const curses = cursePanelTarget.getCurses();
+      curses[index].layers = Math.max(0, curses[index].layers + delta);
+      if (curses[index].layers <= 0) curses.splice(index, 1);
+      cursePanelTarget.setCurses(curses);
+      _refreshCursePanel();
+    }
+
+    function _removeCurse(index) {
+      if (!cursePanelTarget) return;
+      const curses = cursePanelTarget.getCurses();
+      const removed = curses[index];
+      curses.splice(index, 1);
+      cursePanelTarget.setCurses(curses);
+      if (removed) {
+        broadcastSystemMsg('【系统】' + getPlayerName(cursePanelTarget.getPlayerId()) + '移除了「' + cursePanelTarget.getLabel() + '」的灵咒「' + removed.name + '」');
+      }
+      _refreshCursePanel();
+    }
+
     function openImagePicker(slot) {
       activeSlotForImage = slot;
       imageInput.click();
@@ -1471,7 +1652,7 @@
     function initCardSlots() {
       document.querySelectorAll('.card-slot').forEach(slot => {
         slot.addEventListener('pointerdown', (e) => {
-          if (e.button !== 0 || isInteractiveTarget(e.target)) return;
+          if (e.button !== 0 || isInteractiveTarget(e.target) || e.target.closest('.curse-badge')) return;
           pointerOrigin = { x: e.clientX, y: e.clientY, slot };
           slot.setPointerCapture(e.pointerId);
         });
@@ -1508,7 +1689,7 @@
             }
             draggedSlot = null;
             clearDragHighlights();
-          } else if (!isInteractiveTarget(e.target) && !isTargeting && !slot.querySelector('.ko-overlay')) {
+          } else if (!isInteractiveTarget(e.target) && !isTargeting && !slot.querySelector('.ko-overlay') && !e.target.closest('.curse-badge')) {
             openImagePicker(slot);
           }
 
@@ -1768,10 +1949,6 @@
     document.getElementById('speak-dialog-cancel').addEventListener('click', closeSpeakDialog);
     document.getElementById('speak-dialog-confirm').addEventListener('click', confirmSpeak);
 
-    speakOverlay.addEventListener('click', (e) => {
-      if (e.target === speakOverlay) closeSpeakDialog();
-    });
-
     speakInput.addEventListener('keydown', (e) => {
       if (e.key === 'Enter' && !e.shiftKey) {
         e.preventDefault();
@@ -1807,18 +1984,21 @@
     const btnCountdown = document.getElementById('btn-countdown');
     const btnEnergy = document.getElementById('btn-energy');
     const btnKo = document.getElementById('btn-ko');
+    const btnCurse = document.getElementById('btn-curse-target');
+    const curseNameInput = document.getElementById('curse-name-input');
     const damageLineSvg = document.getElementById('damage-line-svg');
     const damageLine = document.getElementById('damage-line');
     let isTargeting = false;
-    let targetingMode = 'damage'; // 'damage' | 'heal' | 'countdown' | 'energy'
+    let targetingMode = 'damage'; // 'damage' | 'heal' | 'countdown' | 'energy' | 'ko' | 'curse'
     let targetingOrigin = { x: 0, y: 0 };
 
     const TARGETING_BTN_MAP = {
       damage:    { btn: () => btnDamage,    activeText: '🎯 选择式神…(Esc取消)', idleText: '🎯 选择目标' },
-      heal:      { btn: () => btnDamage,    activeText: '💚 选择式神…(Esc取消)', idleText: '💚 选择目标' },
+      heal:      { btn: () => btnDamage,    activeText: '🎯 选择式神…(Esc取消)', idleText: '🎯 选择目标' },
       countdown: { btn: () => btnCountdown, activeText: '⏳ 选择式神…(Esc取消)', idleText: '⏳ 倒计时' },
       energy:    { btn: () => btnEnergy,    activeText: '🏮 选择式神…(Esc取消)', idleText: '🏮 能量' },
       ko:        { btn: () => btnKo,        activeText: '💀 选择式神…(Esc取消)', idleText: '💀 气绝' },
+      curse:     { btn: () => btnCurse,     activeText: '⛓️ 选择式神…(Esc取消)', idleText: '⛓️ 灵咒' },
     };
 
     function getActiveTargetingBtn() {
@@ -1894,6 +2074,13 @@
       enterTargetingMode('ko');
     });
 
+    btnCurse.addEventListener('click', () => {
+      if (isTargeting) { exitTargetingMode(); return; }
+      const name = curseNameInput.value.trim();
+      if (!name) { curseNameInput.focus(); return; }
+      enterTargetingMode('curse');
+    });
+
     document.addEventListener('mousemove', (e) => {
       if (!isTargeting) return;
       damageLine.setAttribute('x1', targetingOrigin.x);
@@ -1911,11 +2098,29 @@
     document.addEventListener('click', (e) => {
       if (!isTargeting) return;
 
-      // 倒计时 / 能量 / 气绝 模式：仅对卡牌槽生效（需有图片），支持开关
-      if (targetingMode === 'countdown' || targetingMode === 'energy' || targetingMode === 'ko') {
+      // 倒计时 / 能量 / 气绝 / 灵咒 模式
+      if (targetingMode === 'countdown' || targetingMode === 'energy' || targetingMode === 'ko' || targetingMode === 'curse') {
         const slot = e.target.closest('.card-slot');
-        if (slot && slot.classList.contains('has-image')) {
-          if (targetingMode === 'ko') {
+        if (slot) {
+          if (targetingMode === 'curse') {
+            const name = curseNameInput.value.trim();
+            if (name && slot.classList.contains('has-image')) {
+              const curses = getSlotCurses(slot);
+              const existing = curses.find(c => c.name === name);
+              if (existing) { existing.layers += 1; }
+              else { curses.push({ name, layers: 1 }); }
+              setSlotCurses(slot, curses);
+              syncSlotToPeer(slot);
+              const cardName = slot.querySelector('.card-name').value || '未命名';
+              broadcastSystemMsg('【系统】' + getPlayerName(slot.dataset.slotPlayer) + '为「' + cardName + '」结附了灵咒「' + name + '」×1');
+            }
+            exitTargetingMode();
+            e.preventDefault();
+            e.stopPropagation();
+            return;
+          }
+          if (slot.classList.contains('has-image')) {
+            if (targetingMode === 'ko') {
             applyKoToCard(slot);
           } else {
             applyToggleBadge(slot, targetingMode);
@@ -1927,6 +2132,7 @@
         }
         exitTargetingMode();
         return;
+      }
       }
 
       // 伤害 / 恢复 模式：需要检查生命值
@@ -2145,7 +2351,7 @@
     }
 
     function createCard(name) {
-      return { id: ++cardIdCounter, name: name.trim() };
+      return { id: ++cardIdCounter, name: name.trim(), curses: [] };
     }
 
     function shuffleCards(cards) {
@@ -2223,11 +2429,41 @@
       hand.forEach((card) => {
         const item = document.createElement('div');
         item.className = 'card-list-item';
+        // 信息区：名称 + 灵咒标签
+        const info = document.createElement('div');
+        info.className = 'card-list-item__info';
+        if (card.curses && card.curses.length) {
+          info.dataset.cardCurses = JSON.stringify(card.curses);
+        }
         const name = document.createElement('span');
         name.className = 'card-list-item__name';
         name.textContent = card.name;
+        info.appendChild(name);
+        // 灵咒标签
+        if (card.curses && card.curses.length) {
+          const curseTags = document.createElement('div');
+          curseTags.className = 'card-list-item__curses';
+          card.curses.forEach(c => {
+            const tag = document.createElement('span');
+            tag.className = 'card-list-curse-tag';
+            tag.dataset.curseName = c.name;
+            tag.textContent = '⛓️' + c.name + '×' + c.layers;
+            tag.addEventListener('click', (e) => { e.stopPropagation(); openCursePanel(_curseTargetForCard(playerId, card, '手牌中的')); });
+            curseTags.appendChild(tag);
+          });
+          info.appendChild(curseTags);
+        }
+        item.appendChild(info);
+        // 操作按钮
         const actions = document.createElement('div');
         actions.className = 'card-list-item__actions';
+        const addBtn = document.createElement('button');
+        addBtn.type = 'button';
+        addBtn.className = 'btn-card-curse-add';
+        addBtn.textContent = '➕';
+        addBtn.title = '添加灵咒';
+        addBtn.addEventListener('click', (e) => { e.stopPropagation(); openCursePanel(_curseTargetForCard(playerId, card, '手牌中的')); });
+        actions.appendChild(addBtn);
         const useBtn = document.createElement('button');
         useBtn.type = 'button';
         useBtn.className = 'btn-card-action btn-card-use';
@@ -2240,7 +2476,6 @@
         discardBtn.addEventListener('click', () => removeFromHand(playerId, card.id, 'discard'));
         actions.appendChild(useBtn);
         actions.appendChild(discardBtn);
-        item.appendChild(name);
         item.appendChild(actions);
         cardListBody.appendChild(item);
       });
@@ -2259,10 +2494,40 @@
       deck.forEach((card, index) => {
         const item = document.createElement('div');
         item.className = 'card-list-item';
+        const info = document.createElement('div');
+        info.className = 'card-list-item__info';
+        if (card.curses && card.curses.length) {
+          info.dataset.cardCurses = JSON.stringify(card.curses);
+        }
         const name = document.createElement('span');
         name.className = 'card-list-item__name';
         name.textContent = index === 0 ? `${card.name}（顶）` : card.name;
-        item.appendChild(name);
+        info.appendChild(name);
+        if (card.curses && card.curses.length) {
+          const curseTags = document.createElement('div');
+          curseTags.className = 'card-list-item__curses';
+          card.curses.forEach(c => {
+            const tag = document.createElement('span');
+            tag.className = 'card-list-curse-tag';
+            tag.dataset.curseName = c.name;
+            tag.textContent = '⛓️' + c.name + '×' + c.layers;
+            tag.addEventListener('click', (e) => { e.stopPropagation(); openCursePanel(_curseTargetForCard(playerId, card, '牌库中的')); });
+            curseTags.appendChild(tag);
+          });
+          info.appendChild(curseTags);
+        }
+        item.appendChild(info);
+        // 操作按钮区：➕ 添加灵咒
+        const actions = document.createElement('div');
+        actions.className = 'card-list-item__actions';
+        const addBtn = document.createElement('button');
+        addBtn.type = 'button';
+        addBtn.className = 'btn-card-curse-add';
+        addBtn.textContent = '➕';
+        addBtn.title = '添加灵咒';
+        addBtn.addEventListener('click', (e) => { e.stopPropagation(); openCursePanel(_curseTargetForCard(playerId, card, '牌库中的')); });
+        actions.appendChild(addBtn);
+        item.appendChild(actions);
         cardListBody.appendChild(item);
       });
     }
@@ -2312,6 +2577,44 @@
       syncDeckState(playerId);
       const verb = action === 'use' ? '使用了' : '弃置了';
       broadcastSystemMsg(`【系统】${getPlayerName(playerId)}${verb}「${card.name}」`);
+
+      // 使用幻境牌时，自动添加到幻境/效果面板
+      if (action === 'use') {
+        const dbCard = CardDB.lookup(card.name);
+        if (dbCard && dbCard.type === 'realm') {
+          const zone = getPlayerZone(playerId);
+          if (zone) {
+            const panel = zone.querySelector('.effects-panel');
+            const item = createEffectItem();
+            item.querySelector('.effect-name').value = dbCard.name;
+            item.querySelector('.effect-value').value = String(dbCard.durability);
+            panel.appendChild(item);
+            syncEffectsState(playerId);
+            broadcastSystemMsg(`【系统】${getPlayerName(playerId)}展开了幻境「${dbCard.name}」（耐久${dbCard.durability}）`);
+          }
+        }
+        // 若卡牌有灵咒，转移到战场同名卡牌槽
+        if (card.curses && card.curses.length) {
+          const zone = getPlayerZone(playerId);
+          if (zone) {
+            const slots = zone.querySelectorAll('.card-slot');
+            for (const slot of slots) {
+              const slotName = slot.querySelector('.card-name').value;
+              if (slotName === card.name) {
+                const slotCurses = getSlotCurses(slot);
+                card.curses.forEach(sc => {
+                  const exist = slotCurses.find(c => c.name === sc.name);
+                  if (exist) { exist.layers += sc.layers; }
+                  else { slotCurses.push({ name: sc.name, layers: sc.layers }); }
+                });
+                setSlotCurses(slot, slotCurses);
+                syncSlotToPeer(slot);
+                break;
+              }
+            }
+          }
+        }
+      }
     }
 
     function insertCardAtRandomPosition(deck, card) {
@@ -2420,13 +2723,202 @@
     document.getElementById('card-text-dialog-confirm').addEventListener('click', confirmCardTextDialog);
     document.getElementById('card-list-dialog-close').addEventListener('click', closeCardListDialog);
 
-    cardTextOverlay.addEventListener('click', (e) => {
-      if (e.target === cardTextOverlay) closeCardTextDialog();
+    // 随机结附灵咒
+    let curseRandomRepeat = false; // false=优先不重复, true=全随机
+    document.getElementById('btn-curse-toggle').addEventListener('click', function() {
+      curseRandomRepeat = !curseRandomRepeat;
+      this.textContent = curseRandomRepeat ? '🔁 全随机' : '🔄 优先不重复';
     });
 
-    cardListOverlay.addEventListener('click', (e) => {
-      if (e.target === cardListOverlay) closeCardListDialog();
+    document.getElementById('btn-curse-random').addEventListener('click', () => {
+      if (!cardListContext) return;
+      const name = document.getElementById('curse-random-input').value.trim();
+      if (!name) return;
+      const { playerId, type } = cardListContext;
+      const state = getPlayerCardState(playerId);
+      const cards = type === 'hand' ? state.hand : state.deck;
+      if (!cards.length) return;
+      let pool;
+      if (curseRandomRepeat) {
+        pool = cards;
+      } else {
+        const without = cards.filter(c => !(c.curses || []).some(cur => cur.name === name));
+        pool = without.length ? without : cards;
+      }
+      const target = pool[Math.floor(Math.random() * pool.length)];
+      if (!target.curses) target.curses = [];
+      const existing = target.curses.find(c => c.name === name);
+      if (existing) { existing.layers += 1; }
+      else { target.curses.push({ name, layers: 1 }); }
+      refreshOpenListDialog(playerId);
+      syncDeckState(playerId);
+      const loc = type === 'hand' ? '手牌中的' : '牌库中的';
+      broadcastSystemMsg('【系统】' + getPlayerName(playerId) + '为' + loc + '「' + target.name + '」随机结附了灵咒「' + name + '」×1');
     });
+
+    // 其他 下拉菜单
+    const dropdownToggle = document.getElementById('btn-dropdown-toggle');
+    const dropdownMenu = document.getElementById('dropdown-other-menu');
+
+    dropdownToggle.addEventListener('click', (e) => {
+      e.stopPropagation();
+      dropdownMenu.hidden = !dropdownMenu.hidden;
+    });
+
+    document.addEventListener('click', () => {
+      dropdownMenu.hidden = true;
+    });
+
+    dropdownMenu.addEventListener('click', (e) => {
+      const action = e.target.dataset.action;
+      if (!action) return;
+      dropdownMenu.hidden = true;
+      switch (action) {
+        case 'upload-cards':
+          _handleUploadCards();
+          break;
+        case 'save-game':
+          _handleSaveGame();
+          break;
+        case 'load-game':
+          _handleLoadGame();
+          break;
+      }
+    });
+
+    function _handleUploadCards() {
+      openCardTextDialog({
+        title: '📤 上传卡牌数据',
+        placeholder: '粘贴 JSON 数组，如：\n[{"name":"xxx","type":"spell",...}]',
+        multiline: true,
+        onConfirm: (text) => {
+          try {
+            const count = CardDB.importCustom(text);
+            broadcastSystemMsg('【系统】成功导入 ' + count + ' 张自定义卡牌');
+          } catch (e) {
+            broadcastSystemMsg('【系统】导入失败：' + e.message);
+          }
+        },
+      });
+    }
+
+    function _handleSaveGame() {
+      const state = {
+        version: APP_VERSION,
+        time: new Date().toISOString(),
+        player1: {
+          name: getPlayerInfo('1').name,
+          hp: getPlayerInfo('1').hp,
+          avatar: _getAvatarSrc('1'),
+          fire: playerFire['1'],
+          effects: getEffectsState('1'),
+          deck: getPlayerCardState('1').deck,
+          hand: getPlayerCardState('1').hand,
+          slots: [],
+        },
+        player2: {
+          name: getPlayerInfo('2').name,
+          hp: getPlayerInfo('2').hp,
+          avatar: _getAvatarSrc('2'),
+          fire: playerFire['2'],
+          effects: getEffectsState('2'),
+          deck: getPlayerCardState('2').deck,
+          hand: getPlayerCardState('2').hand,
+          slots: [],
+        },
+      };
+      ['1', '2'].forEach(pid => {
+        const zone = document.querySelector(`.player-zone[data-player="${pid}"]`);
+        zone.querySelectorAll('.card-slot').forEach(slot => {
+          state['player' + pid].slots.push(getSlotState(slot));
+        });
+      });
+      const json = JSON.stringify(state, null, 2);
+      const blob = new Blob([json], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = '百闻牌对局_' + new Date().toISOString().slice(0, 10) + '.json';
+      a.click();
+      URL.revokeObjectURL(url);
+      broadcastSystemMsg('【系统】对局已保存到文件');
+    }
+
+    function _handleLoadGame() {
+      const input = document.createElement('input');
+      input.type = 'file';
+      input.accept = '.json';
+      input.addEventListener('change', () => {
+        const file = input.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          try {
+            const state = JSON.parse(e.target.result);
+            _restoreGameState(state);
+            broadcastSystemMsg('【系统】对局已导入');
+          } catch (err) {
+            broadcastSystemMsg('【系统】导入失败：文件格式错误');
+          }
+        };
+        reader.readAsText(file);
+      });
+      input.click();
+    }
+
+    function _getAvatarSrc(playerId) {
+      const avatar = document.querySelector(`.player-avatar[data-avatar-player="${playerId}"]`);
+      if (!avatar) return '';
+      const img = avatar.querySelector('img');
+      return img ? img.src : '';
+    }
+
+    function _restoreGameState(state) {
+      slotSyncSuppress = true; // 批量恢复时抑制逐张同步
+      ['1', '2'].forEach(pid => {
+        const p = state['player' + pid];
+        if (!p) return;
+        const zone = document.querySelector(`.player-zone[data-player="${pid}"]`);
+        if (p.name) { const ni = zone.querySelector('.player-name-input'); if (ni) ni.value = p.name; }
+        if (p.hp) { const hi = zone.querySelector('.player-hp-input'); if (hi) hi.value = p.hp; }
+        if (p.avatar) setAvatarImage(pid, p.avatar);
+        if (p.fire !== undefined) { playerFire[pid] = p.fire; applyRemoteFireState(pid, p.fire); }
+        if (p.effects) applyRemoteEffectsState(pid, p.effects);
+        if (p.deck) getPlayerCardState(pid).deck = p.deck;
+        if (p.hand) getPlayerCardState(pid).hand = p.hand;
+        if (p.slots) {
+          p.slots.forEach((s, i) => {
+            const slot = getSlotByIndex(pid, i);
+            if (slot) setSlotState(slot, s);
+          });
+        }
+        updateDeckButtons(pid);
+      });
+      slotSyncSuppress = false;
+
+      // 联机状态下，将恢复的全部状态同步给对方和观众
+      if (peerConn && peerConn.open) {
+        ['1', '2'].forEach(pid => {
+          // 玩家信息
+          const info = getPlayerInfo(pid);
+          sendToPeer({ type: 'player-info', playerId: pid, name: info.name, hp: info.hp });
+          // 效果面板
+          sendToPeer({ type: 'effects-update', playerId: pid, effects: getEffectsState(pid) });
+          // 牌库/手牌计数
+          const cards = getPlayerCardState(pid);
+          sendToPeer({ type: 'deck-update', playerId: pid, deckCount: cards.deck.length, handCount: cards.hand.length });
+          // 鬼火
+          sendToPeer({ type: 'fire-update', playerId: pid, count: playerFire[pid] });
+          // 卡牌槽（逐个同步）
+          document.querySelectorAll(`.player-zone[data-player="${pid}"] .card-slot`).forEach(slot => {
+            syncSlotToPeer(slot);
+          });
+          // 头像
+          const avatarSrc = _getAvatarSrc(pid);
+          if (avatarSrc) sendToPeer({ type: 'avatar-update', playerId: pid, imageSrc: avatarSrc });
+        });
+      }
+    }
 
     cardTextInput.addEventListener('keydown', (e) => {
       if (e.key === 'Enter' && !e.shiftKey && cardTextInput.rows <= 2) {
@@ -2438,6 +2930,7 @@
 
     document.addEventListener('keydown', (e) => {
       if (e.key === 'Escape' && !cardListOverlay.hidden) closeCardListDialog();
+      if (e.key === 'Escape' && cursePanelTarget) closeCursePanel();
     });
 
     // ---- 初始化卡牌数据库与浮窗 ----
