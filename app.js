@@ -1,0 +1,2130 @@
+﻿    // ================================================================
+    //  全局常量
+    // ================================================================
+    const APP_VERSION = 'v1.0';
+    const APP_TITLE = '百闻牌模拟器';
+    document.title = `${APP_TITLE} ${APP_VERSION} by流光 Q群：1078494503`;
+    const roomTitleEl = document.getElementById('room-title');
+    if (roomTitleEl) roomTitleEl.textContent = `🎴 ${APP_TITLE} ${APP_VERSION}`;
+
+    // ================================================================
+    //  JS-1：PeerJS 联机系统 —— 房间管理
+    // ================================================================
+
+    /* P2P 连接配置：多重 STUN/TURN 穿透方案，适应公司网络 */
+    const PEER_ICE_CONFIG = {
+      iceServers: [
+        // STUN 服务器（公网 IP 发现）
+        { urls: 'stun:stun.l.google.com:19302' },
+        { urls: 'stun:stun1.l.google.com:19302' },
+        { urls: 'stun:stun.cloudflare.com:3478' },
+        // TURN UDP（直连失败时中继）
+        { urls: 'turn:openrelay.metered.ca:80',  username: 'openrelayproject', credential: 'openrelayproject' },
+        // TURN TCP 端口 80（穿透允许 HTTP 流量的防火墙）
+        { urls: 'turn:openrelay.metered.ca:80?transport=tcp', username: 'openrelayproject', credential: 'openrelayproject' },
+        // TURN TCP 端口 443（伪装成 HTTPS，公司防火墙几乎不拦截）
+        { urls: 'turn:openrelay.metered.ca:443?transport=tcp', username: 'openrelayproject', credential: 'openrelayproject' },
+        // TURN over TLS 端口 443（完全加密，最不易被检测/阻断）
+        { urls: 'turns:openrelay.metered.ca:443?transport=tcp', username: 'openrelayproject', credential: 'openrelayproject' },
+      ],
+      iceCandidatePoolSize: 2, // 预取候选地址，加快连接
+      iceTransportPolicy: 'all', // 允许直连和中继
+    };
+
+    const ROOM_OVERLAY = document.getElementById('room-overlay');
+    const ROOM_HOME = document.getElementById('room-home');
+    const ROOM_WAITING = document.getElementById('room-waiting');
+    const ROOM_ID_CODE = document.getElementById('room-id-code');
+    const ROOM_JOIN_INPUT = document.getElementById('room-join-input');
+    const CONN_STATUS_BAR = document.getElementById('conn-status-bar');
+    const CONN_DOT = document.getElementById('conn-dot');
+    const CONN_STATUS_TEXT = document.getElementById('conn-status-text');
+
+    let localPlayerId = null;   // '1' 房主 '2' 对手 '0' 观众
+    let peer = null;
+    let peerConn = null;        // 主游戏连接（对手）
+    let specConns = [];          // 观众连接列表（仅房主持有）
+    let isHost = false;
+    let isSpectator = false;     // 当前是否为观众身份
+    let isSoloMode = false;      // 单人模式（无联机/无锁定）
+    let lastRoomCode = null;
+
+    // ---- JS-1.1：心跳保活 + 断线重连 ----
+    let heartbeatTimer = null;
+    let lastPongTime = 0;
+    let consecutivePingFails = 0;
+    const HEARTBEAT_INTERVAL = 15000;  // 每 15 秒发一次 ping
+    const HEARTBEAT_TIMEOUT = 45000;   // 45 秒（3 次连续失败）才触发重连
+    let reconnectTimer = null;
+    let reconnectAttempts = 0;
+    const MAX_RECONNECT_ATTEMPTS = 10;
+    let joinTimeout = null; // 加入房间超时计时器
+    let peerLeft = false;    // 对方已主动退出，不再自动重连
+
+    function clearJoinTimeout() {
+      if (joinTimeout) { clearTimeout(joinTimeout); joinTimeout = null; }
+    }
+
+    function startHeartbeat() {
+      stopHeartbeat();
+      lastPongTime = Date.now();
+      consecutivePingFails = 0;
+      heartbeatTimer = setInterval(() => {
+        if (peerConn && peerConn.open) {
+          sendToPeer({ type: 'ping' });
+          consecutivePingFails += 1;
+        }
+        // 连续多次超时才触发重连，避免短暂波动
+        if (consecutivePingFails >= 3 || Date.now() - lastPongTime > HEARTBEAT_TIMEOUT) {
+          console.log('[Peer] 心跳连续失败，尝试重连...');
+          stopHeartbeat();
+          attemptReconnect();
+        }
+      }, HEARTBEAT_INTERVAL);
+    }
+
+    function stopHeartbeat() {
+      if (heartbeatTimer) {
+        clearInterval(heartbeatTimer);
+        heartbeatTimer = null;
+      }
+      if (reconnectTimer) {
+        clearTimeout(reconnectTimer);
+        reconnectTimer = null;
+      }
+    }
+
+    function attemptReconnect() {
+      if (isSoloMode) return;
+      if (peerLeft) return; // 对方已主动退出，不再重连
+      if (reconnectAttempts >= MAX_RECONNECT_ATTEMPTS) {
+        addSystemChatMessage('【系统】重连失败，请刷新页面重新开始。');
+        setConnStatus(false, '连接丢失');
+        return;
+      }
+      reconnectAttempts += 1;
+      addSystemChatMessage(`【系统】连接断开，正在重连（${reconnectAttempts}/${MAX_RECONNECT_ATTEMPTS}）…`);
+      setConnStatus(false, `重连中(${reconnectAttempts})…`);
+
+      if (peerConn) {
+        try { peerConn.close(); } catch (_) {}
+        peerConn = null;
+      }
+
+      reconnectTimer = setTimeout(() => {
+        if (!lastRoomCode) return;
+        if (isHost) {
+          if (peer) { try { peer.destroy(); } catch (_) {} }
+          peer = new Peer(lastRoomCode, { debug: 0, config: PEER_ICE_CONFIG });
+          peer.on('open', () => {
+            console.log('[Peer] 重连：房间已重新创建');
+          });
+          peer.on('connection', (conn) => {
+            console.log('[Peer] 重连：对手已重新连接');
+            peerConn = conn;
+            reconnectAttempts = 0;
+            consecutivePingFails = 0;
+            setupPeerConnection();
+            addSystemChatMessage('【系统】重连成功，已恢复连接。');
+            setConnStatus(true, '已重连');
+          });
+          peer.on('error', (err) => {
+            console.error('[Peer] 重连错误:', err);
+            attemptReconnect();
+          });
+        } else {
+          if (peer) { try { peer.destroy(); } catch (_) {} }
+          peer = new Peer(undefined, { debug: 0, config: PEER_ICE_CONFIG });
+          peer.on('open', () => {
+            const conn = peer.connect(lastRoomCode, { reliable: true });
+            peerConn = conn;
+            reconnectAttempts = 0;
+            consecutivePingFails = 0;
+            setupPeerConnection();
+            addSystemChatMessage('【系统】重连成功，已恢复连接。');
+            setConnStatus(true, '已重连');
+          });
+          peer.on('error', (err) => {
+            console.error('[Peer] 重连错误:', err);
+            attemptReconnect();
+          });
+        }
+      }, Math.min(3000 * reconnectAttempts, 15000)); // 3~15 秒递增延迟
+    }
+
+    /* 页面可见性变化时检查连接 */
+    function handleVisibilityChange() {
+      if (isSoloMode) return;
+      if (document.hidden) return;
+      if (peerLeft) return; // 对方已退出，不重连
+      // 页面恢复可见，检查连接状态
+      if (localPlayerId && (!peerConn || !peerConn.open)) {
+        console.log('[Peer] 页面恢复可见，连接已断开，尝试重连');
+        attemptReconnect();
+      } else if (peerConn && peerConn.open) {
+        // 连接还在，发送 ping 确认
+        sendToPeer({ type: 'ping' });
+      }
+    }
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    /* 生成 6 位房间号（大写字母+数字，易读） */
+    function generateRoomCode() {
+      const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // 去掉易混淆的 0/O/1/I
+      let code = '';
+      for (let i = 0; i < 6; i += 1) {
+        code += chars[Math.floor(Math.random() * chars.length)];
+      }
+      return code;
+    }
+
+    /* 复制房间号到剪贴板 */
+    async function copyRoomCode() {
+      try {
+        await navigator.clipboard.writeText(ROOM_ID_CODE.textContent);
+        addSystemChatMessage('【系统】房间号已复制到剪贴板');
+      } catch (_) {
+        // fallback
+        const input = document.createElement('input');
+        input.value = ROOM_ID_CODE.textContent;
+        document.body.appendChild(input);
+        input.select();
+        document.execCommand('copy');
+        document.body.removeChild(input);
+      }
+    }
+
+    function updateSysChatTitle() {
+      const el = document.getElementById('sys-chat-title');
+      if (!el) return;
+      if (isSoloMode) { el.textContent = '📢 系统信息（单人模式）'; }
+      else if (lastRoomCode) { el.textContent = `📢 系统信息（房间号：${lastRoomCode}）`; }
+      else { el.textContent = '📢 系统信息'; }
+    }
+
+    /* 显示连接状态栏 */
+    function setConnStatus(ok, text) {
+      CONN_STATUS_BAR.hidden = false;
+      CONN_DOT.className = ok ? 'conn-dot conn-dot--ok' : 'conn-dot conn-dot--warn';
+      CONN_STATUS_TEXT.textContent = text;
+    }
+
+    // ---- JS-1.2：P2P 消息收发 ----
+    function sendToPeer(data) {
+      if (isSoloMode) return;
+      if (peerConn && peerConn.open) {
+        peerConn.send(data);
+      }
+      specConns.forEach(c => { if (c.open) c.send(data); });
+    }
+
+    function broadcastToAll(data) {
+      sendToPeer(data);
+    }
+
+    /* 处理收到的数据（后续任务中扩展） */
+    function handlePeerData(data) {
+      console.log('[Peer] 收到数据:', data);
+      if (!data || typeof data !== 'object') return;
+
+      switch (data.type) {
+        case 'slot-update':
+          applyRemoteSlotUpdate(data.playerId, data.slotIndex, data.state);
+          break;
+        case 'deck-update':
+          applyRemoteDeckState(data.playerId, data.deckCount, data.handCount);
+          break;
+        case 'chat':
+          addChatMessage(data.playerId, data.text);
+          break;
+        case 'dice':
+          addSystemChatMessage(`【系统】${data.rollerName || '对手'}骰了随机数${data.result}（${data.low}~${data.high}）`);
+          break;
+        case 'effects-update':
+          applyRemoteEffectsState(data.playerId, data.effects);
+          break;
+        case 'player-info':
+          applyRemotePlayerInfo(data.playerId, data.name, data.hp);
+          break;
+        case 'sysmsg':
+          addSystemChatMessage(data.text);
+          break;
+        case 'avatar-update':
+          setAvatarImage(data.playerId, data.imageSrc);
+          break;
+        case 'spec-name':
+          if (data.name) {
+            spectatorCustomName = data.name;
+            document.getElementById('spectator-name-input').value = data.name;
+          }
+          break;
+        case 'card-damage':
+          applyRemoteCardDamage(data.playerId, data.slotIndex, data.dmg);
+          break;
+        case 'card-heal':
+          applyRemoteCardHeal(data.playerId, data.slotIndex, data.amount);
+          break;
+        case 'player-heal':
+          applyRemotePlayerHeal(data.playerId, data.amount);
+          break;
+        case 'player-damage':
+          applyRemotePlayerDamage(data.playerId, data.dmg);
+          break;
+        case 'fire-update':
+          applyRemoteFireState(data.playerId, data.count);
+          break;
+        default:
+          console.log('[Peer] 未知消息类型:', data.type);
+      }
+    }
+
+    function applyRemoteCardDamage(playerId, slotIndex, dmg) {
+      const slot = getSlotByIndex(playerId, slotIndex);
+      if (!slot) return;
+      const hpInput = slot.querySelector('.card-hp');
+      const currentHp = parseInt(hpInput.value, 10) || 0;
+      const newHp = Math.max(0, currentHp - dmg);
+      hpInput.value = newHp || '';
+      const cardName = slot.querySelector('.card-name').value || '未命名卡牌';
+      const dealerName = getPlayerName(localPlayerId === '1' ? '2' : '1');
+      addSystemChatMessage(`【系统】${dealerName}对「${cardName}」造成了${dmg}点伤害`);
+    }
+
+    function applyRemoteCardHeal(playerId, slotIndex, amount) {
+      const slot = getSlotByIndex(playerId, slotIndex);
+      if (!slot) return;
+      const hpInput = slot.querySelector('.card-hp');
+      const currentHp = parseInt(hpInput.value, 10) || 0;
+      const newHp = currentHp + amount;
+      hpInput.value = newHp || '';
+      const cardName = slot.querySelector('.card-name').value || '未命名卡牌';
+      const healerName = getPlayerName(localPlayerId === '1' ? '2' : '1');
+      addSystemChatMessage(`【系统】${healerName}为「${cardName}」恢复了${amount}点生命`);
+    }
+
+    function applyRemotePlayerHeal(playerId, amount) {
+      const zone = document.querySelector(`.player-zone[data-player="${playerId}"]`);
+      if (!zone) return;
+      const hpInput = zone.querySelector('.player-hp-input');
+      const currentHp = parseInt(hpInput.value, 10) || 0;
+      const newHp = currentHp + amount;
+      hpInput.value = newHp || '';
+      const healerName = getPlayerName(localPlayerId === '1' ? '2' : '1');
+      addSystemChatMessage(`【系统】${healerName}为${getPlayerName(playerId)}恢复了${amount}点生命`);
+    }
+
+    function applyRemotePlayerDamage(playerId, dmg) {
+      const zone = document.querySelector(`.player-zone[data-player="${playerId}"]`);
+      if (!zone) return;
+      const hpInput = zone.querySelector('.player-hp-input');
+      const currentHp = parseInt(hpInput.value, 10) || 0;
+      const newHp = Math.max(0, currentHp - dmg);
+      hpInput.value = newHp || '';
+      const dealerName = getPlayerName(localPlayerId === '1' ? '2' : '1');
+      addSystemChatMessage(`【系统】${dealerName}对${getPlayerName(playerId)}造成了${dmg}点伤害`);
+    }
+
+    // ---- JS-1.8：鬼火状态存储与同步 ----
+    const playerFire = { '1': 2, '2': 2 }; // 初始各 2 鬼火
+
+    function syncFireState(playerId) {
+      if (!peerConn || !peerConn.open) return;
+      sendToPeer({ type: 'fire-update', playerId, count: playerFire[playerId] });
+    }
+
+    function applyRemoteFireState(playerId, count) {
+      playerFire[playerId] = Math.max(0, Math.min(5, count));
+      const area = document.querySelector(`.player-zone[data-player="${playerId}"] .player-fire-area`);
+      if (!area) return;
+      const iconsRow = area.querySelector('.fire-icons-row');
+      if (iconsRow) {
+        iconsRow.innerHTML = Array.from({ length: 5 }, (_, i) =>
+          `<span class="fire-icon" style="visibility:${i >= playerFire[playerId] ? 'hidden' : 'visible'}">🔥</span>`
+        ).join('');
+      }
+    }
+
+    // ---- JS-1.3：权限管理 ----
+    function isMyZone(playerId) {
+      if (isSoloMode) return true;
+      if (isSpectator) return false;
+      return playerId === localPlayerId;
+    }
+
+    function isMyElement(el) {
+      if (isSoloMode) return true;
+      if (!localPlayerId || isSpectator) {
+        const zone = el.closest('.player-zone');
+        if (zone) return false;
+        return true;
+      }
+      const zone = el.closest('.player-zone');
+      if (!zone) return true;
+      return zone.dataset.player === localPlayerId;
+    }
+
+    let spectatorNameCounter = 0;
+
+    function applyPermissionLock() {
+      if (isSoloMode) {
+        // 单人模式：不锁定任何区域，显示标签
+        const tagYour = document.getElementById('tag-your');
+        const tagOpp = document.getElementById('tag-opp');
+        if (tagYour) { tagYour.className = 'zone-owner-tag zone-owner-tag--yours tag-above-bar'; tagYour.hidden = false; }
+        if (tagOpp) { tagOpp.className = 'zone-owner-tag zone-owner-tag--opponent tag-below-bar'; tagOpp.hidden = false; }
+        return;
+      }
+      if (!localPlayerId) return;
+      const tagYour = document.getElementById('tag-your');
+      const tagOpp = document.getElementById('tag-opp');
+      const specRow = document.getElementById('spectator-name-row');
+
+      if (isSpectator) {
+        document.querySelectorAll('.player-zone').forEach(zone => {
+          zone.classList.add('player-zone--locked');
+          zone.querySelectorAll('input, textarea, button, select').forEach(el => {
+            el.setAttribute('data-locked', 'true');
+            if (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA') el.readOnly = true;
+            else el.disabled = true;
+          });
+        });
+        // 仅显示观众标签行，隐藏对手标签
+        if (tagYour) tagYour.hidden = true;
+        if (tagOpp) tagOpp.hidden = true;
+        if (specRow) specRow.hidden = false;
+        return;
+      }
+
+      const opponentId = localPlayerId === '1' ? '2' : '1';
+      const opponentZone = document.querySelector(`.player-zone[data-player="${opponentId}"]`);
+      if (opponentZone) {
+        opponentZone.classList.add('player-zone--locked');
+        // 仅禁用牌库按钮，其余卡牌/效果/HP等均可操作
+        opponentZone.querySelectorAll('.btn-deck').forEach(el => { el.disabled = true; });
+      }
+      // 根据玩家身份交换标签位置：P1（上方）→ 你的标签在上，P2（下方）→ 你的标签在下
+      if (tagYour && tagOpp) {
+        if (localPlayerId === '2') {
+          tagYour.className = 'zone-owner-tag zone-owner-tag--yours tag-below-bar';
+          tagOpp.className = 'zone-owner-tag zone-owner-tag--opponent tag-above-bar';
+        } else {
+          tagYour.className = 'zone-owner-tag zone-owner-tag--yours tag-above-bar';
+          tagOpp.className = 'zone-owner-tag zone-owner-tag--opponent tag-below-bar';
+        }
+        tagYour.hidden = false;
+        tagOpp.hidden = false;
+      }
+      if (specRow) specRow.hidden = true;
+    }
+
+    function resetPermissionLock() {
+      document.querySelectorAll('.player-zone').forEach(zone => {
+        zone.classList.remove('player-zone--locked');
+        zone.querySelectorAll('.btn-deck').forEach(el => { el.disabled = false; });
+      });
+      const tagYour = document.getElementById('tag-your');
+      const tagOpp = document.getElementById('tag-opp');
+      const specRow = document.getElementById('spectator-name-row');
+      if (tagYour) tagYour.hidden = true;
+      if (tagOpp) tagOpp.hidden = true;
+      if (specRow) specRow.hidden = true;
+    }
+
+    /* 建立连接后的初始化 */
+    function onPeerConnected() {
+      ROOM_OVERLAY.hidden = true;
+      ROOM_HOME.hidden = false;
+      ROOM_WAITING.hidden = true;
+      document.getElementById('room-joining').hidden = true;
+      setConnStatus(true, isSpectator ? '观战中' : '已连接');
+      applyPermissionLock();
+      if (isSpectator) {
+        addSystemChatMessage('【系统】已进入观战模式');
+      } else {
+        addSystemChatMessage('【系统】连接成功，游戏开始！');
+        syncFullState();
+      }
+    }
+
+    /* 发送当前所有卡牌槽 + 牌库状态给对方（用于初始同步） */
+    function syncFullState() {
+      if (!peerConn || !peerConn.open) return;
+      // 发送自己所有卡牌槽状态
+      document.querySelectorAll(`.player-zone[data-player="${localPlayerId}"] .card-slot`).forEach(slot => {
+        syncSlotToPeer(slot);
+      });
+      // 发送自己牌库/手牌计数
+      syncDeckState(localPlayerId);
+      // 发送自己效果面板
+      syncEffectsState(localPlayerId);
+      // 发送自己玩家信息
+      syncPlayerInfo(localPlayerId);
+      // 发送自己鬼火
+      syncFireState(localPlayerId);
+    }
+
+    /* 创建房间 */
+    function createRoom() {
+      peerLeft = false;
+      const roomCode = generateRoomCode();
+      lastRoomCode = roomCode;
+      updateSysChatTitle();
+      ROOM_HOME.hidden = true;
+      ROOM_WAITING.hidden = false;
+      ROOM_ID_CODE.textContent = roomCode;
+      CONN_STATUS_BAR.hidden = true;
+      isSpectator = false;
+
+      peer = new Peer(roomCode, { debug: 0, config: PEER_ICE_CONFIG });
+
+      peer.on('open', () => {
+        console.log('[Peer] 房间已创建:', roomCode);
+      });
+
+      peer.on('connection', (conn) => {
+        if (!peerConn) {
+          // 第一个连接 = 对手
+          console.log('[Peer] 对手已连接');
+          peerConn = conn;
+          isHost = true;
+          localPlayerId = '1';
+          setupPeerConnection();
+        } else {
+          // 后续连接 = 观众
+          console.log('[Peer] 观众已连接');
+          specConns.push(conn);
+          setupSpectatorConnection(conn);
+          broadcastSystemMsg('【系统】一位观众进入了房间');
+        }
+      });
+
+      peer.on('error', (err) => {
+        console.error('[Peer] 错误:', err);
+        if (err.type === 'unavailable-id') { createRoom(); return; }
+        ROOM_WAITING.querySelector('.room-status').innerHTML =
+          '<span class="dot dot--error"></span>连接出错，请重试';
+      });
+    }
+
+    /* 设置观众连接（仅房主侧） */
+    function setupSpectatorConnection(conn) {
+      conn.on('open', () => {
+        console.log('[Peer] 观众数据通道已建立');
+        setTimeout(() => syncFullStateToConn(conn), 500);
+      });
+      conn.on('data', (data) => {
+        if (!data || typeof data !== 'object') return;
+        // 心跳处理
+        if (data.type === 'ping') { conn.send({ type: 'pong' }); return; }
+        if (data.type === 'pong') return;
+        // 观众发言：只转发给对手，不广播回观众自己
+        if (data.type === 'chat') {
+          addChatMessage('0', data.text);
+          if (peerConn && peerConn.open) peerConn.send(data);
+          return;
+        }
+        // 观众改名：转发给对手
+        if (data.type === 'spec-name') {
+          if (peerConn && peerConn.open) peerConn.send(data);
+          return;
+        }
+      });
+      conn.on('close', () => {
+        specConns = specConns.filter(c => c !== conn);
+        broadcastSystemMsg('【系统】观众离开了房间');
+      });
+    }
+
+    /* 向指定连接发送完整状态 */
+    function syncFullStateToConn(conn) {
+      if (!conn || !conn.open) return;
+      ['1', '2'].forEach(pid => {
+        document.querySelectorAll(`.player-zone[data-player="${pid}"] .card-slot`).forEach(slot => {
+          const state = getSlotState(slot);
+          conn.send({ type: 'slot-update', playerId: pid, slotIndex: parseInt(slot.dataset.slotIndex, 10), state });
+        });
+        const cards = getPlayerCardState(pid);
+        conn.send({ type: 'deck-update', playerId: pid, deckCount: cards.deck.length, handCount: cards.hand.length });
+        conn.send({ type: 'effects-update', playerId: pid, effects: getEffectsState(pid) });
+        const info = getPlayerInfo(pid);
+        conn.send({ type: 'player-info', playerId: pid, name: info.name, hp: info.hp });
+        conn.send({ type: 'fire-update', playerId: pid, count: playerFire[pid] });
+      });
+    }
+
+    /* 加入房间（玩家） */
+    function joinRoom(roomCode) {
+      if (!roomCode) return;
+      peerLeft = false;
+      const code = roomCode.toUpperCase().trim();
+      lastRoomCode = code;
+      updateSysChatTitle();
+      ROOM_JOIN_INPUT.value = '';
+      isSpectator = false;
+      ROOM_HOME.hidden = true;
+      ROOM_WAITING.hidden = true;
+      document.getElementById('room-joining').hidden = false;
+
+      peer = new Peer(undefined, { debug: 0, config: PEER_ICE_CONFIG });
+
+      // 连接超时（30 秒）
+      joinTimeout = setTimeout(() => {
+        if (peerConn && peerConn.open) return;
+        document.getElementById('room-joining').hidden = true;
+        ROOM_HOME.hidden = false;
+        alert('⚠️ 连接超时（30秒）\n\n可能原因：\n1. 公司/校园网封锁了 WebRTC 流量（常见）\n2. 房间号输入有误\n3. 对方已关闭房间\n\n💡 解决方案：\n• 最优：双方都用手机热点（彻底绕过公司网）\n• 备选：一方开热点，另一方连接该热点\n• 确认房间号大小写正确');
+        addSystemChatMessage('【系统】连接超时 — 请确认房间号正确且双方网络可互通');
+        if (peer) { peer.destroy(); peer = null; }
+        peerConn = null; localPlayerId = null; lastRoomCode = null;
+        joinTimeout = null;
+      }, 30000);
+
+      peer.on('open', () => {
+        const conn = peer.connect(code, { reliable: true });
+        peerConn = conn;
+        isHost = false;
+        localPlayerId = '2';
+        setupPeerConnection();
+      });
+
+      peer.on('error', (err) => {
+        clearJoinTimeout();
+        document.getElementById('room-joining').hidden = true;
+        ROOM_HOME.hidden = false;
+        let msg = '连接失败';
+        if (err.type === 'peer-unavailable') msg = '房间不存在或对方已关闭房间';
+        else if (err.type === 'network') msg = '网络异常，请检查防火墙/网络设置';
+        else if (err.type === 'server-error') msg = '信令服务器繁忙，请稍后重试';
+        else if (err.type === 'disconnected') msg = '与信令服务器断开连接';
+        else msg = '连接失败：' + (err.message || err.type || '未知错误');
+        alert('⚠️ ' + msg + '\n\n💡 公司/校园网通常会拦截 P2P 连接。\n请尝试：\n1. 用手机热点替代公司 WiFi\n2. 或用手机数据流量直接访问');
+        addSystemChatMessage('【系统】连接失败 — ' + msg);
+        if (peer) { peer.destroy(); peer = null; }
+        peerConn = null; localPlayerId = null; lastRoomCode = null;
+      });
+    }
+
+    /* 观众观战 */
+    function spectateRoom(roomCode) {
+      if (!roomCode) return;
+      peerLeft = false;
+      const code = roomCode.toUpperCase().trim();
+      lastRoomCode = code;
+      isSpectator = true;
+      localPlayerId = '0';
+      spectatorNameCounter += 1;
+      ROOM_HOME.hidden = true;
+      ROOM_WAITING.hidden = true;
+      document.getElementById('room-joining').hidden = false;
+      // 预设观众名称
+      const specInput = document.getElementById('spectator-name-input');
+      if (specInput) { specInput.value = `观众${spectatorNameCounter}`; spectatorCustomName = ''; }
+
+      peer = new Peer(undefined, { debug: 0, config: PEER_ICE_CONFIG });
+      peer.on('open', () => {
+        const conn = peer.connect(code, { reliable: true });
+        peerConn = conn;
+        isHost = false;
+        setupPeerConnection();
+      });
+      peer.on('error', (err) => {
+        document.getElementById('room-joining').hidden = true;
+        ROOM_HOME.hidden = false;
+        let msg = '观战连接失败';
+        if (err.type === 'peer-unavailable') msg = '房间不存在或对方已关闭';
+        else if (err.type === 'network') msg = '网络异常，请检查防火墙/网络设置';
+        else msg = '连接失败：' + (err.message || err.type || '未知错误');
+        alert('⚠️ ' + msg + '\n\n💡 提示：公司/校园网可能拦截连接，建议用手机热点');
+        if (peer) { peer.destroy(); peer = null; }
+        peerConn = null; localPlayerId = null; lastRoomCode = null; isSpectator = false;
+      });
+    }
+
+    /* 取消加入 */
+    function cancelJoinRoom() {
+      clearJoinTimeout();
+      peerLeft = false;
+      if (peer) { peer.destroy(); peer = null; }
+      peerConn = null;
+      localPlayerId = null;
+      isSpectator = false;
+      lastRoomCode = null;
+      document.getElementById('room-joining').hidden = true;
+      ROOM_HOME.hidden = false;
+    }
+
+    /* 设置 P2P 数据连接 */
+    function setupPeerConnection() {
+      peerConn.on('open', () => {
+        clearJoinTimeout(); // 连接成功，取消加入超时
+        console.log('[Peer] 数据通道已建立');
+        addSystemChatMessage('【系统】连接已建立' + (peerConn._dc && peerConn._dc._channel ? '（WebRTC 数据通道）' : ''));
+        reconnectAttempts = 0;
+        startHeartbeat();
+        onPeerConnected();
+      });
+
+      peerConn.on('data', (data) => {
+        // 心跳响应
+        if (data && data.type === 'ping') {
+          sendToPeer({ type: 'pong' });
+          return;
+        }
+        if (data && data.type === 'pong') {
+          lastPongTime = Date.now();
+          consecutivePingFails = 0;
+          return;
+        }
+        handlePeerData(data);
+        // 房主将对手数据转发给所有观众
+        if (isHost && data) {
+          specConns.forEach(c => { if (c.open) c.send(data); });
+        }
+      });
+
+      peerConn.on('close', () => {
+        console.log('[Peer] 连接已断开');
+        stopHeartbeat();
+        if (isSpectator) {
+          peerLeft = true;
+          setConnStatus(false, '观战已断开');
+          addSystemChatMessage('【系统】观战连接已断开，可返回主界面');
+        } else if (isHost) {
+          setConnStatus(false, '对手已退出');
+          addSystemChatMessage('【系统】对手已退出房间，等待重连…');
+          // 房主侧：等待对手重新加入
+          if (localPlayerId) { attemptReconnect(); }
+        } else {
+          peerLeft = true; // 房主退出，不再自动重连
+          setConnStatus(false, '房主已退出');
+          addSystemChatMessage('【系统】房主已退出房间，可返回主界面重新创建或加入');
+        }
+      });
+
+      peerConn.on('error', (err) => {
+        console.error('[Peer] 数据通道错误:', err);
+        stopHeartbeat();
+        setConnStatus(false, '通信错误');
+      });
+    }
+
+    /* 按钮事件 */
+    document.getElementById('room-btn-create').addEventListener('click', createRoom);
+    document.getElementById('room-btn-join').addEventListener('click', () => {
+      joinRoom(ROOM_JOIN_INPUT.value);
+    });
+    document.getElementById('room-btn-spectate').addEventListener('click', () => {
+      spectateRoom(ROOM_JOIN_INPUT.value);
+    });
+    document.getElementById('room-btn-solo').addEventListener('click', startSoloMode);
+    document.getElementById('room-btn-copy').addEventListener('click', copyRoomCode);
+    document.getElementById('room-btn-join-cancel').addEventListener('click', cancelJoinRoom);
+    document.getElementById('room-btn-back').addEventListener('click', () => {
+      clearJoinTimeout();
+      peerLeft = false;
+      stopHeartbeat();
+      if (peer) { peer.destroy(); peer = null; }
+      peerConn = null;
+      specConns = [];
+      localPlayerId = null;
+      isHost = false;
+      isSpectator = false;
+      isSoloMode = false;
+      lastRoomCode = null;
+      reconnectAttempts = 0;
+      resetPermissionLock();
+      ROOM_HOME.hidden = false;
+      ROOM_WAITING.hidden = true;
+      document.getElementById('room-joining').hidden = true;
+      CONN_STATUS_BAR.hidden = true;
+      updateSysChatTitle();
+    });
+
+    /* 单人模式 */
+    function startSoloMode() {
+      peerLeft = false;
+      isSoloMode = true;
+      isHost = false;
+      isSpectator = false;
+      localPlayerId = '1';
+      peerConn = null;
+      specConns = [];
+      ROOM_OVERLAY.hidden = true;
+      setConnStatus(true, '单人模式');
+      updateSysChatTitle();
+      resetPermissionLock();
+      applyPermissionLock();
+      addSystemChatMessage('【系统】单人模式 —— 所有区域均可操作');
+    }
+    ROOM_JOIN_INPUT.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') joinRoom(ROOM_JOIN_INPUT.value);
+    });
+
+    // ================================================================
+    //  JS-2：游戏核心逻辑 —— 卡牌槽初始化与渲染
+    // ================================================================
+    const imageInput = document.getElementById('image-input');
+    const avatarInput = document.getElementById('avatar-input');
+    let activeSlotForImage = null;
+    let activeAvatarPlayer = null;
+    let draggedSlot = null;
+    let pointerOrigin = null;
+    const DRAG_THRESHOLD = 8;
+
+    const CARD_INNER_HTML = `
+      <div class="card-art"><span class="placeholder-hint">点击添加图片</span></div>
+      <label class="card-badge card-badge--level" title="等级">
+        <input type="text" class="card-level" placeholder="级" aria-label="等级">
+      </label>
+      <label class="card-badge card-badge--attack" title="攻击">
+        <input type="text" class="card-attack" placeholder="攻" aria-label="攻击">
+      </label>
+      <label class="card-badge card-badge--hp" title="生命">
+        <input type="text" class="card-hp" placeholder="命" aria-label="生命">
+      </label>
+      <label class="card-badge card-badge--name" title="卡牌名称">
+        <input type="text" class="card-name" placeholder="名称" maxlength="12" aria-label="卡牌名称">
+      </label>
+    `;
+
+    document.querySelectorAll('.card-slot').forEach(slot => {
+      slot.innerHTML = CARD_INNER_HTML;
+    });
+
+    /* 为每个卡牌槽分配索引（0-4），方便联机同步定位 */
+    document.querySelectorAll('.player-zone').forEach(zone => {
+      const playerId = zone.dataset.player;
+      zone.querySelectorAll('.card-slot').forEach((slot, index) => {
+        slot.dataset.slotIndex = index;
+        slot.dataset.slotPlayer = playerId;
+      });
+    });
+
+    // ---- JS-1.4：状态同步 —— 卡牌槽 ----
+    function getSlotByIndex(playerId, slotIndex) {
+      const zone = document.querySelector(`.player-zone[data-player="${playerId}"]`);
+      if (!zone) return null;
+      return zone.querySelectorAll('.card-slot')[slotIndex] || null;
+    }
+
+    /* 卡牌槽同步：防重入标志 */
+    let slotSyncSuppress = false;
+
+    /* 同步单个卡牌槽状态到对方 */
+    function syncSlotToPeer(slot) {
+      if (slotSyncSuppress || !peerConn || !peerConn.open) return;
+      const playerId = slot.dataset.slotPlayer;
+      const slotIndex = parseInt(slot.dataset.slotIndex, 10);
+      const state = getSlotState(slot);
+      sendToPeer({
+        type: 'slot-update',
+        playerId,
+        slotIndex,
+        state,
+      });
+    }
+
+    /* 应用远程卡牌槽更新 */
+    function applyRemoteSlotUpdate(playerId, slotIndex, state) {
+      slotSyncSuppress = true;
+      const slot = getSlotByIndex(playerId, slotIndex);
+      if (slot) {
+        setSlotState(slot, state);
+      }
+      slotSyncSuppress = false;
+    }
+
+    // ---- JS-1.5：状态同步 —— 牌库/手牌 ----
+
+    /* 发送牌库/手牌计数给对方 */
+    function syncDeckState(playerId) {
+      if (!peerConn || !peerConn.open) return;
+      if (!isMyZone(playerId)) return;
+      const { deck, hand } = getPlayerCardState(playerId);
+      sendToPeer({
+        type: 'deck-update',
+        playerId,
+        deckCount: deck.length,
+        handCount: hand.length,
+      });
+    }
+
+    /* 接收对方的牌库/手牌计数，更新本地按钮 */
+    function applyRemoteDeckState(playerId, deckCount, handCount) {
+      // 用占位数组填到对应长度（只为让 updateDeckButtons 读到正确计数）
+      const state = getPlayerCardState(playerId);
+      state.deck = new Array(deckCount).fill(null);
+      state.hand = new Array(handCount).fill(null);
+      updateDeckButtons(playerId);
+    }
+
+    // ---- JS-1.6：状态同步 —— 效果面板 ----
+
+    function getEffectsState(playerId) {
+      const zone = document.querySelector(`.player-zone[data-player="${playerId}"]`);
+      if (!zone) return [];
+      const items = zone.querySelectorAll('.effect-item');
+      return Array.from(items).map(item => ({
+        name: item.querySelector('.effect-name').value,
+        value: item.querySelector('.effect-value').value,
+      }));
+    }
+
+    function syncEffectsState(playerId) {
+      if (!peerConn || !peerConn.open) return;
+      sendToPeer({
+        type: 'effects-update',
+        playerId,
+        effects: getEffectsState(playerId),
+      });
+    }
+
+    function applyRemoteEffectsState(playerId, effects) {
+      const zone = document.querySelector(`.player-zone[data-player="${playerId}"]`);
+      if (!zone) return;
+      const panel = zone.querySelector('.effects-panel');
+      panel.innerHTML = '';
+      effects.forEach(eff => {
+        const item = createEffectItem();
+        item.querySelector('.effect-name').value = eff.name;
+        item.querySelector('.effect-value').value = eff.value;
+        panel.appendChild(item);
+      });
+    }
+
+    // ---- JS-1.7：状态同步 —— 玩家名称/生命值 ----
+
+    function getPlayerInfo(playerId) {
+      const zone = document.querySelector(`.player-zone[data-player="${playerId}"]`);
+      if (!zone) return { name: '', hp: '' };
+      const nameInput = zone.querySelector('.player-name-input');
+      const hpInput = zone.querySelector('.player-hp-input');
+      return {
+        name: nameInput ? nameInput.value : '',
+        hp: hpInput ? hpInput.value : '',
+      };
+    }
+
+    function syncPlayerInfo(playerId) {
+      if (!peerConn || !peerConn.open) return;
+      const info = getPlayerInfo(playerId);
+      sendToPeer({
+        type: 'player-info',
+        playerId,
+        name: info.name,
+        hp: info.hp,
+      });
+    }
+
+    function applyRemotePlayerInfo(playerId, name, hp) {
+      const zone = document.querySelector(`.player-zone[data-player="${playerId}"]`);
+      if (!zone) return;
+      const nameInput = zone.querySelector('.player-name-input');
+      const hpInput = zone.querySelector('.player-hp-input');
+      if (nameInput) nameInput.value = name;
+      if (hpInput) hpInput.value = hp;
+    }
+
+    function createEffectItem() {
+      const item = document.createElement('div');
+      item.className = 'effect-item';
+      item.innerHTML = `
+        <input type="text" class="effect-name" placeholder="名称/描述">
+        <input type="text" class="effect-value" placeholder="数值">
+        <button type="button" class="btn-remove-effect">移除</button>
+      `;
+      item.querySelector('.btn-remove-effect').addEventListener('click', () => {
+        const playerId = item.closest('.player-zone').dataset.player;
+        const name = item.querySelector('.effect-name').value || '未命名';
+        item.remove();
+        syncEffectsState(playerId);
+        broadcastSystemMsg(`【系统】${getPlayerName(playerId)}移除了幻境/效果「${name}」`);
+      });
+      return item;
+    }
+
+    document.querySelectorAll('.btn-add-effect').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const zone = btn.closest('.player-zone');
+        const panel = zone.querySelector('.effects-panel');
+        panel.appendChild(createEffectItem());
+        syncEffectsState(zone.dataset.player);
+        broadcastSystemMsg(`【系统】${getPlayerName(zone.dataset.player)}添加了幻境/效果`);
+      });
+    });
+
+    function getCardArt(slot) {
+      return slot.querySelector('.card-art');
+    }
+
+    function setSlotImage(slot, src) {
+      const art = getCardArt(slot);
+      let img = art.querySelector('img');
+      if (!img) {
+        img = document.createElement('img');
+        img.alt = '卡牌';
+        art.appendChild(img);
+      }
+      img.src = src;
+      slot.classList.add('has-image');
+    }
+
+    function clearSlotImage(slot) {
+      const img = getCardArt(slot).querySelector('img');
+      if (img) img.remove();
+      slot.classList.remove('has-image');
+    }
+
+    function getSlotImageSrc(slot) {
+      const img = getCardArt(slot).querySelector('img');
+      return img ? img.src : null;
+    }
+
+    function getSlotState(slot) {
+      const cdBadge = slot.querySelector('.card-badge--countdown');
+      const enBadge = slot.querySelector('.card-badge--energy');
+      return {
+        imageSrc: getSlotImageSrc(slot),
+        level: slot.querySelector('.card-level').value,
+        attack: slot.querySelector('.card-attack').value,
+        hp: slot.querySelector('.card-hp').value,
+        name: slot.querySelector('.card-name').value,
+        countdown: cdBadge ? (cdBadge.querySelector('input').value || '') : '',
+        energy: enBadge ? (enBadge.querySelector('input').value || '') : '',
+        ko: slot.querySelector('.ko-overlay') ? (slot.querySelector('.ko-circle input').value || '1') : '',
+      };
+    }
+
+    function setSlotState(slot, state) {
+      if (state.imageSrc) setSlotImage(slot, state.imageSrc);
+      else clearSlotImage(slot);
+      slot.querySelector('.card-level').value = state.level;
+      slot.querySelector('.card-attack').value = state.attack;
+      slot.querySelector('.card-hp').value = state.hp;
+      slot.querySelector('.card-name').value = state.name;
+      // 倒计时 / 能量 徽章
+      updateSlotCountdownBadge(slot, state.countdown || '');
+      updateSlotEnergyBadge(slot, state.energy || '');
+      updateKoOverlay(slot, state.ko || '');
+      // 所有字段就绪后再同步（若被 suppress 则跳过）
+      if (!slotSyncSuppress) syncSlotToPeer(slot);
+    }
+
+    imageInput.addEventListener('change', (e) => {
+      const file = e.target.files[0];
+      const slot = activeSlotForImage;
+      imageInput.value = '';
+      activeSlotForImage = null;
+      if (!file || !slot) return;
+      const reader = new FileReader();
+      reader.onload = (ev) => {
+        setSlotImage(slot, ev.target.result);
+        syncSlotToPeer(slot);
+      };
+      reader.readAsDataURL(file);
+    });
+
+    /* 头像系统 */
+    avatarInput.addEventListener('change', (e) => {
+      const file = e.target.files[0];
+      const playerId = activeAvatarPlayer;
+      avatarInput.value = '';
+      activeAvatarPlayer = null;
+      if (!file || !playerId) return;
+      const reader = new FileReader();
+      reader.onload = (ev) => {
+        setAvatarImage(playerId, ev.target.result);
+        if (peerConn && peerConn.open) {
+          sendToPeer({ type: 'avatar-update', playerId, imageSrc: ev.target.result });
+        }
+      };
+      reader.readAsDataURL(file);
+    });
+
+    function setAvatarImage(playerId, src) {
+      const avatar = document.querySelector(`.player-avatar[data-avatar-player="${playerId}"]`);
+      if (!avatar) return;
+      let img = avatar.querySelector('img');
+      if (!img) {
+        img = document.createElement('img');
+        img.alt = '头像';
+        avatar.appendChild(img);
+      }
+      img.src = src;
+      avatar.classList.add('has-avatar');
+    }
+
+    document.querySelectorAll('.player-avatar').forEach(av => {
+      av.addEventListener('click', () => {
+        if (!isMyElement(av)) return;
+        activeAvatarPlayer = av.dataset.avatarPlayer;
+        avatarInput.click();
+      });
+    });
+
+    /* 交换卡牌槽内容 */
+    function swapSlotContents(a, b) {
+      const stateA = getSlotState(a);
+      const stateB = getSlotState(b);
+      slotSyncSuppress = true;
+      setSlotState(a, stateB);
+      setSlotState(b, stateA);
+      slotSyncSuppress = false;
+      syncSlotToPeer(a);
+      syncSlotToPeer(b);
+    }
+
+    // ---- 倒计时 / 能量 / 气绝 徽章渲染 ----
+    const ICON_CD = '<span class="badge-icon">⏳</span>';
+    const ICON_EN = '<span class="badge-icon">🏮</span>';
+
+    function createCountdownBadge(value) {
+      const div = document.createElement('div');
+      div.className = 'card-badge card-badge--countdown';
+      div.innerHTML = ICON_CD + '<input type="text" value="' + (value || '1') + '" placeholder="" aria-label="倒计时">';
+      div.querySelector('input').addEventListener('change', () => {
+        const slot = div.closest('.card-slot');
+        if (slot) syncSlotToPeer(slot);
+      });
+      return div;
+    }
+
+    function createEnergyBadge(value) {
+      const div = document.createElement('div');
+      div.className = 'card-badge card-badge--energy';
+      div.innerHTML = ICON_EN + '<input type="text" value="' + (value || '1') + '" placeholder="" aria-label="能量">';
+      div.querySelector('input').addEventListener('change', () => {
+        const slot = div.closest('.card-slot');
+        if (slot) syncSlotToPeer(slot);
+      });
+      return div;
+    }
+
+    function updateSlotCountdownBadge(slot, value) {
+      const existing = slot.querySelector('.card-badge--countdown');
+      if (value) {
+        if (existing) {
+          existing.querySelector('input').value = value;
+        } else {
+          slot.appendChild(createCountdownBadge(value));
+        }
+      } else {
+        if (existing) existing.remove();
+      }
+    }
+
+    function updateSlotEnergyBadge(slot, value) {
+      const existing = slot.querySelector('.card-badge--energy');
+      if (value) {
+        if (existing) {
+          existing.querySelector('input').value = value;
+        } else {
+          slot.appendChild(createEnergyBadge(value));
+        }
+      } else {
+        if (existing) existing.remove();
+      }
+    }
+
+    function removeCountdownBadge(slot) {
+      const b = slot.querySelector('.card-badge--countdown');
+      if (b) b.remove();
+    }
+
+    function removeEnergyBadge(slot) {
+      const b = slot.querySelector('.card-badge--energy');
+      if (b) b.remove();
+    }
+
+    function openImagePicker(slot) {
+      activeSlotForImage = slot;
+      imageInput.click();
+    }
+
+    function isInteractiveTarget(el) {
+      return el.closest('.card-badge, input, label, button');
+    }
+
+    function getSlotUnderPoint(x, y) {
+      const el = document.elementFromPoint(x, y);
+      return el ? el.closest('.card-slot') : null;
+    }
+
+    function clearDragHighlights() {
+      document.querySelectorAll('.card-slot').forEach(s => s.classList.remove('drag-over', 'dragging'));
+    }
+
+    // ---- JS-2.1：卡牌拖拽系统 ----
+    function initCardSlots() {
+      document.querySelectorAll('.card-slot').forEach(slot => {
+        slot.addEventListener('pointerdown', (e) => {
+          if (e.button !== 0 || isInteractiveTarget(e.target)) return;
+          pointerOrigin = { x: e.clientX, y: e.clientY, slot };
+          slot.setPointerCapture(e.pointerId);
+        });
+
+        slot.addEventListener('pointermove', (e) => {
+          if (!pointerOrigin || pointerOrigin.slot !== slot) return;
+
+          if (!draggedSlot) {
+            const dx = e.clientX - pointerOrigin.x;
+            const dy = e.clientY - pointerOrigin.y;
+            if (Math.hypot(dx, dy) < DRAG_THRESHOLD) return;
+            draggedSlot = slot;
+            slot.classList.add('dragging');
+          }
+
+          document.querySelectorAll('.card-slot').forEach(s => s.classList.remove('drag-over'));
+          const hover = getSlotUnderPoint(e.clientX, e.clientY);
+          if (hover && hover !== draggedSlot) {
+            hover.classList.add('drag-over');
+          }
+        });
+
+        slot.addEventListener('pointerup', (e) => {
+          if (!pointerOrigin || pointerOrigin.slot !== slot) return;
+
+          try {
+            slot.releasePointerCapture(e.pointerId);
+          } catch (_) { /* already released */ }
+
+          if (draggedSlot) {
+            const target = getSlotUnderPoint(e.clientX, e.clientY);
+            if (target && target !== draggedSlot) {
+              swapSlotContents(draggedSlot, target);
+            }
+            draggedSlot = null;
+            clearDragHighlights();
+          } else if (!isInteractiveTarget(e.target) && !isTargeting && !slot.querySelector('.ko-overlay')) {
+            openImagePicker(slot);
+          }
+
+          pointerOrigin = null;
+        });
+
+        slot.addEventListener('pointercancel', () => {
+          pointerOrigin = null;
+          draggedSlot = null;
+          clearDragHighlights();
+        });
+      });
+    }
+
+    initCardSlots();
+
+    /* 鬼火加减按钮（0~5个火焰图标） */
+    document.querySelectorAll('.player-fire-area').forEach(area => {
+      const playerId = area.closest('.player-zone').dataset.player;
+      const iconsRow = area.querySelector('.fire-icons-row');
+      const minusBtn = area.querySelector('.fire-minus');
+      const plusBtn = area.querySelector('.fire-plus');
+
+      function render() {
+        const count = playerFire[playerId];
+        iconsRow.innerHTML = Array.from({ length: 5 }, (_, i) =>
+          `<span class="fire-icon" style="visibility:${i >= count ? 'hidden' : 'visible'}">🔥</span>`
+        ).join('');
+      }
+
+      minusBtn.addEventListener('click', (e) => {
+        e.preventDefault(); e.stopPropagation();
+        if (playerFire[playerId] > 0) { playerFire[playerId]--; render(); syncFireState(playerId); }
+      });
+
+      plusBtn.addEventListener('click', (e) => {
+        e.preventDefault(); e.stopPropagation();
+        if (playerFire[playerId] < 5) { playerFire[playerId]++; render(); syncFireState(playerId); }
+      });
+
+      render();
+    });
+
+    /* 卡牌徽章输入框变化 → 同步到对方（change 事件在失焦时触发） */
+    document.addEventListener('change', (e) => {
+      // 卡牌徽章
+      if (e.target.closest('.card-badge')) {
+        const slot = e.target.closest('.card-slot');
+        if (slot) syncSlotToPeer(slot);
+        return;
+      }
+      // 效果面板输入
+      if (e.target.closest('.effect-item')) {
+        const zone = e.target.closest('.player-zone');
+        if (zone) syncEffectsState(zone.dataset.player);
+        return;
+      }
+      // 玩家名称 / 生命值
+      if (e.target.classList.contains('player-name-input') || e.target.classList.contains('player-hp-input')) {
+        const zone = e.target.closest('.player-zone');
+        if (zone) syncPlayerInfo(zone.dataset.player);
+      }
+    });
+
+    // ---- JS-2.2：战场动态布局（自适应窗口大小）----
+    const BATTLE_WIDTH_RATIO = 158 / 148;
+    const BATTLE_HEIGHT_RATIO = 221 / 207;
+    const PREP_ASPECT = 207 / 148;
+    const MIN_FIELD_GAP = 18;
+    const MIN_CARD_W = 84;
+    const MAX_CARD_W = 158;
+    const layoutRoot = document.documentElement;
+    const gameBoard = document.querySelector('.game-board');
+    const chatSidebar = document.querySelector('.chat-sidebar');
+
+    function measureZoneCenterWidth() {
+      const zoneCenter = document.querySelector('.zone-center');
+      if (!zoneCenter) return 0;
+      const style = getComputedStyle(zoneCenter);
+      return zoneCenter.clientWidth
+        - parseFloat(style.paddingLeft)
+        - parseFloat(style.paddingRight);
+    }
+
+    function updateBattlefieldLayout() {
+      const effectsEl = document.querySelector('.zone-effects');
+      const available = measureZoneCenterWidth();
+      if (!available || !effectsEl || !chatSidebar) return;
+
+      const effectsWidth = effectsEl.getBoundingClientRect().width;
+      const chatWidth = chatSidebar.getBoundingClientRect().width;
+      const boardWidth = gameBoard.getBoundingClientRect().width;
+      const battlefieldWidth = boardWidth - effectsWidth - chatWidth
+        - parseFloat(getComputedStyle(gameBoard).gap || '0')
+        - parseFloat(getComputedStyle(gameBoard).paddingLeft)
+        - parseFloat(getComputedStyle(gameBoard).paddingRight);
+
+      layoutRoot.style.setProperty('--effects-panel-width', `${Math.round(effectsWidth)}px`);
+      layoutRoot.style.setProperty('--chat-panel-width', `${Math.round(chatWidth)}px`);
+      layoutRoot.style.setProperty('--battlefield-width', `${Math.round(Math.max(available, battlefieldWidth))}px`);
+
+      // 5 张牌 + 6 段等距空白：边距、准备区间隙、战斗区两侧、准备区内部
+      const denom = 4 + BATTLE_WIDTH_RATIO;
+      let cardW = Math.min(MAX_CARD_W, (available - MIN_FIELD_GAP * 6) / denom);
+      cardW = Math.max(MIN_CARD_W, cardW);
+      let gap = (available - denom * cardW) / 6;
+
+      if (gap < MIN_FIELD_GAP && cardW > MIN_CARD_W) {
+        cardW = Math.max(MIN_CARD_W, (available - MIN_FIELD_GAP * 6) / denom);
+        gap = (available - denom * cardW) / 6;
+      }
+
+      gap = Math.max(0, gap);
+
+      const battleW = cardW * BATTLE_WIDTH_RATIO;
+      const cardH = cardW * PREP_ASPECT;
+      const battleH = cardH * BATTLE_HEIGHT_RATIO;
+
+      layoutRoot.style.setProperty('--field-gap', `${gap.toFixed(1)}px`);
+      layoutRoot.style.setProperty('--card-w-prep', `${cardW.toFixed(1)}px`);
+      layoutRoot.style.setProperty('--card-h-prep', `${cardH.toFixed(1)}px`);
+      layoutRoot.style.setProperty('--card-w-battle', `${battleW.toFixed(1)}px`);
+      layoutRoot.style.setProperty('--card-h-battle', `${battleH.toFixed(1)}px`);
+    }
+
+    let layoutFrame = null;
+    function scheduleBattlefieldLayout() {
+      if (layoutFrame) cancelAnimationFrame(layoutFrame);
+      layoutFrame = requestAnimationFrame(() => {
+        layoutFrame = null;
+        updateBattlefieldLayout();
+      });
+    }
+
+    window.addEventListener('resize', scheduleBattlefieldLayout);
+    if (typeof ResizeObserver !== 'undefined') {
+      const layoutObserver = new ResizeObserver(scheduleBattlefieldLayout);
+      layoutObserver.observe(gameBoard);
+      layoutObserver.observe(chatSidebar);
+      document.querySelectorAll('.zone-effects, .zone-center').forEach(el => layoutObserver.observe(el));
+    }
+    scheduleBattlefieldLayout();
+
+    // ================================================================
+    //  JS-3：发言系统
+    // ================================================================
+    const chatSystemLog = document.getElementById('chat-system-log');
+    const chatPlayerLog = document.getElementById('chat-player-log');
+    const speakOverlay = document.getElementById('speak-dialog-overlay');
+    const speakInput = document.getElementById('speak-dialog-input');
+    const speakTitle = document.getElementById('speak-dialog-title');
+    let activeSpeakPlayer = null;
+
+    function getPlayerName(playerId) {
+      if (playerId === '0') return getSpectatorDisplayName();
+      const zone = document.querySelector(`.player-zone[data-player="${playerId}"]`);
+      const input = zone?.querySelector('.player-name-input');
+      const name = input?.value.trim();
+      return name || (playerId === '1' ? '玩家一' : '玩家二');
+    }
+
+    function addChatMessage(playerId, text) {
+      const trimmed = text.trim();
+      if (!trimmed) return;
+
+      const bubble = document.createElement('div');
+      bubble.className = `chat-bubble chat-bubble--player${playerId}`;
+      const speaker = document.createElement('span');
+      speaker.className = 'chat-speaker';
+      speaker.textContent = `${getPlayerName(playerId)}：`;
+      bubble.appendChild(speaker);
+      bubble.appendChild(document.createTextNode(trimmed));
+      chatPlayerLog.appendChild(bubble);
+      chatPlayerLog.scrollTop = chatPlayerLog.scrollHeight;
+    }
+
+    function addSystemChatMessage(text) {
+      if (!chatSystemLog) return;
+      try {
+        const bubble = document.createElement('div');
+        bubble.className = 'chat-bubble chat-bubble--system';
+        bubble.textContent = text;
+        chatSystemLog.appendChild(bubble);
+        chatSystemLog.scrollTop = chatSystemLog.scrollHeight;
+      } catch (e) {
+        console.error('[SysMsg] 添加系统消息失败:', e);
+      }
+    }
+
+    /* 系统消息：本地显示 + 同步给对方（单人模式仅本地） */
+    function broadcastSystemMsg(msg) {
+      console.log('[SysMsg]', msg);
+      addSystemChatMessage(msg);
+      if (!isSoloMode && peerConn && peerConn.open) {
+        sendToPeer({ type: 'sysmsg', text: msg });
+      }
+    }
+
+    function openSpeakDialog(playerId) {
+      activeSpeakPlayer = playerId;
+      speakTitle.textContent = `${getPlayerName(playerId)} 发言`;
+      speakInput.value = '';
+      speakOverlay.hidden = false;
+      speakInput.focus();
+    }
+
+    function closeSpeakDialog() {
+      speakOverlay.hidden = true;
+      activeSpeakPlayer = null;
+      speakInput.value = '';
+    }
+
+    function confirmSpeak() {
+      if (!activeSpeakPlayer) return;
+      const text = speakInput.value.trim();
+      if (!text) { closeSpeakDialog(); return; }
+      addChatMessage(activeSpeakPlayer, text);
+      // 联机同步发言
+      if (peerConn && peerConn.open) {
+        sendToPeer({
+          type: 'chat',
+          playerId: activeSpeakPlayer,
+          text,
+        });
+      }
+      closeSpeakDialog();
+    }
+
+    /* 统一发言按钮 */
+    document.getElementById('btn-speak-unified').addEventListener('click', () => {
+      const speaker = localPlayerId || '1';
+      openSpeakDialog(speaker);
+    });
+
+    /* 观众名称输入框变化 → 更新 getSpectatorName */
+    let spectatorCustomName = '';
+    const specNameInput = document.getElementById('spectator-name-input');
+    if (specNameInput) {
+      specNameInput.addEventListener('input', () => {
+        spectatorCustomName = specNameInput.value.trim();
+      });
+      specNameInput.addEventListener('change', () => {
+        const name = specNameInput.value.trim();
+        spectatorCustomName = name;
+        if (peerConn && peerConn.open && isSpectator) {
+          sendToPeer({ type: 'spec-name', name });
+        }
+      });
+    }
+
+    function getSpectatorDisplayName() {
+      if (spectatorCustomName) return spectatorCustomName;
+      return `观众${spectatorNameCounter || 1}`;
+    }
+
+    document.getElementById('speak-dialog-cancel').addEventListener('click', closeSpeakDialog);
+    document.getElementById('speak-dialog-confirm').addEventListener('click', confirmSpeak);
+
+    speakOverlay.addEventListener('click', (e) => {
+      if (e.target === speakOverlay) closeSpeakDialog();
+    });
+
+    speakInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        confirmSpeak();
+      }
+      if (e.key === 'Escape') closeSpeakDialog();
+    });
+
+    // ================================================================
+    //  JS-4：骰子系统
+    // ================================================================
+    const diceMinInput = document.getElementById('dice-min');
+    const diceMaxInput = document.getElementById('dice-max');
+
+    function rollDice() {
+      const min = parseInt(diceMinInput.value, 10);
+      const max = parseInt(diceMaxInput.value, 10);
+      if (Number.isNaN(min) || Number.isNaN(max)) return;
+      const low = Math.min(min, max);
+      const high = Math.max(min, max);
+      const result = Math.floor(Math.random() * (high - low + 1)) + low;
+      const rollerName = localPlayerId ? getPlayerName(localPlayerId) : '玩家';
+      const msg = `【系统】${rollerName}骰了随机数${result}（${low}~${high}）`;
+      broadcastSystemMsg(msg);
+    }
+
+    document.getElementById('btn-dice-roll').addEventListener('click', rollDice);
+
+    // ---- JS-4.1：伤害/恢复/倒计时/能量系统（统一瞄准） ----
+    const damageValueInput = document.getElementById('damage-value');
+    const btnDamage = document.getElementById('btn-damage');
+    const btnDamageMode = document.getElementById('btn-damage-mode');
+    const btnCountdown = document.getElementById('btn-countdown');
+    const btnEnergy = document.getElementById('btn-energy');
+    const btnKo = document.getElementById('btn-ko');
+    const damageLineSvg = document.getElementById('damage-line-svg');
+    const damageLine = document.getElementById('damage-line');
+    let isTargeting = false;
+    let targetingMode = 'damage'; // 'damage' | 'heal' | 'countdown' | 'energy'
+    let targetingOrigin = { x: 0, y: 0 };
+
+    const TARGETING_BTN_MAP = {
+      damage:    { btn: () => btnDamage,    activeText: '🎯 选择式神…(Esc取消)', idleText: '🎯 选择目标' },
+      heal:      { btn: () => btnDamage,    activeText: '💚 选择式神…(Esc取消)', idleText: '💚 选择目标' },
+      countdown: { btn: () => btnCountdown, activeText: '⏳ 选择式神…(Esc取消)', idleText: '⏳ 倒计时' },
+      energy:    { btn: () => btnEnergy,    activeText: '🏮 选择式神…(Esc取消)', idleText: '🏮 能量' },
+      ko:        { btn: () => btnKo,        activeText: '💀 选择式神…(Esc取消)', idleText: '💀 气绝' },
+    };
+
+    function getActiveTargetingBtn() {
+      return TARGETING_BTN_MAP[targetingMode].btn();
+    }
+
+    function getActiveTargetingValue() {
+      if (targetingMode === 'damage' || targetingMode === 'heal') {
+        const val = parseInt(damageValueInput.value, 10);
+        return (Number.isNaN(val) || val <= 0) ? 1 : val;
+      }
+      return 1; // countdown / energy 默认 1
+    }
+
+    function enterTargetingMode(mode) {
+      targetingMode = mode || 'damage';
+      isTargeting = true;
+      const btn = getActiveTargetingBtn();
+      btn.classList.add('active');
+      btn.textContent = TARGETING_BTN_MAP[targetingMode].activeText;
+      document.body.style.cursor = 'crosshair';
+      damageLineSvg.style.display = 'block';
+      const rect = btn.getBoundingClientRect();
+      targetingOrigin = { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
+    }
+
+    function exitTargetingMode() {
+      isTargeting = false;
+      const btn = getActiveTargetingBtn();
+      btn.classList.remove('active');
+      btn.textContent = TARGETING_BTN_MAP[targetingMode].idleText;
+      document.body.style.cursor = '';
+      damageLineSvg.style.display = 'none';
+    }
+
+    btnDamage.addEventListener('click', () => {
+      if (isTargeting) { exitTargetingMode(); return; }
+      enterTargetingMode(targetingMode === 'heal' ? 'heal' : 'damage');
+    });
+
+    /* 伤害/恢复 模式切换 */
+    btnDamageMode.addEventListener('click', () => {
+      const panel = btnDamageMode.closest('.damage-panel');
+      if (targetingMode === 'heal') {
+        targetingMode = 'damage';
+        btnDamageMode.textContent = '🔄 造成伤害';
+        btnDamageMode.classList.remove('is-heal');
+        if (panel) panel.classList.remove('is-heal');
+      } else {
+        targetingMode = 'heal';
+        btnDamageMode.textContent = '🔄 恢复生命';
+        btnDamageMode.classList.add('is-heal');
+        if (panel) panel.classList.add('is-heal');
+      }
+      // 如果正在瞄准中，更新瞄准按钮文字
+      if (isTargeting) {
+        btnDamage.textContent = TARGETING_BTN_MAP[targetingMode].activeText;
+      }
+    });
+
+    btnCountdown.addEventListener('click', () => {
+      if (isTargeting) { exitTargetingMode(); return; }
+      enterTargetingMode('countdown');
+    });
+
+    btnEnergy.addEventListener('click', () => {
+      if (isTargeting) { exitTargetingMode(); return; }
+      enterTargetingMode('energy');
+    });
+
+    btnKo.addEventListener('click', () => {
+      if (isTargeting) { exitTargetingMode(); return; }
+      enterTargetingMode('ko');
+    });
+
+    document.addEventListener('mousemove', (e) => {
+      if (!isTargeting) return;
+      damageLine.setAttribute('x1', targetingOrigin.x);
+      damageLine.setAttribute('y1', targetingOrigin.y);
+      damageLine.setAttribute('x2', e.clientX);
+      damageLine.setAttribute('y2', e.clientY);
+    });
+
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && isTargeting) {
+        exitTargetingMode();
+      }
+    });
+
+    document.addEventListener('click', (e) => {
+      if (!isTargeting) return;
+
+      // 倒计时 / 能量 / 气绝 模式：仅对卡牌槽生效（需有图片），支持开关
+      if (targetingMode === 'countdown' || targetingMode === 'energy' || targetingMode === 'ko') {
+        const slot = e.target.closest('.card-slot');
+        if (slot && slot.classList.contains('has-image')) {
+          if (targetingMode === 'ko') {
+            applyKoToCard(slot);
+          } else {
+            applyToggleBadge(slot, targetingMode);
+          }
+          exitTargetingMode();
+          e.preventDefault();
+          e.stopPropagation();
+          return;
+        }
+        exitTargetingMode();
+        return;
+      }
+
+      // 伤害 / 恢复 模式：需要检查生命值
+      const amount = getActiveTargetingValue();
+
+      const avatar = e.target.closest('.player-avatar');
+      if (avatar) {
+        const playerId = avatar.dataset.avatarPlayer;
+        const zone = document.querySelector(`.player-zone[data-player="${playerId}"]`);
+        const hpInput = zone?.querySelector('.player-hp-input');
+        const hpVal = hpInput?.value.trim();
+        if (hpVal && parseInt(hpVal, 10) > 0) {
+          if (targetingMode === 'heal') {
+            applyHealToPlayer(playerId, amount);
+          } else {
+            applyDamageToPlayer(playerId, amount);
+          }
+          exitTargetingMode();
+          e.preventDefault();
+          e.stopPropagation();
+          return;
+        }
+      }
+
+      const slot = e.target.closest('.card-slot');
+      if (slot) {
+        const hpInput = slot.querySelector('.card-hp');
+        const hpVal = hpInput?.value.trim();
+        if (hpVal && parseInt(hpVal, 10) > 0) {
+          if (targetingMode === 'heal') {
+            applyHealToCard(slot, amount);
+          } else {
+            applyDamageToCard(slot, amount);
+          }
+          exitTargetingMode();
+          e.preventDefault();
+          e.stopPropagation();
+          return;
+        }
+      }
+
+      exitTargetingMode();
+    }, true);
+
+    // ---- 倒计时 / 能量 开关逻辑 ----
+    function applyToggleBadge(slot, mode) {
+      // 无图片的卡牌不生效
+      if (!slot.classList.contains('has-image')) return;
+      const hasCountdown = slot.querySelector('.card-badge--countdown');
+      const hasEnergy = slot.querySelector('.card-badge--energy');
+
+      if (mode === 'countdown') {
+        if (hasCountdown) {
+          // 已有倒计时 → 移除（关闭）
+          removeCountdownBadge(slot);
+        } else {
+          // 移除对方徽章（如有），添加倒计时
+          removeEnergyBadge(slot);
+          slot.appendChild(createCountdownBadge('1'));
+        }
+      } else { // energy
+        if (hasEnergy) {
+          // 已有能量 → 移除（关闭）
+          removeEnergyBadge(slot);
+        } else {
+          // 移除对方徽章（如有），添加能量
+          removeCountdownBadge(slot);
+          slot.appendChild(createEnergyBadge('1'));
+        }
+      }
+      syncSlotToPeer(slot);
+      const cardName = slot.querySelector('.card-name').value || '未命名卡牌';
+      const userName = localPlayerId ? getPlayerName(localPlayerId) : '玩家';
+      const label = mode === 'countdown' ? '倒计时' : '能量';
+      broadcastSystemMsg(`【系统】${userName}为「${cardName}」设置了${label}`);
+    }
+
+    // ---- 气绝遮罩逻辑 ----
+    function createKoOverlay(slot, value) {
+      const art = slot.querySelector('.card-art');
+      if (!art || art.querySelector('.ko-overlay')) return;
+      const overlay = document.createElement('div');
+      overlay.className = 'ko-overlay';
+      overlay.innerHTML = '<div class="ko-circle"><span class="ko-icon">⏳</span><input type="text" value="' + (value || '1') + '" aria-label="气绝"></div>';
+      overlay.querySelector('input').addEventListener('change', () => {
+        syncSlotToPeer(slot);
+      });
+      art.appendChild(overlay);
+    }
+
+    function removeKoOverlay(slot) {
+      const overlay = slot.querySelector('.ko-overlay');
+      if (overlay) overlay.remove();
+    }
+
+    function updateKoOverlay(slot, value) {
+      if (value) {
+        const existing = slot.querySelector('.ko-overlay');
+        if (existing) {
+          const input = existing.querySelector('input');
+          if (input) input.value = value;
+        } else {
+          createKoOverlay(slot, value);
+        }
+      } else {
+        removeKoOverlay(slot);
+      }
+    }
+
+    function applyKoToCard(slot) {
+      const hadKo = !!slot.querySelector('.ko-overlay');
+      if (hadKo) {
+        removeKoOverlay(slot);
+      } else {
+        createKoOverlay(slot, '3');
+      }
+      syncSlotToPeer(slot);
+      const cardName = slot.querySelector('.card-name').value || '未命名卡牌';
+      const userName = localPlayerId ? getPlayerName(localPlayerId) : '玩家';
+      const verb = hadKo ? '复活了' : '使';
+      const suffix = hadKo ? '。' : '进入了气绝。';
+      broadcastSystemMsg(`【系统】${userName}${verb}「${cardName}」${suffix}`);
+    }
+
+    function applyDamageToPlayer(playerId, dmg) {
+      const zone = document.querySelector(`.player-zone[data-player="${playerId}"]`);
+      if (!zone) return;
+      const hpInput = zone.querySelector('.player-hp-input');
+      const currentHp = parseInt(hpInput.value, 10) || 0;
+      const newHp = Math.max(0, currentHp - dmg);
+      hpInput.value = newHp || '';
+      syncPlayerInfo(playerId);
+      const dealerName = localPlayerId ? getPlayerName(localPlayerId) : '玩家';
+      broadcastSystemMsg(`【系统】${dealerName}对${getPlayerName(playerId)}造成了${dmg}点伤害`);
+      // 对方玩家：发送 player-damage 消息
+      if (!isMyZone(playerId) && peerConn && peerConn.open) {
+        sendToPeer({ type: 'player-damage', playerId, dmg });
+      }
+    }
+
+    function applyHealToPlayer(playerId, amount) {
+      const zone = document.querySelector(`.player-zone[data-player="${playerId}"]`);
+      if (!zone) return;
+      const hpInput = zone.querySelector('.player-hp-input');
+      const currentHp = parseInt(hpInput.value, 10) || 0;
+      const newHp = currentHp + amount;
+      hpInput.value = newHp || '';
+      syncPlayerInfo(playerId);
+      const healerName = localPlayerId ? getPlayerName(localPlayerId) : '玩家';
+      broadcastSystemMsg(`【系统】${healerName}为${getPlayerName(playerId)}恢复了${amount}点生命`);
+      // 对方玩家：发送 player-heal 消息
+      if (!isMyZone(playerId) && peerConn && peerConn.open) {
+        sendToPeer({ type: 'player-heal', playerId, amount });
+      }
+    }
+
+    function applyDamageToCard(slot, dmg) {
+      const hpInput = slot.querySelector('.card-hp');
+      const currentHp = parseInt(hpInput.value, 10) || 0;
+      const newHp = Math.max(0, currentHp - dmg);
+      hpInput.value = newHp || '';
+      const cardName = slot.querySelector('.card-name').value || '未命名卡牌';
+      const dealerName = localPlayerId ? getPlayerName(localPlayerId) : '玩家';
+      broadcastSystemMsg(`【系统】${dealerName}对「${cardName}」造成了${dmg}点伤害`);
+      if (isMyElement(slot)) {
+        syncSlotToPeer(slot);
+      } else {
+        const playerId = slot.dataset.slotPlayer;
+        const slotIndex = parseInt(slot.dataset.slotIndex, 10);
+        sendToPeer({ type: 'card-damage', playerId, slotIndex, dmg });
+      }
+    }
+
+    function applyHealToCard(slot, amount) {
+      const hpInput = slot.querySelector('.card-hp');
+      const currentHp = parseInt(hpInput.value, 10) || 0;
+      const newHp = currentHp + amount;
+      hpInput.value = newHp || '';
+      const cardName = slot.querySelector('.card-name').value || '未命名卡牌';
+      const healerName = localPlayerId ? getPlayerName(localPlayerId) : '玩家';
+      broadcastSystemMsg(`【系统】${healerName}为「${cardName}」恢复了${amount}点生命`);
+      if (isMyElement(slot)) {
+        syncSlotToPeer(slot);
+      } else {
+        const playerId = slot.dataset.slotPlayer;
+        const slotIndex = parseInt(slot.dataset.slotIndex, 10);
+        sendToPeer({ type: 'card-heal', playerId, slotIndex, amount });
+      }
+    }
+
+    // ================================================================
+    //  JS-5：牌库/手牌系统
+    // ================================================================
+    let cardIdCounter = 0;
+    const playerCards = {
+      '1': { deck: [], hand: [] },
+      '2': { deck: [], hand: [] },
+    };
+
+    const cardTextOverlay = document.getElementById('card-text-dialog-overlay');
+    const cardTextTitle = document.getElementById('card-text-dialog-title');
+    const cardTextInput = document.getElementById('card-text-dialog-input');
+    const cardListOverlay = document.getElementById('card-list-dialog-overlay');
+    const cardListTitle = document.getElementById('card-list-dialog-title');
+    const cardListBody = document.getElementById('card-list-dialog-body');
+
+    let cardTextContext = null;
+    let cardListContext = null;
+
+    function getPlayerZone(playerId) {
+      return document.querySelector(`.player-zone[data-player="${playerId}"]`);
+    }
+
+    function getPlayerCardState(playerId) {
+      return playerCards[playerId];
+    }
+
+    function createCard(name) {
+      return { id: ++cardIdCounter, name: name.trim() };
+    }
+
+    function shuffleCards(cards) {
+      for (let i = cards.length - 1; i > 0; i -= 1) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [cards[i], cards[j]] = [cards[j], cards[i]];
+      }
+      return cards;
+    }
+
+    function parseCardLines(text) {
+      return text.split(/\r?\n/).map(line => line.trim()).filter(Boolean);
+    }
+
+    function updateDeckButtons(playerId) {
+      const zone = getPlayerZone(playerId);
+      if (!zone) return;
+      const { deck, hand } = getPlayerCardState(playerId);
+      const drawBtn = zone.querySelector('.btn-deck[data-action="draw"]');
+      const handBtn = zone.querySelector('.btn-deck[data-action="hand"]');
+      const deckBtn = zone.querySelector('.btn-deck[data-action="deck"]');
+      const shuffleBtn = zone.querySelector('.btn-deck[data-action="shuffle-deck"]');
+      if (drawBtn) {
+        drawBtn.disabled = deck.length === 0;
+      }
+      if (shuffleBtn) {
+        shuffleBtn.disabled = deck.length === 0;
+      }
+      if (handBtn) {
+        handBtn.textContent = hand.length ? `手牌（${hand.length}）` : '手牌';
+      }
+      if (deckBtn) {
+        deckBtn.textContent = deck.length ? `牌库（${deck.length}）` : '牌库';
+      }
+    }
+
+    function updateAllDeckButtons() {
+      updateDeckButtons('1');
+      updateDeckButtons('2');
+    }
+
+    function openCardTextDialog({ title, placeholder, multiline, onConfirm }) {
+      cardTextContext = { onConfirm };
+      cardTextTitle.textContent = title;
+      cardTextInput.value = '';
+      cardTextInput.placeholder = placeholder;
+      cardTextInput.rows = multiline ? 6 : 2;
+      cardTextOverlay.hidden = false;
+      cardTextInput.focus();
+    }
+
+    function closeCardTextDialog() {
+      cardTextOverlay.hidden = true;
+      cardTextContext = null;
+      cardTextInput.value = '';
+    }
+
+    function confirmCardTextDialog() {
+      if (!cardTextContext) return;
+      const value = cardTextInput.value;
+      cardTextContext.onConfirm(value);
+      closeCardTextDialog();
+    }
+
+    function renderHandList(playerId) {
+      const { hand } = getPlayerCardState(playerId);
+      cardListBody.innerHTML = '';
+      if (!hand.length) {
+        const empty = document.createElement('div');
+        empty.className = 'card-list-empty';
+        empty.textContent = '手牌为空';
+        cardListBody.appendChild(empty);
+        return;
+      }
+      hand.forEach((card) => {
+        const item = document.createElement('div');
+        item.className = 'card-list-item';
+        const name = document.createElement('span');
+        name.className = 'card-list-item__name';
+        name.textContent = card.name;
+        const actions = document.createElement('div');
+        actions.className = 'card-list-item__actions';
+        const useBtn = document.createElement('button');
+        useBtn.type = 'button';
+        useBtn.className = 'btn-card-action btn-card-use';
+        useBtn.textContent = '使用';
+        useBtn.addEventListener('click', () => removeFromHand(playerId, card.id, 'use'));
+        const discardBtn = document.createElement('button');
+        discardBtn.type = 'button';
+        discardBtn.className = 'btn-card-action btn-card-discard';
+        discardBtn.textContent = '弃置';
+        discardBtn.addEventListener('click', () => removeFromHand(playerId, card.id, 'discard'));
+        actions.appendChild(useBtn);
+        actions.appendChild(discardBtn);
+        item.appendChild(name);
+        item.appendChild(actions);
+        cardListBody.appendChild(item);
+      });
+    }
+
+    function renderDeckList(playerId) {
+      const { deck } = getPlayerCardState(playerId);
+      cardListBody.innerHTML = '';
+      if (!deck.length) {
+        const empty = document.createElement('div');
+        empty.className = 'card-list-empty';
+        empty.textContent = '牌库为空';
+        cardListBody.appendChild(empty);
+        return;
+      }
+      deck.forEach((card, index) => {
+        const item = document.createElement('div');
+        item.className = 'card-list-item';
+        const name = document.createElement('span');
+        name.className = 'card-list-item__name';
+        name.textContent = index === 0 ? `${card.name}（顶）` : card.name;
+        item.appendChild(name);
+        cardListBody.appendChild(item);
+      });
+    }
+
+    function openCardListDialog({ title, playerId, type }) {
+      cardListContext = { playerId, type };
+      cardListTitle.textContent = title;
+      if (type === 'hand') renderHandList(playerId);
+      else renderDeckList(playerId);
+      cardListOverlay.hidden = false;
+    }
+
+    function closeCardListDialog() {
+      cardListOverlay.hidden = true;
+      cardListContext = null;
+      cardListBody.innerHTML = '';
+    }
+
+    function refreshOpenListDialog(playerId) {
+      if (!cardListContext || cardListContext.playerId !== playerId) return;
+      if (cardListContext.type === 'hand') renderHandList(playerId);
+      else renderDeckList(playerId);
+    }
+
+    function drawCard(playerId) {
+      const state = getPlayerCardState(playerId);
+      if (!state.deck.length) {
+        broadcastSystemMsg(`【系统】${getPlayerName(playerId)}试图抽牌，但牌库已空`);
+        return;
+      }
+      const card = state.deck.shift();
+      state.hand.push(card);
+      updateDeckButtons(playerId);
+      refreshOpenListDialog(playerId);
+      syncDeckState(playerId);
+      broadcastSystemMsg(`【系统】${getPlayerName(playerId)}抽了一张牌`);
+    }
+
+    function removeFromHand(playerId, cardId, action) {
+      const state = getPlayerCardState(playerId);
+      const index = state.hand.findIndex(card => card.id === cardId);
+      if (index === -1) return;
+      const card = state.hand[index];
+      state.hand.splice(index, 1);
+      updateDeckButtons(playerId);
+      refreshOpenListDialog(playerId);
+      syncDeckState(playerId);
+      const verb = action === 'use' ? '使用了' : '弃置了';
+      broadcastSystemMsg(`【系统】${getPlayerName(playerId)}${verb}「${card.name}」`);
+    }
+
+    function insertCardAtRandomPosition(deck, card) {
+      const index = Math.floor(Math.random() * (deck.length + 1));
+      deck.splice(index, 0, card);
+    }
+
+    function shuffleDeck(playerId) {
+      const state = getPlayerCardState(playerId);
+      if (!state.deck.length) {
+        broadcastSystemMsg(`【系统】${getPlayerName(playerId)}试图洗牌，但牌库为空`);
+        return;
+      }
+      shuffleCards(state.deck);
+      updateDeckButtons(playerId);
+      refreshOpenListDialog(playerId);
+      syncDeckState(playerId);
+      broadcastSystemMsg(`【系统】${getPlayerName(playerId)}洗了牌库`);
+    }
+
+    function importDeck(playerId, text) {
+      const names = parseCardLines(text);
+      if (!names.length) return;
+      const cards = shuffleCards(names.map(name => createCard(name)));
+      getPlayerCardState(playerId).deck.push(...cards);
+      updateDeckButtons(playerId);
+      refreshOpenListDialog(playerId);
+      syncDeckState(playerId);
+      broadcastSystemMsg(`【系统】${getPlayerName(playerId)}导入了卡组（${cards.length}张）`);
+    }
+
+    function addToHand(playerId, text) {
+      const name = text.trim();
+      if (!name) return;
+      getPlayerCardState(playerId).hand.push(createCard(name));
+      updateDeckButtons(playerId);
+      refreshOpenListDialog(playerId);
+      syncDeckState(playerId);
+      broadcastSystemMsg(`【系统】${getPlayerName(playerId)}将「${name}」置入了手牌`);
+    }
+
+    function addToDeck(playerId, text) {
+      const name = text.trim();
+      if (!name) return;
+      const deck = getPlayerCardState(playerId).deck;
+      insertCardAtRandomPosition(deck, createCard(name));
+      updateDeckButtons(playerId);
+      refreshOpenListDialog(playerId);
+      syncDeckState(playerId);
+      broadcastSystemMsg(`【系统】${getPlayerName(playerId)}将「${name}」置入了牌库`);
+    }
+
+    function handleDeckAction(playerId, action) {
+      if (!isMyZone(playerId)) return; // 权限检查
+      const playerName = getPlayerName(playerId);
+      switch (action) {
+        case 'draw':
+          drawCard(playerId);
+          break;
+        case 'hand':
+          openCardListDialog({ title: `${playerName} 的手牌`, playerId, type: 'hand' });
+          break;
+        case 'add-hand':
+          openCardTextDialog({
+            title: `${playerName} 置入手牌`,
+            placeholder: '输入卡牌名称…',
+            multiline: false,
+            onConfirm: (text) => addToHand(playerId, text),
+          });
+          break;
+        case 'import-deck':
+          openCardTextDialog({
+            title: `${playerName} 导入卡组`,
+            placeholder: '每行一张牌，例如：\nXXX\nAAA\nCCC\nSSS',
+            multiline: true,
+            onConfirm: (text) => importDeck(playerId, text),
+          });
+          break;
+        case 'deck':
+          openCardListDialog({ title: `${playerName} 的牌库`, playerId, type: 'deck' });
+          break;
+        case 'add-deck':
+          openCardTextDialog({
+            title: `${playerName} 置入牌库`,
+            placeholder: '输入卡牌名称…',
+            multiline: false,
+            onConfirm: (text) => addToDeck(playerId, text),
+          });
+          break;
+        case 'shuffle-deck':
+          shuffleDeck(playerId);
+          break;
+        default:
+          break;
+      }
+    }
+
+    document.querySelectorAll('.player-zone').forEach(zone => {
+      const playerId = zone.dataset.player;
+      zone.querySelectorAll('.btn-deck').forEach(btn => {
+        btn.addEventListener('click', () => handleDeckAction(playerId, btn.dataset.action));
+      });
+    });
+
+    document.getElementById('card-text-dialog-cancel').addEventListener('click', closeCardTextDialog);
+    document.getElementById('card-text-dialog-confirm').addEventListener('click', confirmCardTextDialog);
+    document.getElementById('card-list-dialog-close').addEventListener('click', closeCardListDialog);
+
+    cardTextOverlay.addEventListener('click', (e) => {
+      if (e.target === cardTextOverlay) closeCardTextDialog();
+    });
+
+    cardListOverlay.addEventListener('click', (e) => {
+      if (e.target === cardListOverlay) closeCardListDialog();
+    });
+
+    cardTextInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' && !e.shiftKey && cardTextInput.rows <= 2) {
+        e.preventDefault();
+        confirmCardTextDialog();
+      }
+      if (e.key === 'Escape') closeCardTextDialog();
+    });
+
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && !cardListOverlay.hidden) closeCardListDialog();
+    });
+
+    updateAllDeckButtons();
