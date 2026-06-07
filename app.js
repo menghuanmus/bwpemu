@@ -1,7 +1,7 @@
 ﻿    // ================================================================
     //  全局常量
     // ================================================================
-    const APP_VERSION = 'v0.21';
+    const APP_VERSION = 'v0.22';
     const APP_TITLE = '百闻牌模拟器';
     document.title = `${APP_TITLE} ${APP_VERSION}`;
     const roomTitleEl = document.getElementById('room-title');
@@ -86,6 +86,7 @@
       function addCustom(card) {
         if (!card || !card.name || !card.type) return false;
         card._custom = true;
+        if (card.reviewed === undefined) card.reviewed = false;
         _cards.set(card.name, card);
         _saveCustom();
         return true;
@@ -264,6 +265,8 @@
         // 属性区
         const statsEl = el.querySelector('.card-tooltip__stats');
         let statsHTML = '';
+        // 所属式神（非式神卡牌）
+        if (card.owner) statsHTML += `<span class="stat stat--owner">👤 ${card.owner}</span>`;
         switch (card.type) {
           case 'shikigami':
           case 'summon':
@@ -2786,20 +2789,143 @@
       }
     });
 
-    function _handleUploadCards() {
-      openCardTextDialog({
-        title: '📤 上传卡牌数据',
-        placeholder: '粘贴 JSON 数组，如：\n[{"name":"xxx","type":"spell",...}]',
-        multiline: true,
-        onConfirm: (text) => {
-          try {
-            const count = CardDB.importCustom(text);
-            broadcastSystemMsg('【系统】成功导入 ' + count + ' 张自定义卡牌');
-          } catch (e) {
-            broadcastSystemMsg('【系统】导入失败：' + e.message);
-          }
-        },
+    // 上传卡牌可视化窗口
+    const uploadCardOverlay = document.getElementById('upload-card-overlay');
+    const uploadCardFields = document.getElementById('upload-card-fields');
+    let uploadCardSelectedType = 'shikigami';
+
+    // 类型按钮切换
+    document.querySelectorAll('.upload-type-btn').forEach(btn => {
+      btn.addEventListener('click', function() {
+        document.querySelectorAll('.upload-type-btn').forEach(b => b.classList.remove('active'));
+        this.classList.add('active');
+        uploadCardSelectedType = this.dataset.type;
+        _renderUploadFields();
       });
+    });
+
+    const UPLOAD_FIELD_DEFS = {
+      shikigami: [
+        { id: 'name', label: '名称', placeholder: '例：桃花妖', required: true },
+        { id: 'faction', label: '派系', placeholder: '红莲 / 紫岩 / 青岚 / 苍叶 / 无相' },
+        { id: 'attack', label: '攻击', placeholder: '例：2', type: 'number' },
+        { id: 'hp', label: '生命', placeholder: '例：5', type: 'number' },
+        { id: 'ability', label: '基础能力', placeholder: '例：进场时抽1张牌', textarea: true },
+        { id: 'derivative', label: '衍生物', type: 'checkbox' },
+      ],
+      summon: [
+        { id: 'name', label: '名称', placeholder: '例：召唤·桃花', required: true },
+        { id: 'owner', label: '所属式神', placeholder: '例：桃花妖' },
+        { id: 'faction', label: '派系', placeholder: '红莲 / 紫岩 / 青岚 / 苍叶 / 无相' },
+        { id: 'attack', label: '攻击', placeholder: '例：1', type: 'number' },
+        { id: 'hp', label: '生命', placeholder: '例：2', type: 'number' },
+        { id: 'ability', label: '能力', placeholder: '例：回合结束时消失', textarea: true },
+        { id: 'derivative', label: '衍生物（通常为是）', type: 'checkbox', default: true },
+      ],
+      spell: [
+        { id: 'name', label: '名称', placeholder: '例：凤火', required: true },
+        { id: 'owner', label: '所属式神', placeholder: '例：凤凰火' },
+        { id: 'level', label: '等级', placeholder: '1-3', type: 'number', default: '1' },
+        { id: 'awakened', label: '觉醒牌', type: 'checkbox' },
+        { id: 'atkBonus', label: '增加攻击', placeholder: '非觉醒牌填0', type: 'number', default: '0' },
+        { id: 'hpBonus', label: '增加生命', placeholder: '非觉醒牌填0', type: 'number', default: '0' },
+        { id: 'effect', label: '卡牌效果', placeholder: '例：对一名敌方式神造成3点伤害', textarea: true },
+        { id: 'derivative', label: '衍生物', type: 'checkbox' },
+      ],
+      battle: [
+        { id: 'name', label: '名称', placeholder: '例：尘刀', required: true },
+        { id: 'owner', label: '所属式神', placeholder: '例：兵俑' },
+        { id: 'level', label: '等级', placeholder: '1-3', type: 'number', default: '1' },
+        { id: 'awakened', label: '觉醒牌', type: 'checkbox' },
+        { id: 'atkBonus', label: '增加攻击', placeholder: '例：2', type: 'number', default: '0' },
+        { id: 'atkPenalty', label: '减少攻击', placeholder: '例：0', type: 'number', default: '0' },
+        { id: 'shieldBonus', label: '增加护盾', placeholder: '例：0', type: 'number', default: '0' },
+        { id: 'shieldPenalty', label: '减少护盾', placeholder: '例：0', type: 'number', default: '0' },
+        { id: 'effect', label: '卡牌效果', placeholder: '例：本次战斗中+2攻击', textarea: true },
+        { id: 'derivative', label: '衍生物', type: 'checkbox' },
+      ],
+      form: [
+        { id: 'name', label: '名称', placeholder: '例：桃花仙', required: true },
+        { id: 'owner', label: '所属式神', placeholder: '例：桃花妖' },
+        { id: 'level', label: '等级', placeholder: '1-3', type: 'number', default: '1' },
+        { id: 'awakened', label: '觉醒牌', type: 'checkbox' },
+        { id: 'attack', label: '攻击', placeholder: '例：3', type: 'number' },
+        { id: 'hp', label: '生命', placeholder: '例：6', type: 'number' },
+        { id: 'effect', label: '卡牌效果', placeholder: '例：进场时恢复生命', textarea: true },
+        { id: 'derivative', label: '衍生物', type: 'checkbox' },
+      ],
+      realm: [
+        { id: 'name', label: '名称', placeholder: '例：蓬莱之境', required: true },
+        { id: 'owner', label: '所属式神', placeholder: '例：（选填）' },
+        { id: 'level', label: '等级', placeholder: '1-3', type: 'number', default: '1' },
+        { id: 'awakened', label: '觉醒牌', type: 'checkbox' },
+        { id: 'durability', label: '耐久', placeholder: '例：4', type: 'number' },
+        { id: 'effect', label: '卡牌效果', placeholder: '例：回合开始时抽1张牌', textarea: true },
+        { id: 'derivative', label: '衍生物', type: 'checkbox' },
+      ],
+      curse: [
+        { id: 'name', label: '名称', placeholder: '例：友切', required: true },
+        { id: 'owner', label: '所属式神', placeholder: '例：鬼切' },
+        { id: 'effect', label: '灵咒效果', placeholder: '例：结附式神获得+1攻击', textarea: true },
+      ],
+    };
+
+    function _renderUploadFields() {
+      const type = uploadCardSelectedType;
+      const defs = UPLOAD_FIELD_DEFS[type] || [];
+      uploadCardFields.innerHTML = defs.map(f => {
+        if (f.type === 'checkbox') {
+          const checked = f.default ? ' checked' : '';
+          return `<label class="upload-field upload-field--check"><input type="checkbox" id="uf-${f.id}"${checked}> ${f.label}</label>`;
+        }
+        if (f.textarea) {
+          return `<label class="upload-field">${f.label}：<textarea id="uf-${f.id}" placeholder="${f.placeholder || ''}" rows="2"></textarea></label>`;
+        }
+        const inputType = f.type === 'number' ? 'number' : 'text';
+        const val = f.default ? ` value="${f.default}"` : '';
+        return `<label class="upload-field">${f.label}：<input type="${inputType}" id="uf-${f.id}" placeholder="${f.placeholder || ''}"${val}></label>`;
+      }).join('');
+    }
+
+    document.getElementById('upload-card-cancel').addEventListener('click', () => {
+      uploadCardOverlay.hidden = true;
+    });
+
+    document.getElementById('upload-card-confirm').addEventListener('click', () => {
+      const type = uploadCardSelectedType;
+      const defs = UPLOAD_FIELD_DEFS[type] || [];
+      const card = { type, _custom: true };
+      let hasRequired = true;
+      defs.forEach(f => {
+        const el = document.getElementById('uf-' + f.id);
+        if (!el) return;
+        let val;
+        if (f.type === 'checkbox') {
+          val = el.checked;
+        } else {
+          val = el.value.trim();
+        }
+        if (f.required && !val) { hasRequired = false; }
+        if (f.type === 'number' && val !== '') {
+          val = parseInt(val, 10) || 0;
+        }
+        card[f.id] = val;
+      });
+      if (!hasRequired || !card.name) {
+        alert('请至少填写卡牌名称');
+        return;
+      }
+      if (CardDB.addCustom(card)) {
+        broadcastSystemMsg('【系统】成功上传卡牌：「' + card.name + '」');
+        uploadCardOverlay.hidden = true;
+      } else {
+        alert('上传失败，请检查数据');
+      }
+    });
+
+    function _handleUploadCards() {
+      _renderUploadFields();
+      uploadCardOverlay.hidden = false;
     }
 
     function _handleSaveGame() {

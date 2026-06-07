@@ -177,7 +177,7 @@
         <div class="dropdown-other" id="dropdown-other">
           <button type="button" class="btn-dropdown-toggle" id="btn-dropdown-toggle">📋 其他 ▾</button>
           <div class="dropdown-other__menu" id="dropdown-other-menu" hidden>
-            <button type="button" class="dropdown-other__item" data-action="upload-cards">📤 上传卡牌</button>
+            <button type="button" class="dropdown-other__item" data-action="upload-cards" hidden>📤 上传卡牌</button>
             <button type="button" class="dropdown-other__item" data-action="save-game">💾 保存对局</button>
             <button type="button" class="dropdown-other__item" data-action="load-game">📥 导入对局</button>
           </div>
@@ -304,6 +304,27 @@
   <svg id="damage-line-svg"><line id="damage-line" stroke="#f66" stroke-width="2" stroke-dasharray="6,4" opacity="0.8"/></svg>
   <input type="file" id="image-input" accept="image/*">
   <input type="file" id="avatar-input" accept="image/*">
+
+  <!-- 上传卡牌窗口 -->
+  <div class="speak-dialog-overlay" id="upload-card-overlay" hidden>
+    <div class="speak-dialog upload-card-dialog" role="dialog">
+      <h3 id="upload-card-title">📤 上传卡牌</h3>
+      <div class="upload-card__type" id="upload-card-type-btns">
+        <button type="button" class="upload-type-btn active" data-type="shikigami">式神</button>
+        <button type="button" class="upload-type-btn" data-type="summon">召唤物</button>
+        <button type="button" class="upload-type-btn" data-type="spell">法术牌</button>
+        <button type="button" class="upload-type-btn" data-type="battle">战斗牌</button>
+        <button type="button" class="upload-type-btn" data-type="form">形态牌</button>
+        <button type="button" class="upload-type-btn" data-type="realm">幻境牌</button>
+        <button type="button" class="upload-type-btn" data-type="curse">灵咒</button>
+      </div>
+      <div class="upload-card__fields" id="upload-card-fields"></div>
+      <div class="speak-dialog-actions">
+        <button type="button" class="btn-dialog-cancel" id="upload-card-cancel">取消</button>
+        <button type="button" class="btn-dialog-confirm" id="upload-card-confirm">上传</button>
+      </div>
+    </div>
+  </div>
 
   <!-- 卡牌信息浮窗 -->
   <div id="card-tooltip" class="card-tooltip" hidden>

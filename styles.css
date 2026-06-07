@@ -1352,6 +1352,7 @@
       white-space: nowrap;
     }
     .dropdown-other__item:hover { background: rgba(180, 180, 220, 0.15); }
+    .dropdown-other__item[hidden] { display: none; }
 
     .chat-bubble {
       padding: 8px 10px;
@@ -1545,6 +1546,81 @@
       white-space: nowrap;
     }
     .btn-curse-toggle:hover { background: #3a4a5a; }
+
+    /* 上传卡牌窗口 */
+    .upload-card-dialog {
+      width: min(420px, 95%);
+      max-height: min(80vh, 560px);
+      display: flex;
+      flex-direction: column;
+    }
+    .upload-card__type {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 4px;
+      margin-bottom: 10px;
+    }
+    .upload-type-btn {
+      flex: 1;
+      min-width: 48px;
+      padding: 5px 4px;
+      border: 1px solid #5a6a8a;
+      border-radius: 4px;
+      background: #1a2838;
+      color: #a0b0c0;
+      font-size: 11px;
+      cursor: pointer;
+      text-align: center;
+      white-space: nowrap;
+      transition: all 0.15s;
+    }
+    .upload-type-btn:hover { background: #2a3a4a; color: #d0d8e0; }
+    .upload-type-btn.active {
+      background: #3a5a8a;
+      border-color: #7a9ac0;
+      color: #fff;
+      font-weight: 600;
+    }
+    .upload-card__fields {
+      flex: 1;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      margin-bottom: 10px;
+      max-height: min(50vh, 380px);
+    }
+    .upload-field {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 12px;
+      color: #b0b8c8;
+    }
+    .upload-field--check {
+      cursor: pointer;
+    }
+    .upload-field input[type="text"],
+    .upload-field input[type="number"],
+    .upload-field textarea {
+      flex: 1;
+      padding: 4px 8px;
+      background: #121a28;
+      border: 1px solid #4a5a7a;
+      border-radius: 4px;
+      color: #eee;
+      font-size: 12px;
+      outline: none;
+      font-family: inherit;
+    }
+    .upload-field input:focus,
+    .upload-field textarea:focus {
+      border-color: #7a9ac0;
+    }
+    .upload-field textarea {
+      resize: vertical;
+      min-height: 36px;
+    }
 
     .card-list-item {
       display: flex;
@@ -1980,6 +2056,7 @@
     .card-tooltip__stats .stat--durability { color: #d0a0f0; }
     .card-tooltip__stats .stat--faction { color: #c0b080; }
     .card-tooltip__stats .stat--penalty { color: #ff7060; }
+    .card-tooltip__stats .stat--owner { color: #e0c090; }
 
     .card-tooltip__effect {
       font-size: 12px;
