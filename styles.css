@@ -54,7 +54,7 @@
       border-top: 3px solid rgba(255, 215, 0, 0.4);
       border-bottom: 3px solid rgba(255, 215, 0, 0.4);
       background: rgba(22, 32, 52, 0.88);
-      z-index: 4;
+      z-index: 200; /* center bar */
       position: relative;
     }
 
@@ -293,7 +293,7 @@
     #damage-line-svg {
       position: fixed;
       inset: 0;
-      z-index: 9999;
+      z-index: 100; /* damage line */
       pointer-events: none;
       display: none;
     }
@@ -481,11 +481,11 @@
       outline: none;
     }
     .curse-target-panel input:focus { border-color: #f8a0d0; }
-    .curse-target-panel input::placeholder { color: rgba(200,140,180,0.4); font-size: 10px; }
+    .curse-target-panel input::placeholder { color: rgba(200,140,180,0.60); font-size: 10px; }
 
     .btn-curse-target {
       padding: 5px 10px;
-      font-size: 12px;
+      font-size: 13px;
       font-weight: 600;
       background: linear-gradient(180deg, #7a3a6a, #5a1a4a);
       border: 1px solid rgba(220, 140, 190, 0.55);
@@ -1059,7 +1059,7 @@
     .card-slot.dragging {
       opacity: 0.55;
       transform: scale(0.96);
-      z-index: 10;
+      z-index: 100; /* card badges */
     }
 
     .card-slot.drag-over {
@@ -1109,7 +1109,7 @@
       justify-content: center;
       background: rgba(22, 32, 52, 0.95);
       border: 2px solid rgba(200, 210, 230, 0.75);
-      z-index: 3;
+      z-index: 100; /* card badge */
       cursor: text;
       pointer-events: auto;
     }
@@ -1127,7 +1127,7 @@
     }
 
     .card-badge input::placeholder {
-      color: rgba(180, 190, 210, 0.45);
+      color: rgba(180, 190, 210, 0.70);
       font-weight: 500;
       font-size: 10px;
     }
@@ -1312,7 +1312,7 @@
     }
     .btn-dropdown-toggle {
       padding: 6px 10px;
-      font-size: 12px;
+      font-size: 13px;
       font-weight: 600;
       background: linear-gradient(180deg, #5a5a6a, #3a3a4a);
       border: 1px solid rgba(180, 180, 200, 0.5);
@@ -1332,7 +1332,7 @@
       border: 2px solid rgba(180, 180, 200, 0.5);
       border-radius: 8px;
       padding: 4px;
-      z-index: 100;
+      z-index: 200; /* dropdown */
       display: flex;
       flex-direction: column;
       gap: 2px;
@@ -1402,7 +1402,7 @@
       display: flex;
       align-items: center;
       justify-content: center;
-      z-index: 1000;
+      z-index: 300; /* room overlay */
       padding: 16px;
     }
 
@@ -1613,7 +1613,7 @@
       display: flex;
       align-items: center;
       justify-content: center;
-      z-index: 2000;
+      z-index: 400; /* dialog overlay */
       padding: 16px;
     }
 
@@ -1802,7 +1802,7 @@
       top: 0;
       left: 50%;
       transform: translateX(-50%);
-      z-index: 1500;
+      z-index: 400; /* dialog overlay */
       padding: 4px 14px;
       border-radius: 0 0 8px 8px;
       background: rgba(15, 22, 38, 0.92);
@@ -1893,7 +1893,7 @@
        ================================================================ */
     .card-tooltip {
       position: fixed;
-      z-index: 9999;
+      z-index: 500; /* tooltip */
       min-width: 220px;
       max-width: 320px;
       padding: 12px 14px;
@@ -2012,7 +2012,7 @@
       display: flex;
       flex-direction: column;
       gap: 2px;
-      z-index: 3;
+      z-index: 100; /* curse badges */
       pointer-events: auto;
     }
     .curse-badge {
@@ -2049,7 +2049,7 @@
       color: #ffc0e0;
       font-size: 11px;
       cursor: pointer;
-      z-index: 3;
+      z-index: 100; /* curse manage */
       display: flex; align-items: center; justify-content: center;
       padding: 0; line-height: 1;
     }
@@ -2058,7 +2058,7 @@
     #curse-panel-overlay {
       position: fixed; inset: 0;
       background: rgba(0,0,0,0.45);
-      z-index: 5000;
+      z-index: 400; /* curse panel */
       display: flex; align-items: center; justify-content: center;
     }
     #curse-panel-overlay[hidden] { display: none; }
