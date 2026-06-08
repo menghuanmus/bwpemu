@@ -1485,20 +1485,29 @@
     /* 牌库 / 手牌列表弹窗 */
     .card-list-dialog {
       width: min(460px, 100%);
-      max-height: min(70vh, 520px);
+      max-height: 85vh;
       display: flex;
       flex-direction: column;
+      overflow: hidden;
+      min-height: 0;
     }
 
     .card-list-dialog .card-list {
-      flex: 1;
-      min-height: 80px;
-      max-height: min(50vh, 380px);
+      flex: 1 1 auto;
+      min-height: 0;
       overflow-y: auto;
       display: flex;
       flex-direction: column;
       gap: 8px;
       margin-bottom: 12px;
+      padding-right: 4px;
+    }
+
+    .card-list-dialog h3,
+    .card-list-dialog .deck-summary-header,
+    .card-list-dialog .curse-random-bar,
+    .card-list-dialog .speak-dialog-actions {
+      flex-shrink: 0;
     }
 
     .curse-random-bar {
@@ -2258,4 +2267,297 @@
       padding-top: 6px;
       border-top: 1px solid rgba(255, 255, 255, 0.08);
       word-break: break-word;
+    }
+
+    /* ================================================================
+       占卜对话框 (Divine Dialog)
+       ================================================================ */
+    .divine-dialog {
+      min-width: 380px;
+      max-width: 520px;
+    }
+
+    .divine-dialog h3 {
+      color: #ffd700;
+    }
+
+    .divine-x-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 12px 0 4px;
+      flex-wrap: wrap;
+    }
+
+    .divine-x-row label {
+      font-size: 14px;
+      color: #c0c8d8;
+      white-space: nowrap;
+    }
+
+    .divine-x-row input[type="number"] {
+      width: 70px;
+      padding: 6px 10px;
+      border-radius: 6px;
+      border: 1px solid rgba(150, 180, 220, 0.5);
+      background: rgba(20, 30, 50, 0.85);
+      color: #e8e8e8;
+      font-size: 15px;
+      text-align: center;
+      font-family: inherit;
+    }
+
+    .divine-x-row input[type="number"]:focus {
+      outline: none;
+      border-color: rgba(255, 215, 0, 0.7);
+      box-shadow: 0 0 8px rgba(255, 215, 0, 0.2);
+    }
+
+    .divine-x-row input[type="number"]::-webkit-inner-spin-button {
+      opacity: 1;
+    }
+
+    .divine-main {
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+      padding: 8px 0 4px;
+      min-height: 120px;
+    }
+
+    .divine-section {
+      border: 1px solid rgba(150, 180, 220, 0.3);
+      border-radius: 8px;
+      overflow: hidden;
+      background: rgba(10, 18, 32, 0.55);
+    }
+
+    .divine-section--top {
+      border-color: rgba(80, 200, 120, 0.45);
+    }
+
+    .divine-section--bottom {
+      border-color: rgba(200, 140, 60, 0.45);
+    }
+
+    .divine-section__header {
+      padding: 7px 12px;
+      font-size: 12px;
+      font-weight: 600;
+      letter-spacing: 0.5px;
+      background: rgba(0, 0, 0, 0.25);
+    }
+
+    .divine-section--top .divine-section__header {
+      color: #6ad080;
+      border-bottom: 1px solid rgba(80, 200, 120, 0.25);
+    }
+
+    .divine-section--bottom .divine-section__header {
+      color: #e0a050;
+      border-bottom: 1px solid rgba(200, 140, 60, 0.25);
+    }
+
+    .divine-section__body {
+      padding: 6px;
+      min-height: 36px;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .divine-section__body:empty::after {
+      content: '（空）';
+      color: rgba(160, 180, 210, 0.4);
+      font-size: 12px;
+      text-align: center;
+      padding: 10px;
+      display: block;
+    }
+
+    .divine-card-item {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 8px;
+      border-radius: 6px;
+      background: rgba(30, 44, 66, 0.7);
+      border: 1px solid rgba(150, 180, 220, 0.2);
+      transition: background 0.15s;
+    }
+
+    .divine-card-item:hover {
+      background: rgba(40, 58, 86, 0.8);
+      border-color: rgba(180, 200, 230, 0.4);
+    }
+
+    .divine-card-item__handle {
+      flex-shrink: 0;
+      font-size: 12px;
+      color: rgba(160, 180, 210, 0.45);
+      letter-spacing: -2px;
+      line-height: 1;
+      cursor: grab;
+      user-select: none;
+      padding: 0 2px;
+    }
+
+    .divine-card-item__name {
+      flex: 1;
+      min-width: 0;
+      font-size: 13px;
+      font-weight: 500;
+      color: #e0d8c8;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .divine-card-item__curses {
+      display: flex;
+      gap: 3px;
+      flex-shrink: 0;
+      font-size: 10px;
+    }
+
+    .divine-card-item__curses .divine-curse-tag {
+      padding: 1px 5px;
+      border-radius: 3px;
+      background: rgba(180, 60, 100, 0.35);
+      color: #f0a0b8;
+      border: 1px solid rgba(200, 80, 120, 0.3);
+      white-space: nowrap;
+      font-size: 10px;
+    }
+
+    .divine-actions {
+      padding-top: 8px;
+      border-top: 1px solid rgba(150, 180, 220, 0.15);
+    }
+
+    /* 占卜按钮高亮 */
+    .btn-deck--divine {
+      background: linear-gradient(180deg, #6a4a8a, #3a2a5a) !important;
+      border-color: rgba(180, 140, 220, 0.6) !important;
+    }
+
+    .btn-deck--divine:hover {
+      background: linear-gradient(180deg, #7a5a9a, #4a3a6a) !important;
+      border-color: rgba(200, 160, 240, 0.8) !important;
+    }
+
+    /* 占卜拖拽排序 */
+    .divine-card-item {
+      cursor: grab;
+      user-select: none;
+    }
+
+    .divine-card-item:active {
+      cursor: grabbing;
+    }
+
+    .divine-card-item--dragging {
+      opacity: 0.4;
+      border-style: dashed !important;
+    }
+
+    .divine-card-item--drag-before {
+      border-top: 2px solid #ffd700 !important;
+      margin-top: -2px;
+    }
+
+    .divine-card-item--drag-after {
+      border-bottom: 2px solid #ffd700 !important;
+      margin-bottom: -2px;
+    }
+
+    .divine-card-item--drag-over {
+      background: rgba(255, 215, 0, 0.1) !important;
+      border-color: rgba(255, 215, 0, 0.5) !important;
+    }
+
+    .divine-section__body--drag-over {
+      background: rgba(255, 215, 0, 0.06) !important;
+      outline: 1px dashed rgba(255, 215, 0, 0.3);
+      outline-offset: -2px;
+    }
+
+    /* ================================================================
+       牌库分组视图 (Deck Grouped View)
+       ================================================================ */
+    .deck-summary-header {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      align-items: center;
+      padding: 6px 8px;
+      margin-bottom: 6px;
+      border-bottom: 1px solid rgba(150, 180, 220, 0.15);
+    }
+
+    .deck-summary__total {
+      font-size: 14px;
+      font-weight: 600;
+      color: #e0d8c8;
+    }
+
+    .deck-summary__curse-hint {
+      font-size: 11px;
+      color: #e0a050;
+      background: rgba(200, 140, 60, 0.15);
+      border: 1px solid rgba(200, 140, 60, 0.3);
+      border-radius: 4px;
+      padding: 2px 8px;
+    }
+
+    .deck-group {
+      margin-bottom: 8px;
+      border: 1px solid rgba(150, 180, 220, 0.12);
+      border-radius: 6px;
+      background: rgba(10, 18, 32, 0.3);
+    }
+
+    .deck-group__header {
+      padding: 6px 10px;
+      font-size: 12px;
+      font-weight: 600;
+      color: #8ab0d0;
+      background: rgba(20, 35, 55, 0.5);
+      border-bottom: 1px solid rgba(150, 180, 220, 0.1);
+      letter-spacing: 0.5px;
+    }
+
+    .deck-group__row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 5px 10px;
+      border-bottom: 1px solid rgba(150, 180, 220, 0.06);
+      transition: background 0.12s;
+    }
+
+    .deck-group__row:last-child {
+      border-bottom: none;
+    }
+
+    .deck-group__row:hover {
+      background: rgba(30, 48, 70, 0.4);
+    }
+
+    .deck-group__name {
+      flex: 1;
+      min-width: 0;
+      font-size: 13px;
+      color: #d0c8b8;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .deck-group__count {
+      font-size: 12px;
+      color: #8090a8;
+      flex-shrink: 0;
+      min-width: 28px;
+      text-align: right;
     }

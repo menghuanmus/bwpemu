@@ -1,8 +1,4 @@
 ﻿<!DOCTYPE html>
-<!-- ================================================================
-     百闻牌模拟器 v1.0 — by流光 — Q群：1078494503
-     改版本号只需改下面 JS 里的 APP_VERSION = 'vX.X' 即可
-     ================================================================ -->
 <html lang="zh-CN">
 <head>
   <meta charset="UTF-8">
@@ -114,6 +110,7 @@
                 <button type="button" class="btn-deck" data-action="deck">牌库</button>
                 <button type="button" class="btn-deck" data-action="add-deck">置入牌库</button>
                 <button type="button" class="btn-deck" data-action="shuffle-deck">洗牌库</button>
+                <button type="button" class="btn-deck btn-deck--divine" data-action="divine">🔮 占卜</button>
               </div>
             </div>
             <div class="area-label field-label">准备区</div>
@@ -229,6 +226,7 @@
                 <button type="button" class="btn-deck" data-action="deck">牌库</button>
                 <button type="button" class="btn-deck" data-action="add-deck">置入牌库</button>
                 <button type="button" class="btn-deck" data-action="shuffle-deck">洗牌库</button>
+                <button type="button" class="btn-deck btn-deck--divine" data-action="divine">🔮 占卜</button>
               </div>
             </div>
             <div class="area-label field-label">准备区</div>
@@ -289,6 +287,7 @@
   <div class="speak-dialog-overlay" id="card-list-dialog-overlay" hidden>
     <div class="speak-dialog card-list-dialog" role="dialog" aria-labelledby="card-list-dialog-title">
       <h3 id="card-list-dialog-title">列表</h3>
+      <div class="deck-summary-header" id="deck-summary-header" hidden></div>
       <div class="card-list" id="card-list-dialog-body"></div>
       <div class="curse-random-bar" id="curse-random-bar">
         <input type="text" id="curse-random-input" placeholder="灵咒名" maxlength="12">
@@ -297,6 +296,36 @@
       </div>
       <div class="speak-dialog-actions">
         <button type="button" class="btn-dialog-confirm" id="card-list-dialog-close">关闭</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 占卜对话框 -->
+  <div class="speak-dialog-overlay" id="divine-dialog-overlay" hidden>
+    <div class="speak-dialog divine-dialog" role="dialog" aria-labelledby="divine-dialog-title">
+      <h3 id="divine-dialog-title">🔮 占卜</h3>
+      <!-- X 输入区 -->
+      <div class="divine-x-row" id="divine-x-row">
+        <label>占卜数量：</label>
+        <input type="number" id="divine-x-input" min="1" max="99" value="3" placeholder="X">
+        <button type="button" class="btn-dialog-confirm" id="divine-x-confirm">确认</button>
+        <button type="button" class="btn-dialog-cancel" id="divine-x-cancel">取消</button>
+      </div>
+      <!-- 占卜操作区（初始隐藏） -->
+      <div class="divine-main" id="divine-main" hidden>
+        <div class="divine-section divine-section--top">
+          <div class="divine-section__header">📌 留在牌库顶（可拖拽排序）</div>
+          <div class="divine-section__body" id="divine-top-list"></div>
+        </div>
+        <div class="divine-section divine-section--bottom">
+          <div class="divine-section__header">📥 置于牌库底（可拖拽排序）</div>
+          <div class="divine-section__body" id="divine-bottom-list"></div>
+        </div>
+      </div>
+      <!-- 占卜操作按钮（初始隐藏） -->
+      <div class="speak-dialog-actions divine-actions" id="divine-actions" hidden>
+        <button type="button" class="btn-dialog-cancel" id="divine-cancel">取消</button>
+        <button type="button" class="btn-dialog-confirm" id="divine-confirm">🔮 确认占卜</button>
       </div>
     </div>
   </div>
