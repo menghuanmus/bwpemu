@@ -177,6 +177,7 @@
             <button type="button" class="dropdown-other__item" data-action="upload-cards" hidden>📤 上传卡牌</button>
             <button type="button" class="dropdown-other__item" data-action="save-game">💾 保存对局</button>
             <button type="button" class="dropdown-other__item" data-action="load-game">📥 导入对局</button>
+            <button type="button" class="dropdown-other__item" data-action="shikigami-book" hidden>📖 式神录</button>
           </div>
         </div>
         <button type="button" class="btn-speak-unified" id="btn-speak-unified">💬 发言</button>
@@ -296,6 +297,27 @@
       </div>
       <div class="speak-dialog-actions">
         <button type="button" class="btn-dialog-confirm" id="card-list-dialog-close">关闭</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 式神录对话框 -->
+  <div class="speak-dialog-overlay" id="shikigami-book-overlay" hidden>
+    <div class="speak-dialog shikigami-book-dialog" role="dialog" aria-labelledby="shikigami-book-title">
+      <div class="shikigami-book__header">
+        <h3 id="shikigami-book-title">📖 式神录</h3>
+        <button type="button" class="btn-dialog-confirm" id="shikigami-book-close">关闭</button>
+      </div>
+      <div class="shikigami-book__body">
+        <!-- 左侧：式神列表 -->
+        <div class="shikigami-book__left">
+          <input type="text" class="shikigami-book__search" id="shikigami-book-search" placeholder="搜索式神…" autocomplete="off">
+          <div class="shikigami-book__list" id="shikigami-book-list"></div>
+        </div>
+        <!-- 右侧：卡牌详情 -->
+        <div class="shikigami-book__right" id="shikigami-book-detail">
+          <div class="shikigami-book__placeholder">← 点击左侧式神查看详情</div>
+        </div>
       </div>
     </div>
   </div>
