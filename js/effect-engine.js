@@ -1884,10 +1884,6 @@
       // 计数器
       GameContext.incPlayerCounter(playerId, 'cards_played', 1);
       GameContext.incCounter('cards_played_this_turn', 1);
-      // 【动画钩子】触发卡牌视觉特效
-      if (typeof StormAnimation !== 'undefined' && StormAnimation.onStormCardPlayed) {
-        StormAnimation.onStormCardPlayed(cardName, playerId);
-      }
     }
 
     // 出击时调用的钩子

@@ -6,7 +6,7 @@
     // ================================================================
     //  全局常量
     // ================================================================
-    const APP_VERSION = 'v0.24';
+    const APP_VERSION = 'v0.25';
     const APP_TITLE = '百闻牌模拟器';
     document.title = `${APP_TITLE} ${APP_VERSION}`;
     const roomTitleEl = document.getElementById('room-title');
