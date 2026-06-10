@@ -1,0 +1,48 @@
+﻿/* ================================================================
+   css/reset.css — CSS 基础重置与整体布局
+   包含：全局盒模型、body 背景、游戏面板 flex 横向布局
+   ================================================================ */
+
+    /* ================================================================
+       CSS 基础重置
+       ================================================================ */
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: "Segoe UI", "Microsoft YaHei", sans-serif;
+      background: linear-gradient(160deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+      min-height: 100vh;
+      color: #e8e8e8;
+      overflow: hidden;
+    }
+
+    /* ================================================================
+       游戏面板整体布局（flex 横向：左侧战场 + 右侧聊天栏）
+       ================================================================ */
+    .game-board {
+      --center-gap: clamp(20px, 3.5vh, 48px);
+      --chat-width: clamp(200px, 22vw, 280px);
+      --field-gap: 32px;
+      --card-w-prep: 138px;
+      --card-h-prep: 193px;
+      --card-w-battle: 148px;
+      --card-h-battle: 207px;
+      display: flex;
+      flex-direction: row;
+      height: 100vh;
+      padding: 8px;
+      gap: 10px;
+    }
+
+    .board-main {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      min-width: 0;
+      min-height: 0;
+    }
+

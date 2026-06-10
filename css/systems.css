@@ -1,0 +1,1182 @@
+﻿/* ================================================================
+   css/systems.css — 功能系统样式
+   包含：卡牌信息浮窗、灵咒徽章/面板、占卜对话框、牌库分组视图、式神录
+   ================================================================ */
+
+    /* ================================================================
+       卡牌信息浮窗 (Card Tooltip)
+       ================================================================ */
+    .card-tooltip {
+      position: fixed;
+      z-index: 500; /* tooltip */
+      min-width: 220px;
+      max-width: 320px;
+      padding: 12px 14px;
+      border-radius: 10px;
+      background: linear-gradient(160deg, #1e2a3a 0%, #162030 100%);
+      border: 2px solid rgba(255, 215, 0, 0.5);
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(255, 215, 0, 0.15);
+      pointer-events: none;
+      font-size: 13px;
+      color: #e0d8c8;
+      line-height: 1.5;
+      transition: opacity 0.15s ease;
+    }
+    .card-tooltip[hidden] {
+      display: none;
+    }
+
+    .card-tooltip__header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 8px;
+      padding-bottom: 6px;
+      border-bottom: 1px solid rgba(255, 215, 0, 0.25);
+    }
+
+    .card-tooltip__badge {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 4px;
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      flex-shrink: 0;
+    }
+    .card-tooltip__badge--shikigami { background: #3a5a8a; color: #c0d8ff; }
+    .card-tooltip__badge--summon    { background: #4a7a5a; color: #c0ffd0; }
+    .card-tooltip__badge--spell     { background: #6a4a8a; color: #d8c0ff; }
+    .card-tooltip__badge--battle    { background: #8a3a3a; color: #ffc0c0; }
+    .card-tooltip__badge--form      { background: #3a6a4a; color: #c0ffc0; }
+    .card-tooltip__badge--realm     { background: #6a6a2a; color: #ffffc0; }
+    .card-tooltip__badge--curse     { background: #8a3a6a; color: #ffc0e0; }
+    .card-tooltip__badge--xiezhan   { background: #8a5a2a; color: #ffe0b0; }
+
+    .card-tooltip__name {
+      font-size: 15px;
+      font-weight: 700;
+      color: #ffd700;
+      flex: 1;
+      min-width: 0;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .card-tooltip__tag {
+      display: inline-block;
+      padding: 1px 6px;
+      border-radius: 3px;
+      font-size: 10px;
+      font-weight: 600;
+      flex-shrink: 0;
+    }
+    .card-tooltip__tag--awakened { background: #c04040; color: #ffd0d0; }
+    .card-tooltip__tag--derivative { background: #555; color: #ccc; }
+
+    .card-tooltip__stats {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 4px 12px;
+      margin-bottom: 6px;
+      font-size: 12px;
+      color: #c8c0b0;
+    }
+    .card-tooltip__stats .stat {
+      display: inline-flex;
+      align-items: center;
+      gap: 3px;
+      white-space: nowrap;
+    }
+    .card-tooltip__stats .stat--atk  { color: #ff9070; }
+    .card-tooltip__stats .stat--hp   { color: #70d070; }
+    .card-tooltip__stats .stat--shield { color: #70b0ff; }
+    .card-tooltip__stats .stat--durability { color: #d0a0f0; }
+    .card-tooltip__stats .stat--faction { color: #c0b080; }
+    .card-tooltip__stats .stat--penalty { color: #ff7060; }
+    .card-tooltip__stats .stat--owner { color: #e0c090; }
+
+    .card-tooltip__effect {
+      font-size: 12px;
+      color: #b0a890;
+      line-height: 1.55;
+      padding-top: 6px;
+      border-top: 1px solid rgba(255, 255, 255, 0.08);
+    }
+
+    /* 系统消息中可悬浮的卡牌名 */
+    .chat-card-name {
+      color: #ffd700;
+      font-weight: 600;
+      cursor: default;
+      border-bottom: 1px dotted rgba(255, 215, 0, 0.35);
+      transition: color 0.15s;
+    }
+    .chat-card-name:hover {
+      color: #ffe860;
+    }
+
+    /* ================================================================
+       灵咒系统 — 徽章（卡牌右侧，倒计时下方）+ 管理面板
+       ================================================================ */
+    .card-curses {
+      position: absolute;
+      top: 44px;
+      right: 0;
+      transform: translateX(50%);
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      z-index: 100; /* curse badges */
+      pointer-events: auto;
+    }
+    .curse-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 2px;
+      padding: 1px 5px;
+      background: rgba(100, 35, 75, 0.92);
+      border: 1px solid rgba(255, 140, 200, 0.65);
+      border-radius: 4px;
+      font-size: 10px;
+      font-weight: 600;
+      color: #ffc0e0;
+      white-space: nowrap;
+      cursor: pointer;
+      line-height: 1.4;
+    }
+    .curse-badge:hover {
+      background: rgba(130, 50, 95, 0.95);
+      border-color: rgba(255, 170, 220, 0.85);
+    }
+    .curse-badge__layers { font-weight: 700; color: #ffd0e8; }
+
+    .btn-curse-manage {
+      position: absolute;
+      bottom: 30px;
+      right: 0;
+      transform: translateX(50%);
+      width: 18px; height: 18px;
+      border-radius: 50%;
+      background: rgba(100,35,75,0.85);
+      border: 1px solid rgba(255,140,200,0.55);
+      color: #ffc0e0;
+      font-size: 11px;
+      cursor: pointer;
+      z-index: 100; /* curse manage */
+      display: flex; align-items: center; justify-content: center;
+      padding: 0; line-height: 1;
+    }
+    .btn-curse-manage:hover { background: rgba(130,50,95,0.95); }
+
+    #curse-panel-overlay {
+      position: fixed; inset: 0;
+      background: rgba(0,0,0,0.45);
+      z-index: 400; /* curse panel */
+      display: flex; align-items: center; justify-content: center;
+    }
+    #curse-panel-overlay[hidden] { display: none; }
+    .curse-panel {
+      background: linear-gradient(160deg, #1e2a3a, #162030);
+      border: 2px solid rgba(255,140,200,0.55);
+      border-radius: 10px;
+      padding: 14px 16px;
+      min-width: 250px;
+      max-width: 300px;
+      color: #e0d8c8; font-size: 13px;
+    }
+    .curse-panel h3 { margin: 0 0 10px; font-size: 14px; color: #ffc0e0; }
+    .curse-panel__add { display: flex; gap: 6px; margin-bottom: 10px; }
+    .curse-panel__add input {
+      padding: 4px 8px; background: #121a28; border: 1px solid #5a4a6a;
+      border-radius: 4px; color: #eee; font-size: 12px; outline: none;
+    }
+    .curse-panel__add input:focus { border-color: #ff80b0; }
+    .curse-panel__add .inp-name { flex: 2; }
+    .curse-panel__add .inp-layers { width: 44px; text-align: center; }
+    .curse-panel__add button {
+      padding: 4px 10px; border-radius: 4px; border: 1px solid #8a5a7a;
+      background: #4a2a3a; color: #ffc0e0; cursor: pointer; font-size: 12px; font-weight: 600;
+    }
+    .curse-panel__list { max-height: 180px; overflow-y: auto; }
+    .curse-panel__item {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 5px 0; border-bottom: 1px solid rgba(255,255,255,0.06); gap: 8px;
+    }
+    .curse-panel__item-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .curse-panel__item-actions { display: flex; align-items: center; gap: 4px; flex-shrink: 0; }
+    .curse-panel__item-actions button {
+      width: 20px; height: 20px; border-radius: 50%; border: 1px solid #555;
+      background: #2a3a4a; color: #ccc; cursor: pointer; font-size: 13px;
+      line-height: 1; padding: 0; display: flex; align-items: center; justify-content: center;
+    }
+    .curse-panel__item-actions button:hover { background: #3a4a5a; }
+    .curse-panel__item-layers { font-size: 13px; font-weight: 600; min-width: 18px; text-align: center; color: #ffd0e8; }
+    .curse-panel__close {
+      display: block; margin: 10px auto 0; padding: 4px 20px; border-radius: 4px;
+      border: 1px solid #666; background: #2a3a4a; color: #ccc; cursor: pointer; font-size: 12px;
+    }
+    .curse-panel__close:hover { background: #3a4a5a; }
+
+    /* 手牌/牌库列表中的灵咒标签 */
+    .card-list-curse-tag {
+      display: inline-block;
+      padding: 0 4px;
+      margin-left: 4px;
+      background: rgba(100,35,75,0.55);
+      border-radius: 3px;
+      font-size: 10px;
+      color: #ffc0e0;
+      white-space: nowrap;
+      cursor: pointer;
+    }
+    .card-list-curse-tag:hover { background: rgba(130,50,95,0.75); }
+
+    .card-list-item__info {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 2px 6px;
+      flex: 1;
+      min-width: 0;
+    }
+    .card-list-item__curses {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 2px;
+      width: 100%;
+    }
+    .btn-card-curse-add {
+      width: 20px; height: 20px;
+      border-radius: 50%;
+      border: 1px solid rgba(255,140,200,0.45);
+      background: rgba(100,35,75,0.5);
+      color: #ffc0e0;
+      font-size: 11px;
+      cursor: pointer;
+      padding: 0;
+      line-height: 1;
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0;
+    }
+    .btn-card-curse-add:hover { background: rgba(130,50,95,0.7); }
+
+    /* 灵咒浮窗中的条目 */
+    .card-tooltip__curses {
+      margin-top: 8px;
+      padding-top: 6px;
+      border-top: 1px dashed rgba(255,140,200,0.35);
+    }
+    .card-tooltip__curse-item {
+      padding: 3px 0;
+      border-bottom: 1px solid rgba(255,255,255,0.04);
+    }
+    .card-tooltip__curse-head {
+      font-size: 12px;
+      color: #ffc0e0;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .card-tooltip__curse-head .curse-name { font-weight: 600; }
+    .card-tooltip__curse-head .curse-layers { color: #ffd0e8; font-size: 11px; }
+    .card-tooltip__curse-eff {
+      font-size: 11px;
+      color: #b090a0;
+      padding-left: 18px;
+      line-height: 1.4;
+      word-break: break-word;
+    }
+
+    .card-tooltip__effect {
+      font-size: 12px;
+      color: #b0a890;
+      line-height: 1.55;
+      padding-top: 6px;
+      border-top: 1px solid rgba(255, 255, 255, 0.08);
+      word-break: break-word;
+    }
+
+    /* ================================================================
+       占卜对话框 (Divine Dialog)
+       ================================================================ */
+    .divine-dialog {
+      min-width: 380px;
+      max-width: 520px;
+    }
+
+    .divine-dialog h3 {
+      color: #ffd700;
+    }
+
+    .divine-x-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 12px 0 4px;
+      flex-wrap: wrap;
+    }
+
+    .divine-x-row label {
+      font-size: 14px;
+      color: #c0c8d8;
+      white-space: nowrap;
+    }
+
+    .divine-x-row input[type="number"] {
+      width: 70px;
+      padding: 6px 10px;
+      border-radius: 6px;
+      border: 1px solid rgba(150, 180, 220, 0.5);
+      background: rgba(20, 30, 50, 0.85);
+      color: #e8e8e8;
+      font-size: 15px;
+      text-align: center;
+      font-family: inherit;
+    }
+
+    .divine-x-row input[type="number"]:focus {
+      outline: none;
+      border-color: rgba(255, 215, 0, 0.7);
+      box-shadow: 0 0 8px rgba(255, 215, 0, 0.2);
+    }
+
+    .divine-x-row input[type="number"]::-webkit-inner-spin-button {
+      opacity: 1;
+    }
+
+    .divine-main {
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+      padding: 8px 0 4px;
+      min-height: 120px;
+    }
+
+    .divine-section {
+      border: 1px solid rgba(150, 180, 220, 0.3);
+      border-radius: 8px;
+      overflow: hidden;
+      background: rgba(10, 18, 32, 0.55);
+    }
+
+    .divine-section--top {
+      border-color: rgba(80, 200, 120, 0.45);
+    }
+
+    .divine-section--bottom {
+      border-color: rgba(200, 140, 60, 0.45);
+    }
+
+    .divine-section__header {
+      padding: 7px 12px;
+      font-size: 12px;
+      font-weight: 600;
+      letter-spacing: 0.5px;
+      background: rgba(0, 0, 0, 0.25);
+    }
+
+    .divine-section--top .divine-section__header {
+      color: #6ad080;
+      border-bottom: 1px solid rgba(80, 200, 120, 0.25);
+    }
+
+    .divine-section--bottom .divine-section__header {
+      color: #e0a050;
+      border-bottom: 1px solid rgba(200, 140, 60, 0.25);
+    }
+
+    .divine-section__body {
+      padding: 6px;
+      min-height: 36px;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .divine-section__body:empty::after {
+      content: '（空）';
+      color: rgba(160, 180, 210, 0.4);
+      font-size: 12px;
+      text-align: center;
+      padding: 10px;
+      display: block;
+    }
+
+    .divine-card-item {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 8px;
+      border-radius: 6px;
+      background: rgba(30, 44, 66, 0.7);
+      border: 1px solid rgba(150, 180, 220, 0.2);
+      transition: background 0.15s;
+    }
+
+    .divine-card-item:hover {
+      background: rgba(40, 58, 86, 0.8);
+      border-color: rgba(180, 200, 230, 0.4);
+    }
+
+    .divine-card-item__handle {
+      flex-shrink: 0;
+      font-size: 12px;
+      color: rgba(160, 180, 210, 0.45);
+      letter-spacing: -2px;
+      line-height: 1;
+      cursor: grab;
+      user-select: none;
+      padding: 0 2px;
+    }
+
+    .divine-card-item__name {
+      flex: 1;
+      min-width: 0;
+      font-size: 13px;
+      font-weight: 500;
+      color: #e0d8c8;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .divine-card-item__curses {
+      display: flex;
+      gap: 3px;
+      flex-shrink: 0;
+      font-size: 10px;
+    }
+
+    .divine-card-item__curses .divine-curse-tag {
+      padding: 1px 5px;
+      border-radius: 3px;
+      background: rgba(180, 60, 100, 0.35);
+      color: #f0a0b8;
+      border: 1px solid rgba(200, 80, 120, 0.3);
+      white-space: nowrap;
+      font-size: 10px;
+    }
+
+    .divine-actions {
+      padding-top: 8px;
+      border-top: 1px solid rgba(150, 180, 220, 0.15);
+    }
+
+    /* 占卜按钮高亮 */
+    .btn-deck--divine {
+      background: linear-gradient(180deg, #6a4a8a, #3a2a5a) !important;
+      border-color: rgba(180, 140, 220, 0.6) !important;
+    }
+
+    .btn-deck--divine:hover {
+      background: linear-gradient(180deg, #7a5a9a, #4a3a6a) !important;
+      border-color: rgba(200, 160, 240, 0.8) !important;
+    }
+
+    /* 占卜拖拽排序 */
+    .divine-card-item {
+      cursor: grab;
+      user-select: none;
+    }
+
+    .divine-card-item:active {
+      cursor: grabbing;
+    }
+
+    .divine-card-item--dragging {
+      opacity: 0.4;
+      border-style: dashed !important;
+    }
+
+    .divine-card-item--drag-before {
+      border-top: 2px solid #ffd700 !important;
+      margin-top: -2px;
+    }
+
+    .divine-card-item--drag-after {
+      border-bottom: 2px solid #ffd700 !important;
+      margin-bottom: -2px;
+    }
+
+    .divine-card-item--drag-over {
+      background: rgba(255, 215, 0, 0.1) !important;
+      border-color: rgba(255, 215, 0, 0.5) !important;
+    }
+
+    .divine-section__body--drag-over {
+      background: rgba(255, 215, 0, 0.06) !important;
+      outline: 1px dashed rgba(255, 215, 0, 0.3);
+      outline-offset: -2px;
+    }
+
+    /* ================================================================
+       牌库分组视图 (Deck Grouped View)
+       ================================================================ */
+    .deck-summary-header {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      align-items: center;
+      padding: 6px 8px;
+      margin-bottom: 6px;
+      border-bottom: 1px solid rgba(150, 180, 220, 0.15);
+    }
+
+    .deck-summary__total {
+      font-size: 14px;
+      font-weight: 600;
+      color: #e0d8c8;
+    }
+
+    .deck-summary__curse-hint {
+      font-size: 11px;
+      color: #e0a050;
+      background: rgba(200, 140, 60, 0.15);
+      border: 1px solid rgba(200, 140, 60, 0.3);
+      border-radius: 4px;
+      padding: 2px 8px;
+    }
+
+    .deck-group {
+      margin-bottom: 8px;
+      border: 1px solid rgba(150, 180, 220, 0.12);
+      border-radius: 6px;
+      background: rgba(10, 18, 32, 0.3);
+    }
+
+    .deck-group__header {
+      padding: 6px 10px;
+      font-size: 12px;
+      font-weight: 600;
+      color: #8ab0d0;
+      background: rgba(20, 35, 55, 0.5);
+      border-bottom: 1px solid rgba(150, 180, 220, 0.1);
+      letter-spacing: 0.5px;
+    }
+
+    .deck-group__row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 5px 10px;
+      border-bottom: 1px solid rgba(150, 180, 220, 0.06);
+      transition: background 0.12s;
+    }
+
+    .deck-group__row:last-child {
+      border-bottom: none;
+    }
+
+    .deck-group__row:hover {
+      background: rgba(30, 48, 70, 0.4);
+    }
+
+    .deck-group__name {
+      flex: 1;
+      min-width: 0;
+      font-size: 13px;
+      color: #d0c8b8;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .deck-group__count {
+      font-size: 12px;
+      color: #8090a8;
+      flex-shrink: 0;
+      min-width: 28px;
+      text-align: right;
+    }
+
+    /* ================================================================
+       式神录 (Shikigami Book)
+       ================================================================ */
+    .shikigami-book-dialog {
+      width: min(720px, 95vw);
+      max-height: 85vh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      padding: 16px 20px;
+    }
+
+    .shikigami-book__header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-shrink: 0;
+      margin-bottom: 12px;
+    }
+
+    .shikigami-book__header h3 {
+      margin: 0;
+      font-size: 17px;
+      color: rgba(255, 215, 0, 0.95);
+    }
+
+    .shikigami-book__header .btn-dialog-confirm {
+      font-size: 12px;
+      padding: 4px 14px;
+    }
+
+    .shikigami-book__body {
+      flex: 1 1 auto;
+      min-height: 0;
+      display: flex;
+      gap: 16px;
+    }
+
+    /* 左侧：式神列表 */
+    .shikigami-book__left {
+      width: 180px;
+      flex-shrink: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .shikigami-book__search {
+      width: 100%;
+      padding: 7px 10px;
+      border-radius: 6px;
+      border: 1px solid rgba(150, 180, 220, 0.45);
+      background: rgba(20, 30, 50, 0.85);
+      color: #e8e8e8;
+      font-size: 13px;
+      font-family: inherit;
+      flex-shrink: 0;
+    }
+
+    .shikigami-book__search:focus {
+      outline: none;
+      border-color: rgba(255, 215, 0, 0.6);
+      box-shadow: 0 0 6px rgba(255, 215, 0, 0.15);
+    }
+
+    .shikigami-book__search::placeholder {
+      color: rgba(160, 180, 200, 0.5);
+    }
+
+    .shikigami-book__list {
+      flex: 1 1 auto;
+      min-height: 0;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+
+    .shikigami-book__item {
+      padding: 7px 10px;
+      border-radius: 5px;
+      cursor: pointer;
+      font-size: 13px;
+      color: #c0c8d8;
+      transition: background 0.12s, color 0.12s;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .shikigami-book__item:hover {
+      background: rgba(60, 90, 140, 0.35);
+      color: #e8e8e8;
+    }
+
+    .shikigami-book__item--active {
+      background: rgba(80, 120, 180, 0.45) !important;
+      color: #ffd700 !important;
+      font-weight: 600;
+    }
+
+    .shikigami-book__item--orphan {
+      color: rgba(160, 180, 200, 0.55);
+      font-style: italic;
+    }
+
+    /* 右侧：卡牌详情 */
+    .shikigami-book__right {
+      flex: 1 1 auto;
+      min-width: 0;
+      min-height: 0;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      padding-left: 8px;
+      border-left: 1px solid rgba(150, 180, 220, 0.2);
+    }
+
+    .shikigami-book__placeholder {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      height: 100%;
+      min-height: 200px;
+      color: rgba(160, 180, 210, 0.4);
+      font-size: 14px;
+      text-align: center;
+    }
+
+    .shikigami-book__shikigami-name {
+      font-size: 18px;
+      font-weight: 700;
+      color: #ffd700;
+      padding-bottom: 6px;
+      border-bottom: 1px solid rgba(150, 180, 220, 0.2);
+    }
+
+    .shikigami-book__card-entry {
+      padding: 10px 12px;
+      border-radius: 8px;
+      background: rgba(20, 32, 52, 0.6);
+      border: 1px solid rgba(150, 180, 220, 0.15);
+    }
+
+    .shikigami-book__card-head {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 4px;
+    }
+
+    .shikigami-book__card-name {
+      font-size: 14px;
+      font-weight: 600;
+      color: #e0d8c8;
+    }
+
+    .shikigami-book__card-type {
+      font-size: 10px;
+      padding: 1px 6px;
+      border-radius: 3px;
+      font-weight: 600;
+      text-transform: uppercase;
+      flex-shrink: 0;
+    }
+
+    .sbt--shikigami { background: rgba(100, 160, 220, 0.3); color: #80c0f0; border: 1px solid rgba(100, 160, 220, 0.4); }
+    .sbt--spell    { background: rgba(180, 140, 220, 0.3); color: #c0a0f0; border: 1px solid rgba(180, 140, 220, 0.4); }
+    .sbt--battle   { background: rgba(220, 120, 100, 0.3); color: #f09080; border: 1px solid rgba(220, 120, 100, 0.4); }
+    .sbt--form     { background: rgba(100, 200, 140, 0.3); color: #80d8a0; border: 1px solid rgba(100, 200, 140, 0.4); }
+    .sbt--summon   { background: rgba(200, 180, 100, 0.3); color: #e0c860; border: 1px solid rgba(200, 180, 100, 0.4); }
+    .sbt--realm    { background: rgba(140, 200, 200, 0.3); color: #90d8d8; border: 1px solid rgba(140, 200, 200, 0.4); }
+    .sbt--curse    { background: rgba(200, 100, 160, 0.3); color: #e090c0; border: 1px solid rgba(200, 100, 160, 0.4); }
+    .sbt--xiezhan  { background: rgba(200, 140, 60, 0.3); color: #f0c080; border: 1px solid rgba(200, 140, 60, 0.4); }
+
+    .shikigami-book__card-stats {
+      font-size: 11px;
+      color: #90a0b8;
+      margin-bottom: 4px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .shikigami-book__card-stats span {
+      white-space: nowrap;
+    }
+
+    .shikigami-book__card-effect {
+      font-size: 12px;
+      color: #b0a890;
+      line-height: 1.5;
+    }
+
+    .shikigami-book__card-tags {
+      display: flex;
+      gap: 4px;
+      flex-shrink: 0;
+    }
+
+    .shikigami-book__tag {
+      font-size: 9px;
+      padding: 1px 5px;
+      border-radius: 3px;
+      font-weight: 600;
+    }
+
+    .sbtag--awakened { background: rgba(255, 180, 50, 0.25); color: #ffb830; border: 1px solid rgba(255, 180, 50, 0.4); }
+    .sbtag--derivative { background: rgba(160, 140, 200, 0.25); color: #b0a0d0; border: 1px solid rgba(160, 140, 200, 0.4); }
+
+    /* ================================================================
+       效果编辑器 (Effect Builder)
+       ================================================================ */
+    .effect-builder-overlay {
+      position: fixed;
+      inset: 0;
+      z-index: 900;
+      background: rgba(0,0,0,0.75);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .effect-builder-overlay[hidden] { display: none; }
+
+    .eb-dialog,
+    .effect-builder-dialog {
+      width: 96vw;
+      max-width: 1000px;
+      max-height: 92vh;
+      background: linear-gradient(160deg, #1e2a3a 0%, #162030 100%);
+      border: 2px solid rgba(255,215,0,0.5);
+      border-radius: 12px;
+      box-shadow: 0 12px 48px rgba(0,0,0,0.7);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      position: relative;
+      color: #e0d8c8;
+      font-size: 13px;
+    }
+
+    .eb-header {
+      padding: 12px 16px;
+      border-bottom: 1px solid rgba(255,215,0,0.2);
+      background: rgba(0,0,0,0.25);
+    }
+    .eb-header h2 { margin: 0 0 8px; font-size: 18px; color: #ffd700; }
+    .eb-header-row {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+    }
+    .eb-header-row label { font-size: 13px; white-space: nowrap; }
+    .eb-header-row input {
+      margin-left: 4px;
+      padding: 5px 8px;
+      border-radius: 4px;
+      border: 1px solid rgba(255,215,0,0.3);
+      background: rgba(0,0,0,0.45);
+      color: #e0d8c8;
+      font-size: 13px;
+      font-family: inherit;
+      max-width: 500px;
+    }
+    .eb-header-row input:focus {
+      outline: none;
+      border-color: rgba(255,215,0,0.6);
+    }
+    .eb-name-hint {
+      font-size: 12px;
+      font-weight: 600;
+      margin-left: 4px;
+      white-space: nowrap;
+    }
+
+    .eb-body {
+      flex: 1;
+      display: flex;
+      gap: 10px;
+      padding: 12px;
+      overflow-y: auto;
+      min-height: 320px;
+    }
+    .eb-col { min-width: 0; }
+    .eb-col--attrs { flex: 0 0 25%; display: flex; flex-direction: column; }
+    .eb-col--center { flex: 0 0 37%; }
+    .eb-col--right { flex: 0 0 37%; }
+
+    .eb-effect-wrapper {
+      display: flex;
+      flex: 1;
+      gap: 10px;
+      border: 1px solid rgba(255,215,0,0.3);
+      border-radius: 8px;
+      padding: 8px 10px;
+      background: rgba(0,0,0,0.15);
+    }
+    .eb-effect-wrapper .eb-col { flex: 1; overflow-y: auto; }
+    .eb-effect-wrapper h3 { margin-bottom: 6px; }
+
+    .eb-section-label {
+      display: block;
+      font-size: 12px;
+      font-weight: 600;
+      color: #b0c0d8;
+      margin: 8px 0 2px;
+    }
+
+    .eb-cond-params {
+      margin: 3px 0;
+      padding: 4px 6px;
+      border-radius: 4px;
+      background: rgba(0,0,0,0.2);
+      font-size: 11px;
+    }
+    .eb-cond-params:empty { display: none; }
+    .eb-cond-params .eb-cond-row {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      margin-bottom: 2px;
+    }
+    .eb-cond-params .eb-cond-row label {
+      font-size: 11px;
+      color: #99aabb;
+      white-space: nowrap;
+    }
+    .eb-cond-params .eb-cond-row select {
+      padding: 3px 5px;
+      border-radius: 3px;
+      border: 1px solid rgba(255,215,0,0.35);
+      background: rgba(0,0,0,0.55) !important;
+      color: #e0d8c8 !important;
+      font-size: 11px;
+      font-family: inherit;
+      flex: 1;
+      outline: none;
+    }
+    .eb-cond-params .eb-cond-row select option {
+      background: #162030 !important;
+      color: #e0d8c8 !important;
+    }
+    .eb-cond-params .eb-cond-row input {
+      padding: 3px 5px;
+      border-radius: 3px;
+      border: 1px solid rgba(255,215,0,0.25);
+      background: rgba(0,0,0,0.45);
+      color: #e0d8c8;
+      font-size: 11px;
+      font-family: inherit;
+      flex: 1;
+    }
+    .eb-cond-params .eb-cond-row input[type="checkbox"] {
+      flex: 0 0 auto;
+      width: 14px; height: 14px;
+      accent-color: #ffd700;
+    }
+    #eb-card-fields { flex: 1; display: flex; flex-direction: column; }
+    #eb-card-fields .eb-field-row--wide { flex: 1; }
+    .eb-body h3 {
+      font-size: 13px;
+      margin: 0 0 4px;
+      color: #ffd700;
+      border-bottom: 1px solid rgba(255,215,0,0.2);
+      padding-bottom: 3px;
+    }
+
+    .eb-select {
+      width: 100%;
+      padding: 5px 8px;
+      border-radius: 4px;
+      border: 1px solid rgba(255,215,0,0.3);
+      background: rgba(0,0,0,0.5);
+      color: #e0d8c8;
+      font-size: 12px;
+      margin-bottom: 6px;
+    }
+    .eb-select--inline { width: auto; margin-bottom: 0; }
+    .eb-select optgroup { background: #1e2a3a; color: #ffd700; font-weight: bold; }
+    .eb-select option { background: #162030; color: #e0d8c8; }
+
+    .eb-field-row {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      margin-bottom: 6px;
+      font-size: 12px;
+      min-height: 28px;
+    }
+    .eb-field-row label {
+      flex: 0 0 auto;
+      min-width: 55px;
+      color: #b0c0d8;
+      white-space: nowrap;
+    }
+    .eb-field-row .eb-field-input,
+    .eb-field-row .eb-select {
+      flex: 1;
+      margin-bottom: 0;
+      padding: 4px 6px;
+      border-radius: 3px;
+      border: 1px solid rgba(255,215,0,0.25);
+      background: rgba(0,0,0,0.45);
+      color: #e0d8c8;
+      font-size: 12px;
+      font-family: inherit;
+    }
+    .eb-field-row .eb-field-input:focus,
+    .eb-field-row .eb-select:focus {
+      outline: none;
+      border-color: rgba(255,215,0,0.55);
+    }
+    .eb-field-row input[type="number"].eb-field-input {
+      -moz-appearance: textfield;
+      appearance: textfield;
+    }
+    .eb-field-row input[type="number"].eb-field-input::-webkit-inner-spin-button,
+    .eb-field-row input[type="number"].eb-field-input::-webkit-outer-spin-button {
+      -webkit-appearance: none;
+      margin: 0;
+    }
+    .eb-field-row input[type="checkbox"].eb-field-input {
+      flex: 0 0 auto;
+      width: 15px;
+      height: 15px;
+      accent-color: #ffd700;
+      margin: 0;
+    }
+    .eb-field-row--wide {
+      flex-direction: column;
+      align-items: stretch;
+      margin-bottom: 6px;
+    }
+    .eb-field-row--wide label {
+      margin-bottom: 2px;
+    }
+    .eb-field-textarea {
+      display: block;
+      flex: 1;
+      width: 100%;
+      padding: 5px 6px;
+      border-radius: 3px;
+      border: 1px solid rgba(255,215,0,0.25);
+      background: rgba(0,0,0,0.45);
+      color: #e0d8c8;
+      font-size: 12px;
+      font-family: inherit;
+      text-align: left;
+      resize: none;
+      box-sizing: border-box;
+    }
+    .eb-field-textarea:focus {
+      outline: none;
+      border-color: rgba(255,215,0,0.55);
+    }
+
+    .eb-params {
+      margin-bottom: 8px;
+    }
+    .eb-param-row {
+      margin-bottom: 6px;
+    }
+    .eb-param-input {
+      width: 100%;
+      padding: 4px 6px;
+      border-radius: 3px;
+      border: 1px solid rgba(255,215,0,0.2);
+      background: rgba(0,0,0,0.4);
+      color: #e0d8c8;
+      font-size: 12px;
+    }
+
+    .eb-condition-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 3px 6px;
+      margin-bottom: 3px;
+      background: rgba(255,215,0,0.1);
+      border-radius: 3px;
+      font-size: 11px;
+    }
+    .eb-condition-label { flex: 1; }
+
+    .eb-list {
+      min-height: 100px;
+      max-height: 250px;
+      overflow-y: auto;
+      border: 1px solid rgba(255,215,0,0.2);
+      border-radius: 6px;
+      padding: 6px;
+      background: rgba(0,0,0,0.3);
+      margin-bottom: 8px;
+    }
+    .eb-pipeline-item {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 8px;
+      margin-bottom: 3px;
+      background: rgba(255,255,255,0.05);
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 12px;
+      transition: background 0.15s;
+    }
+    .eb-pipeline-item:hover { background: rgba(255,215,0,0.12); }
+    .eb-pipeline-item--active {
+      background: rgba(255,215,0,0.2);
+      border: 1px solid rgba(255,215,0,0.5);
+    }
+    .eb-pl-trigger { color: #88ccff; }
+    .eb-pl-arrow { color: #888; }
+    .eb-pl-action { color: #ffaa66; flex: 1; }
+
+    .eb-btn-row {
+      display: flex;
+      gap: 6px;
+    }
+
+    .eb-btn {
+      padding: 6px 14px;
+      border-radius: 5px;
+      border: 1px solid rgba(255,215,0,0.3);
+      background: rgba(255,255,255,0.08);
+      color: #e0d8c8;
+      cursor: pointer;
+      font-size: 12px;
+      transition: background 0.15s;
+    }
+    .eb-btn:hover { background: rgba(255,255,255,0.15); }
+    .eb-btn--accent {
+      background: rgba(255,180,40,0.25);
+      border-color: rgba(255,180,40,0.5);
+      color: #ffd700;
+    }
+    .eb-btn--accent:hover { background: rgba(255,180,40,0.4); }
+    .eb-btn--danger {
+      background: rgba(200,60,60,0.2);
+      border-color: rgba(200,60,60,0.4);
+      color: #ff8888;
+    }
+    .eb-btn--danger:hover { background: rgba(200,60,60,0.4); }
+    .eb-btn--sm { padding: 3px 10px; font-size: 11px; }
+    .eb-btn--xs { padding: 1px 6px; font-size: 10px; border-radius: 3px; }
+    .eb-btn--close {
+      position: absolute;
+      top: 10px;
+      right: 12px;
+      padding: 4px 10px;
+      font-size: 16px;
+      line-height: 1;
+      border: none;
+      background: transparent;
+      color: #aaa;
+      cursor: pointer;
+    }
+    .eb-btn--close:hover { color: #fff; }
+
+    .eb-footer {
+      border-top: 1px solid rgba(255,215,0,0.2);
+      padding: 10px 16px;
+      background: rgba(0,0,0,0.25);
+    }
+    .eb-json-preview h4 {
+      margin: 0 0 4px;
+      font-size: 13px;
+      color: #ffd700;
+    }
+    .eb-json-preview textarea {
+      width: 100%;
+      padding: 8px;
+      border-radius: 5px;
+      border: 1px solid rgba(255,215,0,0.3);
+      background: rgba(0,0,0,0.5);
+      color: #88ffaa;
+      font-family: 'Consolas', 'Courier New', monospace;
+      font-size: 11px;
+      resize: vertical;
+      box-sizing: border-box;
+    }
+    .eb-footer-btns {
+      display: flex;
+      gap: 8px;
+      margin-top: 8px;
+      justify-content: flex-end;
+    }

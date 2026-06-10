@@ -4,8 +4,17 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>百闻牌模拟器</title>
-  <link rel="stylesheet" href="styles.css">
+  <!-- CSS 模块 -->
+  <link rel="stylesheet" href="css/reset.css">
+  <link rel="stylesheet" href="css/center-bar.css">
+  <link rel="stylesheet" href="css/field.css">
+  <link rel="stylesheet" href="css/chat.css">
+  <link rel="stylesheet" href="css/room.css">
+  <link rel="stylesheet" href="css/systems.css">
+  <link rel="stylesheet" href="css/animations.css">
+  <link rel="stylesheet" href="css/special-effects.css">
   <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
 </head>
 <body>
   <!-- ================================================================
@@ -160,16 +169,25 @@
           </button>
         </div>
         <div class="damage-panel">
+          <div class="damage-source" id="damage-source">
+            <button type="button" class="btn-damage-source" id="btn-damage-source" title="点击选择伤害/恢复来源">👤 己方牌手</button>
+            <div class="damage-source__menu" id="damage-source-menu" hidden></div>
+          </div>
           <button type="button" class="btn-damage-mode" id="btn-damage-mode">🔄 造成伤害</button>
           <input type="number" id="damage-value" value="1" min="1" aria-label="伤害/恢复值">
           <button type="button" class="btn-damage" id="btn-damage">🎯 选择目标</button>
+          <button type="button" class="btn-ko" id="btn-ko">💀 气绝/复活</button>
         </div>
-        <button type="button" class="btn-ko" id="btn-ko">💀 气绝/复活</button>
-        <button type="button" class="btn-countdown" id="btn-countdown">⏳ 倒计时</button>
-        <button type="button" class="btn-energy" id="btn-energy">🏮 能量</button>
         <div class="curse-target-panel">
           <input type="text" id="curse-name-input" placeholder="灵咒名" maxlength="12" aria-label="灵咒名称">
           <button type="button" class="btn-curse-target" id="btn-curse-target">⛓️ 灵咒</button>
+        </div>
+        <div class="dropdown-mechanic" id="dropdown-mechanic">
+          <button type="button" class="btn-mechanic-toggle" id="btn-mechanic-toggle">🔧 添加机制 ▾</button>
+          <div class="dropdown-mechanic__menu" id="dropdown-mechanic-menu" hidden>
+            <button type="button" class="dropdown-mechanic__item" id="btn-countdown">⏳ 倒计时</button>
+            <button type="button" class="dropdown-mechanic__item" id="btn-energy">🏮 能量</button>
+          </div>
         </div>
         <div class="dropdown-other" id="dropdown-other">
           <button type="button" class="btn-dropdown-toggle" id="btn-dropdown-toggle">📋 其他 ▾</button>
@@ -178,6 +196,8 @@
             <button type="button" class="dropdown-other__item" data-action="save-game">💾 保存对局</button>
             <button type="button" class="dropdown-other__item" data-action="load-game">📥 导入对局</button>
             <button type="button" class="dropdown-other__item" data-action="shikigami-book" hidden>📖 式神录</button>
+            <button type="button" class="dropdown-other__item" data-action="effect-builder" hidden>🃏 卡牌编辑器</button>
+            <button type="button" class="dropdown-other__item" data-action="debug-panel" hidden>🔧 特效调试</button>
           </div>
         </div>
         <button type="button" class="btn-speak-unified" id="btn-speak-unified">💬 发言</button>
@@ -388,7 +408,22 @@
     <div class="card-tooltip__effect"></div>
   </div>
 
+  <!-- JS 模块（按依赖顺序加载） -->
   <script src="data/cards.js"></script>
-  <script src="app.js"></script>
+  <script src="data/effect-modules.js"></script>
+  <script src="js/constants.js"></script>
+  <script src="js/card-db.js"></script>
+  <script src="js/card-tooltip.js"></script>
+  <script src="js/network.js"></script>
+  <script src="js/game-core.js"></script>
+  <script src="js/chat.js"></script>
+  <script src="js/dice.js"></script>
+  <script src="js/card-deck.js"></script>
+  <script src="js/shikigami-book.js"></script>
+  <script src="js/effect-engine.js"></script>
+  <script src="js/data-io.js"></script>
+  <script src="js/effect-builder.js"></script>
+  <script src="js/animations.js"></script>
+  <script src="js/special-effects.js"></script>
 </body>
 </html>

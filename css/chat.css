@@ -1,0 +1,620 @@
+﻿/* ================================================================
+   css/chat.css — 聊天系统样式
+   包含：右侧聊天栏、玩家发言气泡、发言对话框、牌库/手牌列表弹窗
+   ================================================================ */
+
+    /* ================================================================
+       右侧聊天区域（系统信息 + 聊天大厅 + 发言按钮）
+       ================================================================ */
+    .chat-sidebar {
+      width: var(--chat-width);
+      flex-shrink: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: stretch;
+      justify-content: flex-start;
+      gap: 8px;
+      padding: 8px 4px;
+      min-height: 0;
+    }
+
+    .chat-section {
+      display: flex;
+      flex-direction: column;
+      min-height: 0;
+      border: 2px solid rgba(150, 180, 220, 0.5);
+      border-radius: 10px;
+      background: rgba(15, 22, 38, 0.65);
+      overflow: hidden;
+    }
+
+    .chat-section--system {
+      flex: 2;
+      border-color: rgba(180, 160, 255, 0.45);
+    }
+
+    .chat-section--player {
+      flex: 3;
+      border-color: rgba(255, 200, 100, 0.4);
+    }
+
+    .chat-section-title {
+      flex-shrink: 0;
+      padding: 6px 12px;
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 1px;
+      text-align: center;
+      border-bottom: 1px solid rgba(150, 180, 220, 0.3);
+    }
+
+    .chat-section--system .chat-section-title {
+      background: rgba(45, 40, 70, 0.7);
+      color: rgba(200, 190, 240, 0.95);
+    }
+
+    .chat-section--player .chat-section-title {
+      background: rgba(50, 40, 25, 0.7);
+      color: rgba(255, 210, 120, 0.95);
+    }
+
+    .chat-section-body {
+      flex: 1;
+      min-height: 60px;
+      padding: 10px;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    /* 统一发言按钮（位于中心线右侧） */
+    .btn-speak-unified {
+      flex-shrink: 0;
+      padding: 8px 18px;
+      font-size: 13px;
+      font-weight: 600;
+      background: linear-gradient(180deg, #5a8a5a, #3a6a3a);
+      border: 1px solid rgba(140, 220, 140, 0.55);
+      border-radius: 8px;
+      color: #fff;
+      cursor: pointer;
+      transition: background 0.2s, transform 0.1s;
+      white-space: nowrap;
+    }
+
+    .btn-speak-unified:hover {
+      background: linear-gradient(180deg, #6a9a6a, #4a7a4a);
+    }
+
+    .btn-speak-unified:active {
+      transform: scale(0.98);
+    }
+
+    .btn-speak-unified:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+    }
+
+    /* 其他 下拉菜单 */
+    .dropdown-other {
+      position: relative;
+      flex-shrink: 0;
+    }
+    .btn-dropdown-toggle {
+      padding: 6px 10px;
+      font-size: 13px;
+      font-weight: 600;
+      background: linear-gradient(180deg, #5a5a6a, #3a3a4a);
+      border: 1px solid rgba(180, 180, 200, 0.5);
+      border-radius: 6px;
+      color: #d0d0e0;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: background 0.2s;
+    }
+    .btn-dropdown-toggle:hover { background: linear-gradient(180deg, #6a6a7a, #4a4a5a); }
+    .dropdown-other__menu {
+      position: absolute;
+      bottom: calc(100% + 6px);
+      right: 0;
+      min-width: 140px;
+      background: #1e2a3a;
+      border: 2px solid rgba(180, 180, 200, 0.5);
+      border-radius: 8px;
+      padding: 4px;
+      z-index: 200; /* dropdown */
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+    .dropdown-other__menu[hidden] { display: none; }
+    .dropdown-other__item {
+      display: block;
+      width: 100%;
+      padding: 6px 10px;
+      background: transparent;
+      border: none;
+      border-radius: 4px;
+      color: #d0d0e0;
+      font-size: 12px;
+      cursor: pointer;
+      text-align: left;
+      white-space: nowrap;
+    }
+    .dropdown-other__item:hover { background: rgba(180, 180, 220, 0.15); }
+    .dropdown-other__item[hidden] { display: none; }
+
+    /* 添加机制 下拉菜单（倒计时 / 能量） */
+    .dropdown-mechanic {
+      position: relative;
+      flex-shrink: 0;
+    }
+    .btn-mechanic-toggle {
+      padding: 6px 10px;
+      font-size: 13px;
+      font-weight: 600;
+      background: linear-gradient(180deg, #5a6a5a, #3a4a3a);
+      border: 1px solid rgba(160, 200, 180, 0.5);
+      border-radius: 6px;
+      color: #c0e0d0;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: background 0.2s;
+    }
+    .btn-mechanic-toggle:hover { background: linear-gradient(180deg, #6a7a6a, #4a5a4a); }
+    .btn-mechanic-toggle.active {
+      background: linear-gradient(180deg, #60a080, #408060);
+      border-color: rgba(100, 255, 160, 0.7);
+      animation: pulse-countdown 0.8s ease-in-out infinite;
+    }
+    .dropdown-mechanic__menu {
+      position: absolute;
+      bottom: calc(100% + 6px);
+      right: 0;
+      min-width: 120px;
+      background: #1e2a3a;
+      border: 2px solid rgba(160, 200, 180, 0.5);
+      border-radius: 8px;
+      padding: 4px;
+      z-index: 200; /* dropdown */
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+    .dropdown-mechanic__menu[hidden] { display: none; }
+    .dropdown-mechanic__item {
+      display: block;
+      width: 100%;
+      padding: 6px 10px;
+      background: transparent;
+      border: none;
+      border-radius: 4px;
+      color: #c0e0d0;
+      font-size: 12px;
+      cursor: pointer;
+      text-align: left;
+      white-space: nowrap;
+    }
+    .dropdown-mechanic__item:hover { background: rgba(160, 200, 180, 0.15); }
+
+    .chat-bubble {
+      padding: 8px 10px;
+      border-radius: 10px;
+      background: rgba(40, 55, 85, 0.85);
+      border: 1px solid rgba(100, 130, 180, 0.35);
+      font-size: 13px;
+      line-height: 1.45;
+      word-break: break-word;
+    }
+
+    .chat-bubble--player1 {
+      align-self: flex-start;
+      border-color: rgba(255, 200, 100, 0.4);
+    }
+
+    .chat-bubble--player2 {
+      align-self: flex-start;
+      border-color: rgba(140, 200, 255, 0.4);
+    }
+
+    .chat-bubble--player0 {
+      align-self: flex-start;
+      border-color: rgba(200, 180, 140, 0.4);
+      background: rgba(55, 45, 30, 0.85);
+    }
+
+    .chat-bubble--system {
+      align-self: flex-start;
+      border-color: rgba(180, 160, 255, 0.45);
+      background: rgba(45, 40, 70, 0.85);
+      color: rgba(220, 210, 255, 0.95);
+      font-weight: 500;
+    }
+
+    .chat-bubble .chat-speaker {
+      color: rgba(255, 215, 0, 0.95);
+      font-weight: 600;
+    }
+
+    /* ================================================================
+       弹出对话框（发言、输入文本、列表）
+       ================================================================ */
+    .speak-dialog-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.55);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 300; /* room overlay */
+      padding: 16px;
+    }
+
+    .speak-dialog-overlay[hidden] {
+      display: none;
+    }
+
+    .speak-dialog {
+      width: min(420px, 100%);
+      background: linear-gradient(160deg, #243050, #1a2540);
+      border: 2px solid rgba(150, 180, 220, 0.5);
+      border-radius: 12px;
+      padding: 20px;
+      box-shadow: 0 12px 40px rgba(0, 0, 0, 0.45);
+    }
+
+    .speak-dialog h3 {
+      font-size: 16px;
+      color: rgba(255, 215, 0, 0.95);
+      margin-bottom: 12px;
+      font-weight: 600;
+    }
+
+    .speak-dialog textarea {
+      width: 100%;
+      min-height: 88px;
+      padding: 10px 12px;
+      border: 1px solid #5a7090;
+      border-radius: 8px;
+      background: #1e2a3a;
+      color: #eee;
+      font-size: 14px;
+      font-family: inherit;
+      resize: vertical;
+      outline: none;
+    }
+
+    .speak-dialog textarea:focus {
+      border-color: rgba(255, 215, 0, 0.6);
+      box-shadow: 0 0 0 2px rgba(255, 215, 0, 0.12);
+    }
+
+    .speak-dialog-actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 10px;
+      margin-top: 14px;
+    }
+
+    .speak-dialog-actions button {
+      padding: 8px 18px;
+      font-size: 13px;
+      border-radius: 6px;
+      cursor: pointer;
+      border: 1px solid transparent;
+    }
+
+    .btn-dialog-cancel {
+      background: rgba(60, 70, 90, 0.8);
+      border-color: #5a7090;
+      color: #ddd;
+    }
+
+    .btn-dialog-cancel:hover {
+      background: rgba(70, 80, 100, 0.9);
+    }
+
+    .btn-dialog-confirm {
+      background: linear-gradient(180deg, #5a7fb5, #3d5a80);
+      border-color: #6b8cae;
+      color: #fff;
+      font-weight: 600;
+    }
+
+    .btn-dialog-confirm:hover {
+      background: linear-gradient(180deg, #6a8fc5, #4d6a90);
+    }
+
+    /* 牌库 / 手牌列表弹窗 */
+    .card-list-dialog {
+      width: min(460px, 100%);
+      max-height: 85vh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      min-height: 0;
+    }
+
+    .card-list-dialog .card-list {
+      flex: 1 1 auto;
+      min-height: 0;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      margin-bottom: 12px;
+      padding-right: 4px;
+    }
+
+    .card-list-dialog h3,
+    .card-list-dialog .deck-summary-header,
+    .card-list-dialog .curse-random-bar,
+    .card-list-dialog .speak-dialog-actions {
+      flex-shrink: 0;
+    }
+
+    /* 手牌/牌库弹窗：穿透背景点击到战场，标题可拖拽 */
+    #card-list-dialog-overlay {
+      pointer-events: none;
+    }
+    #card-list-dialog-overlay .speak-dialog {
+      pointer-events: auto;
+    }
+    #card-list-dialog-overlay h3 {
+      cursor: grab;
+      user-select: none;
+    }
+    #card-list-dialog-overlay h3:active {
+      cursor: grabbing;
+    }
+
+    .curse-random-bar {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      margin-bottom: 10px;
+      padding: 6px 8px;
+      background: rgba(40, 20, 50, 0.6);
+      border: 1px solid rgba(255, 140, 200, 0.3);
+      border-radius: 6px;
+    }
+    .curse-random-bar input {
+      flex: 1;
+      padding: 4px 8px;
+      background: #121a28;
+      border: 1px solid #5a4a6a;
+      border-radius: 4px;
+      color: #ffc0e0;
+      font-size: 12px;
+      outline: none;
+    }
+    .curse-random-bar input:focus { border-color: #f8a0d0; }
+    .btn-curse-random {
+      padding: 4px 10px;
+      border-radius: 4px;
+      border: 1px solid #8a5a7a;
+      background: #4a2a3a;
+      color: #ffc0e0;
+      cursor: pointer;
+      font-size: 12px;
+      font-weight: 600;
+      white-space: nowrap;
+    }
+    .btn-curse-random:hover { background: #5a3a4a; }
+    .btn-curse-toggle {
+      padding: 4px 8px;
+      border-radius: 4px;
+      border: 1px solid #5a7a8a;
+      background: #2a3a4a;
+      color: #b0d0e0;
+      cursor: pointer;
+      font-size: 11px;
+      font-weight: 600;
+      white-space: nowrap;
+    }
+    .btn-curse-toggle:hover { background: #3a4a5a; }
+
+    /* 上传卡牌窗口 */
+    .upload-card-dialog {
+      width: min(420px, 95%);
+      max-height: min(80vh, 560px);
+      display: flex;
+      flex-direction: column;
+    }
+    .upload-card__type {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 4px;
+      margin-bottom: 10px;
+    }
+    .upload-type-btn {
+      flex: 1;
+      min-width: 48px;
+      padding: 5px 4px;
+      border: 1px solid #5a6a8a;
+      border-radius: 4px;
+      background: #1a2838;
+      color: #a0b0c0;
+      font-size: 11px;
+      cursor: pointer;
+      text-align: center;
+      white-space: nowrap;
+      transition: all 0.15s;
+    }
+    .upload-type-btn:hover { background: #2a3a4a; color: #d0d8e0; }
+    .upload-type-btn.active {
+      background: #3a5a8a;
+      border-color: #7a9ac0;
+      color: #fff;
+      font-weight: 600;
+    }
+    .upload-card__fields {
+      flex: 1;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      margin-bottom: 10px;
+      max-height: min(50vh, 380px);
+    }
+    .upload-field {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 12px;
+      color: #b0b8c8;
+    }
+    .upload-field--check {
+      cursor: pointer;
+    }
+    .upload-field input[type="text"],
+    .upload-field input[type="number"],
+    .upload-field textarea {
+      flex: 1;
+      padding: 4px 8px;
+      background: #121a28;
+      border: 1px solid #4a5a7a;
+      border-radius: 4px;
+      color: #eee;
+      font-size: 12px;
+      outline: none;
+      font-family: inherit;
+    }
+    .upload-field input:focus,
+    .upload-field textarea:focus {
+      border-color: #7a9ac0;
+    }
+    .upload-field textarea {
+      resize: vertical;
+      min-height: 36px;
+    }
+
+    .card-list-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 10px;
+      background: rgba(40, 55, 85, 0.85);
+      border: 1px solid rgba(100, 130, 180, 0.35);
+      border-radius: 8px;
+      font-size: 13px;
+    }
+
+    .card-list-item__name {
+      flex: 1;
+      min-width: 0;
+      word-break: break-word;
+    }
+
+    .card-list-item__actions {
+      display: flex;
+      gap: 6px;
+      flex-shrink: 0;
+    }
+
+    .btn-card-action {
+      padding: 4px 10px;
+      font-size: 11px;
+      border-radius: 4px;
+      border: 1px solid transparent;
+      cursor: pointer;
+      color: #fff;
+    }
+
+    .btn-card-use {
+      background: #3d6a4a;
+      border-color: #5a9a6a;
+    }
+
+    .btn-card-use:hover {
+      background: #4d7a5a;
+    }
+
+    .btn-card-discard {
+      background: #7a3d3d;
+      border-color: #a05a5a;
+    }
+
+    .btn-card-discard:hover {
+      background: #8a4d4d;
+    }
+
+    .card-list-empty {
+      color: rgba(160, 180, 210, 0.65);
+      font-size: 13px;
+      text-align: center;
+      padding: 24px 12px;
+    }
+
+    /* ================================================================
+       消息分组（卡牌效果折叠）
+       ================================================================ */
+    .chat-bubble--group {
+      /* 继承 .chat-bubble 的 padding/border/background，外观与普通系统消息一致 */
+      display: flex;
+      flex-direction: column;
+      gap: 0;
+      padding: 8px 10px;
+      cursor: default;
+    }
+    .chat-group-main {
+      display: flex;
+      align-items: flex-start;
+      gap: 6px;
+      cursor: pointer;
+      user-select: none;
+      padding: 0;
+      border-radius: 0;
+      transition: color 0.15s;
+      font-weight: 500;
+      color: rgba(220, 210, 255, 0.95);
+    }
+    .chat-group-main:hover {
+      color: #fff;
+    }
+    .chat-group-toggle {
+      flex-shrink: 0;
+      width: 14px;
+      font-size: 10px;
+      color: #888;
+      margin-top: 3px;
+      line-height: 1;
+      transition: color 0.15s, transform 0.15s;
+    }
+    .chat-group-main:hover .chat-group-toggle {
+      color: #ccc;
+    }
+    .chat-group-text {
+      flex: 1;
+      line-height: 1.45;
+    }
+    .chat-group-text .chat-card-name {
+      color: #ffd700;
+      font-weight: 600;
+      cursor: help;
+    }
+    .chat-group-subs {
+      margin: 6px -10px -8px -10px;
+      padding: 6px 10px 8px;
+      background: rgba(0, 0, 0, 0.2);
+      border-top: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 0 0 10px 10px;
+    }
+    .chat-group-sub {
+      font-size: 12px;
+      color: #8899bb;
+      padding: 2px 0 2px 18px;
+      line-height: 1.5;
+      position: relative;
+    }
+    .chat-group-sub::before {
+      content: '└';
+      position: absolute;
+      left: 2px;
+      color: #556;
+    }
+    .chat-group-subs[hidden] {
+      display: none;
+    }
+
