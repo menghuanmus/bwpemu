@@ -345,7 +345,102 @@
 }
 
 /* ================================================================
-   六、调试面板
+   六、入夜特效
+   ================================================================ */
+
+/* 入夜月亮容器（绝对定位悬浮，不挤压卡槽） */
+.nightfall-indicator {
+  position: absolute !important;
+  left: 8px;
+  top: 72px;
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  z-index: 5;
+  pointer-events: auto;
+  margin: 0;
+  padding: 0;
+}
+
+/* 下半区：准备区标签在底部，从底部向上定位 */
+.player-zone--bottom .nightfall-indicator {
+  top: auto;
+  bottom: 90px;
+}
+
+/* 月亮图标（放大一倍） */
+.nightfall-moon {
+  position: relative;
+  width: 80px;
+  height: 80px;
+  flex-shrink: 0;
+  font-size: 64px;
+  line-height: 80px;
+  text-align: center;
+  filter: drop-shadow(0 0 10px rgba(255, 220, 100, 0.7));
+  user-select: none;
+}
+
+/* 月亮凹陷里的数字输入（放大一倍） */
+.nightfall-input {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 40px;
+  height: 32px;
+  border: none;
+  background: rgba(0, 0, 0, 0.4);
+  color: #ffe8a0;
+  font-size: 22px;
+  font-weight: 700;
+  text-align: center;
+  outline: none;
+  border-radius: 10px;
+  text-shadow: 0 0 6px rgba(255, 200, 50, 0.7);
+  -moz-appearance: textfield;
+  appearance: textfield;
+}
+.nightfall-input::-webkit-inner-spin-button,
+.nightfall-input::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+/* 入夜星星粒子 */
+.nightfall-star {
+  position: absolute;
+  width: 4px;
+  height: 4px;
+  background: #ffe8a0;
+  border-radius: 50%;
+  pointer-events: none;
+  z-index: 555;
+  opacity: 0;
+  will-change: transform, opacity;
+  box-shadow: 0 0 6px #ffcc44, 0 0 12px rgba(255, 200, 60, 0.5);
+}
+
+/* 入夜冲击环 */
+.nightfall-ring {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 10px;
+  height: 10px;
+  margin-left: -5px;
+  margin-top: -5px;
+  border-radius: 50%;
+  border: 2px solid rgba(255, 220, 100, 0.85);
+  pointer-events: none;
+  z-index: 554;
+  opacity: 0;
+  will-change: transform, opacity;
+  box-shadow: 0 0 15px rgba(255, 200, 60, 0.5);
+}
+
+/* ================================================================
+   七、调试面板
    ================================================================ */
 
 /* 面板包装层：pointer-events: none 让点击穿透到背后 */
@@ -540,4 +635,31 @@
   color: rgba(150, 170, 200, 0.6);
   text-align: center;
   font-style: italic;
+}
+
+/* ================================================================
+   烹饪特效 (Cook Effect)
+   ================================================================ */
+.cook-pot {
+  position: absolute;
+  z-index: 550;
+  pointer-events: none;
+  font-size: 84px;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  filter: drop-shadow(0 6px 20px rgba(255, 180, 60, 0.55));
+  will-change: transform, opacity;
+}
+
+.cook-steam {
+  position: absolute;
+  z-index: 545;
+  pointer-events: none;
+  border-radius: 50%;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  will-change: transform, opacity;
+  box-shadow: 0 0 6px currentColor;
 }

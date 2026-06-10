@@ -67,6 +67,10 @@
       _msgGroup = null;
       if (group.subMsgs.length === 0) {
         addSystemChatMessage(group.mainMsg);
+        // 无子消息也需同步给对方
+        if (!isSoloMode && peerConn && peerConn.open && typeof sendToPeer === 'function') {
+          sendToPeer({ type: 'sysmsg', text: group.mainMsg });
+        }
         return;
       }
       _renderGroupedMessage(group);

@@ -237,6 +237,18 @@
         case 'deck-update':
           applyRemoteDeckState(data.playerId, data.deckCount, data.handCount, data.deckData, data.handData);
           break;
+        case 'revealed-cards':
+          // 静默存储对方的揭示记录（用于存档完整性，不用于本机显示）
+          if (data.playerId && Array.isArray(data.cardIds) && typeof playerRevealedCards !== 'undefined') {
+            playerRevealedCards[data.playerId] = new Set(data.cardIds.filter(id => typeof id === 'number'));
+          }
+          break;
+        case 'food-card-register':
+          // 接收对方合成的佳肴定义，注册到本地CardDB使悬浮可见
+          if (data.card && typeof CardDB !== 'undefined' && typeof CardDB.addCustom === 'function') {
+            CardDB.addCustom(data.card);
+          }
+          break;
         case 'chat':
           addChatMessage(data.playerId, data.text);
           break;
@@ -280,6 +292,16 @@
           break;
         case 'fire-update':
           applyRemoteFireState(data.playerId, data.count);
+          break;
+        case 'nightfall-toggle':
+          if (typeof applyRemoteNightfall === 'function') {
+            applyRemoteNightfall(data.playerId, data.active, data.value);
+          }
+          break;
+        case 'nightfall-value':
+          if (typeof applyRemoteNightfall === 'function') {
+            applyRemoteNightfall(data.playerId, true, data.value);
+          }
           break;
         case 'fx-ko':
           {
@@ -418,8 +440,7 @@
       const opponentZone = document.querySelector(`.player-zone[data-player="${opponentId}"]`);
       if (opponentZone) {
         opponentZone.classList.add('player-zone--locked');
-        // 仅禁用牌库按钮，其余卡牌/效果/HP等均可操作
-        opponentZone.querySelectorAll('.btn-deck').forEach(el => { el.disabled = true; });
+        // 牌库按钮不再禁用，双方均可操作对方牌库/手牌
       }
       // 根据玩家身份交换标签位置：P1（上方）→ 你的标签在上，P2（下方）→ 你的标签在下
       if (tagYour && tagOpp) {

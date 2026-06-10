@@ -148,6 +148,9 @@
       const p1hand = getPlayerCardState('1').hand;
       const p2deck = getPlayerCardState('2').deck;
       const p2hand = getPlayerCardState('2').hand;
+      // 序列化揭示卡牌ID（Set → Array，确保 JSON 可序列化）
+      const p1revealed = playerRevealedCards['1'] ? [...playerRevealedCards['1']] : [];
+      const p2revealed = playerRevealedCards['2'] ? [...playerRevealedCards['2']] : [];
       const state = {
         version: APP_VERSION,
         time: new Date().toISOString(),
@@ -159,6 +162,7 @@
           effects: getEffectsState('1'),
           deck: p1deck,
           hand: p1hand,
+          revealedCards: p1revealed,
           slots: [],
         },
         player2: {
@@ -169,6 +173,7 @@
           effects: getEffectsState('2'),
           deck: p2deck,
           hand: p2hand,
+          revealedCards: p2revealed,
           slots: [],
         },
       };
@@ -196,6 +201,8 @@
       input.addEventListener('change', () => {
         const file = input.files[0];
         if (!file) return;
+        const importerName = localPlayerId ? getPlayerName(localPlayerId) : '玩家';
+        broadcastSystemMsg('【系统】' + importerName + '正在导入对局，请稍候…');
         const reader = new FileReader();
         reader.onload = (e) => {
           try {
@@ -218,13 +225,18 @@
       return img ? img.src : '';
     }
 
-    /** 兼容旧存档：确保每张卡牌有 id、curses、name 字段，过滤 null */
+    /** 兼容旧存档：确保每张卡牌有 id、curses、name 字段，过滤 null，保留食物牌数据 */
     function _normalizeSavedCard(c) {
       if (!c || typeof c !== 'object') return { id: ++cardIdCounter, name: '', curses: [] };
       return {
         id: (typeof c.id === 'number' && c.id > 0) ? c.id : ++cardIdCounter,
         name: typeof c.name === 'string' ? c.name : '',
         curses: Array.isArray(c.curses) ? c.curses.filter(cur => cur && typeof cur === 'object') : [],
+        _food: c._food || false,
+        _foodType: c._foodType || '',
+        _foodLevel: typeof c._foodLevel === 'number' ? c._foodLevel : 0,
+        _foodEffects: Array.isArray(c._foodEffects) ? c._foodEffects : [],
+        _foodIngredients: c._foodIngredients || '',
       };
     }
 
@@ -249,6 +261,10 @@
             const normalized = p.hand.map(c => _normalizeSavedCard(c)).filter(c => c && typeof c === 'object');
             getPlayerCardState(pid).hand = normalized;
           }
+          // 恢复揭示卡牌ID（Array → Set）
+          if (Array.isArray(p.revealedCards)) {
+            playerRevealedCards[pid] = new Set(p.revealedCards.filter(id => typeof id === 'number'));
+          }
           if (p.slots) {
             p.slots.forEach((s, i) => {
               const slot = getSlotByIndex(pid, i);
@@ -257,6 +273,8 @@
           }
           updateDeckButtons(pid);
         });
+        // 更新卡牌ID计数器，避免后续生成卡牌ID冲突
+        if (typeof updateCardIdCounter === 'function') updateCardIdCounter();
       } catch(e) {
         console.error('[LoadGame] 恢复对局状态出错:', e);
         broadcastSystemMsg('【系统】导入对局时发生错误，部分数据可能未恢复');
@@ -265,6 +283,12 @@
 
       // 联机状态下，将恢复的全部状态同步给对方和观众
       if (peerConn && peerConn.open) {
+        // 先同步揭示卡牌数据（静默存储）
+        ['1', '2'].forEach(pid => {
+          if (playerRevealedCards[pid] && playerRevealedCards[pid].size) {
+            sendToPeer({ type: 'revealed-cards', playerId: pid, cardIds: [...playerRevealedCards[pid]] });
+          }
+        });
         ['1', '2'].forEach(pid => {
           // 玩家信息
           const info = getPlayerInfo(pid);

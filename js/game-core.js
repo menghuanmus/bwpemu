@@ -79,10 +79,20 @@
 
     // ---- JS-1.5：状态同步 —— 牌库/手牌 ----
 
-    /* 发送牌库/手牌计数给对方 */
+    /* 发送牌库/手牌计数给对方（仅己方） */
     function syncDeckState(playerId) {
       if (!peerConn || !peerConn.open) return;
       if (!isMyZone(playerId)) return;
+      _sendDeckUpdate(playerId);
+    }
+
+    /* 强制同步牌库/手牌（跨玩家操作如烹饪也需同步） */
+    function syncDeckStateForce(playerId) {
+      if (!peerConn || !peerConn.open) return;
+      _sendDeckUpdate(playerId);
+    }
+
+    function _sendDeckUpdate(playerId) {
       const { deck, hand } = getPlayerCardState(playerId);
       try {
         sendToPeer({

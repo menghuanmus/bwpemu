@@ -7,10 +7,44 @@
     //  JS-5：牌库/手牌系统
     // ================================================================
     let cardIdCounter = 0;
+
+    /** 根据当前所有卡牌更新 cardIdCounter，避免导入后ID冲突 */
+    function updateCardIdCounter() {
+      let maxId = 0;
+      ['1', '2'].forEach(pid => {
+        const st = getPlayerCardState(pid);
+        [st.deck, st.hand, st.grave || []].forEach(arr => {
+          (arr || []).forEach(c => { if (c && typeof c.id === 'number' && c.id > maxId) maxId = c.id; });
+        });
+      });
+      cardIdCounter = Math.max(cardIdCounter, maxId);
+    }
+
     const playerCards = {
       '1': { deck: [], hand: [], grave: [] },
       '2': { deck: [], hand: [], grave: [] },
     };
+
+    // 玩家通过占卜揭示的对方卡牌ID（仅本地追踪，不同步）
+    // { viewerPlayerId: Set of card ids }
+    const playerRevealedCards = {
+      '1': new Set(),
+      '2': new Set(),
+    };
+
+    /** 获取当前查看者ID */
+    function getViewerPlayerId() {
+      if (typeof localPlayerId !== 'undefined' && localPlayerId && localPlayerId !== '0') {
+        return localPlayerId;
+      }
+      return '1';
+    }
+
+    /** 当前查看的牌库/手牌是否属于自己 */
+    function isViewingOwnCards(playerId) {
+      if (typeof isSoloMode !== 'undefined' && isSoloMode) return true;
+      return String(playerId) === String(getViewerPlayerId());
+    }
 
     const cardTextOverlay = document.getElementById('card-text-dialog-overlay');
     const cardTextTitle = document.getElementById('card-text-dialog-title');
@@ -18,6 +52,11 @@
     const cardListOverlay = document.getElementById('card-list-dialog-overlay');
     const cardListTitle = document.getElementById('card-list-dialog-title');
     const cardListBody = document.getElementById('card-list-dialog-body');
+    const cardListBreakdownBtn = document.getElementById('card-list-breakdown-btn');
+    const deckBreakdownPanel = document.getElementById('deck-breakdown-panel');
+    const deckBreakdownTitle = document.getElementById('deck-breakdown-title');
+    const deckBreakdownBody = document.getElementById('deck-breakdown-body');
+    const deckBreakdownClose = document.getElementById('deck-breakdown-close');
 
     let cardTextContext = null;
     let cardListContext = null;
@@ -54,15 +93,11 @@
       const handBtn = zone.querySelector('.btn-deck[data-action="hand"]');
       const deckBtn = zone.querySelector('.btn-deck[data-action="deck"]');
       const shuffleBtn = zone.querySelector('.btn-deck[data-action="shuffle-deck"]');
-      const divineBtn = zone.querySelector('.btn-deck[data-action="divine"]');
       if (drawBtn) {
         drawBtn.disabled = deck.length === 0;
       }
       if (shuffleBtn) {
         shuffleBtn.disabled = deck.length === 0;
-      }
-      if (divineBtn) {
-        divineBtn.disabled = deck.length === 0;
       }
       if (handBtn) {
         handBtn.textContent = hand.length ? `手牌（${hand.length}）` : '手牌';
@@ -114,21 +149,32 @@
         cardListBody.appendChild(empty);
         return;
       }
-      hand.forEach((card) => {
+      const ownCards = isViewingOwnCards(playerId);
+      hand.forEach((card, idx) => {
         if (!card || typeof card !== 'object') return;
         const item = document.createElement('div');
         item.className = 'card-list-item';
         const info = document.createElement('div');
         info.className = 'card-list-item__info';
-        if (card.curses && card.curses.length) {
+        // 查看对手手牌：隐藏灵咒数据
+        if (ownCards && card.curses && card.curses.length) {
           info.dataset.cardCurses = JSON.stringify(card.curses);
         }
         const name = document.createElement('span');
         name.className = 'card-list-item__name';
-        name.textContent = card.name || '(未命名)';
+        if (ownCards) {
+          name.textContent = card.name || '(未命名)';
+          // 食材牌/佳肴：存储数据供浮窗显示
+          if (card._food) {
+            name.dataset.food = JSON.stringify(card);
+          }
+        } else {
+          name.textContent = '未知';
+          name.style.color = 'var(--text-muted, #888)';
+        }
         info.appendChild(name);
-        // 灵咒标签
-        if (card.curses && card.curses.length) {
+        // 灵咒标签（仅自己可见）
+        if (ownCards && card.curses && card.curses.length) {
           const curseTags = document.createElement('div');
           curseTags.className = 'card-list-item__curses';
           card.curses.forEach(c => {
@@ -142,7 +188,8 @@
           info.appendChild(curseTags);
         }
         item.appendChild(info);
-        // 操作按钮
+        // 操作按钮（仅自己可见）
+        if (ownCards) {
         const actions = document.createElement('div');
         actions.className = 'card-list-item__actions';
         const addBtn = document.createElement('button');
@@ -165,6 +212,7 @@
         actions.appendChild(useBtn);
         actions.appendChild(discardBtn);
         item.appendChild(actions);
+        } // end if (ownCards)
         cardListBody.appendChild(item);
       });
       } catch(e) {
@@ -189,11 +237,12 @@
         return;
       }
 
-      // 统计总览
       const total = deck.length;
       const cursedCount = deck.filter(c => c.curses && c.curses.length).length;
+      const viewerId = getViewerPlayerId();
+      const revealedSet = playerRevealedCards[viewerId] || new Set();
 
-      // 顶栏：总数 + 灵咒提示（渲染到固定区域，不随卡牌列表滚动）
+      // 顶栏：总数 + 灵咒提示
       const summaryEl = document.getElementById('deck-summary-header');
       summaryEl.hidden = false;
       summaryEl.innerHTML = `<span class="deck-summary__total">📚 牌库（共${total}张）</span>`;
@@ -201,78 +250,58 @@
         summaryEl.innerHTML += `<span class="deck-summary__curse-hint">⚠ 牌库中有灵咒结附（${cursedCount}张）</span>`;
       }
 
-      // 按名称聚合：{ name: { count, cards: [原卡引用], type } }
-      const nameMap = new Map();
-      deck.forEach(card => {
-        const entry = nameMap.get(card.name) || { count: 0, cards: [], type: null };
-        entry.count += 1;
-        entry.cards.push(card);
-        if (!entry.type) {
-          const db = CardDB.lookup(card.name);
-          entry.type = db ? db.type : 'unknown';
-        }
-        nameMap.set(card.name, entry);
-      });
+      // ===== 统一按顺序排列（己方/对方均如此）=====
+      const section = document.createElement('div');
+      section.className = 'deck-group';
+      const sectionHeader = document.createElement('div');
+      sectionHeader.className = 'deck-group__header';
+      sectionHeader.textContent = `▼ 牌库顺序（${total}）`;
+      section.appendChild(sectionHeader);
 
-      // 按类型分组
-      const typeOrder = ['shikigami', 'summon', 'spell', 'battle', 'xiezhan', 'form', 'realm', 'curse', 'unknown'];
-      const typeNames = { shikigami: '式神', summon: '召唤物', spell: '法术', battle: '战斗', xiezhan: '协战', form: '形态', realm: '幻境', curse: '灵咒', unknown: '其他' };
-      const byType = new Map();
-      for (const [name, entry] of nameMap) {
-        const t = entry.type || 'unknown';
-        if (!byType.has(t)) byType.set(t, []);
-        byType.get(t).push({ name, count: entry.count, cards: entry.cards });
-      }
+      deck.forEach((card, idx) => {
+        if (!card || typeof card !== 'object') return;
+        const row = document.createElement('div');
+        row.className = 'deck-group__row';
 
-      // 渲染各类型分组
-      for (const type of typeOrder) {
-        const entries = byType.get(type);
-        if (!entries || !entries.length) continue;
-        // 组内按名称排序
-        entries.sort((a, b) => a.name.localeCompare(b.name, 'zh'));
-        const typeTotal = entries.reduce((sum, e) => sum + e.count, 0);
+        const posSpan = document.createElement('span');
+        posSpan.className = 'deck-group__count';
+        posSpan.textContent = `#${idx + 1}`;
+        posSpan.style.minWidth = '2.5em';
+        row.appendChild(posSpan);
 
-        const section = document.createElement('div');
-        section.className = 'deck-group';
-
-        const sectionHeader = document.createElement('div');
-        sectionHeader.className = 'deck-group__header';
-        sectionHeader.textContent = `▼ ${typeNames[type] || type}（${typeTotal}）`;
-        section.appendChild(sectionHeader);
-
-        entries.forEach(entry => {
-          const row = document.createElement('div');
-          row.className = 'deck-group__row';
-
-          const nameSpan = document.createElement('span');
+        const nameSpan = document.createElement('span');
+        const isRevealed = revealedSet.has(card.id);
+        if (isRevealed) {
           nameSpan.className = 'deck-group__name';
-          nameSpan.textContent = entry.name;
-          row.appendChild(nameSpan);
+          nameSpan.textContent = card.name + '（已占卜）';
+          nameSpan.style.cursor = 'help';
+          // 食材牌/佳肴：存储数据供浮窗显示
+          if (card._food) {
+            nameSpan.dataset.food = JSON.stringify(card);
+          }
+          // 已揭示的灵咒标签
+          if (card.curses && card.curses.length) {
+            const curseSpan = document.createElement('span');
+            curseSpan.className = 'breakdown-card-row__curses';
+            curseSpan.style.marginLeft = '6px';
+            card.curses.forEach(c => {
+              const tag = document.createElement('span');
+              tag.className = 'breakdown-card-row__curse-tag';
+              tag.textContent = '⛓️' + c.name + '×' + c.layers;
+              curseSpan.appendChild(tag);
+            });
+            row.appendChild(curseSpan);
+          }
+        } else {
+          nameSpan.className = 'deck-group__name';
+          nameSpan.textContent = '未知';
+          nameSpan.style.color = 'var(--text-muted, #888)';
+        }
+        row.appendChild(nameSpan);
 
-          const countSpan = document.createElement('span');
-          countSpan.className = 'deck-group__count';
-          countSpan.textContent = `×${entry.count}`;
-          row.appendChild(countSpan);
-
-          // ➕ 按钮：随机选取该名称的一张牌添加灵咒
-          const addBtn = document.createElement('button');
-          addBtn.type = 'button';
-          addBtn.className = 'btn-card-curse-add';
-          addBtn.textContent = '➕';
-          addBtn.title = '为牌库中随机一张「' + entry.name + '」添加灵咒';
-          addBtn.addEventListener('click', (e) => {
-            e.stopPropagation();
-            const pool = entry.cards;
-            const target = pool[Math.floor(Math.random() * pool.length)];
-            openCursePanel(_curseTargetForCard(playerId, target, '牌库中的'));
-          });
-          row.appendChild(addBtn);
-
-          section.appendChild(row);
-        });
-
-        cardListBody.appendChild(section);
-      }
+        section.appendChild(row);
+      });
+      cardListBody.appendChild(section);
       } catch(e) {
         console.error('[RenderDeck] 渲染牌库失败:', e);
         cardListBody.innerHTML = '<div class="card-list-empty">牌库渲染出错，请查看控制台</div>';
@@ -295,14 +324,21 @@
       if (!cardListDragStart || cardListOverlay.hidden) return;
       cardListDragOffset.x = e.clientX - cardListDragStart.x;
       cardListDragOffset.y = e.clientY - cardListDragStart.y;
-      cardListDialogEl.style.transform = `translate(${cardListDragOffset.x}px, ${cardListDragOffset.y}px)`;
+      const tx = `translate(${cardListDragOffset.x}px, ${cardListDragOffset.y}px)`;
+      cardListDialogEl.style.transform = tx;
       cardListDialogEl.style.transition = 'none';
+      // 牌表侧窗跟随移动
+      if (deckBreakdownPanel && !deckBreakdownPanel.hidden) {
+        deckBreakdownPanel.style.transform = tx;
+        deckBreakdownPanel.style.transition = 'none';
+      }
     });
 
     document.addEventListener('mouseup', () => {
       if (!cardListDragStart) return;
       cardListDragStart = null;
       cardListDialogEl.style.cursor = '';
+      if (deckBreakdownPanel) deckBreakdownPanel.style.cursor = '';
     });
 
     function openCardListDialog({ title, playerId, type }) {
@@ -310,10 +346,18 @@
       cardListTitle.textContent = title;
       if (type === 'hand') renderHandList(playerId);
       else renderDeckList(playerId);
+      // 牌表按钮：仅自己牌库可见（查看对手牌库时隐藏）
+      cardListBreakdownBtn.hidden = (type !== 'deck' || !isViewingOwnCards(playerId));
+      cardListBreakdownBtn.textContent = '📋 查看牌表';
+      deckBreakdownPanel.hidden = true;
       // 重置拖拽偏移
       cardListDragOffset = { x: 0, y: 0 };
       cardListDialogEl.style.transform = '';
       cardListDialogEl.style.transition = '';
+      if (deckBreakdownPanel) {
+        deckBreakdownPanel.style.transform = '';
+        deckBreakdownPanel.style.transition = '';
+      }
       cardListOverlay.hidden = false;
     }
 
@@ -321,12 +365,14 @@
       cardListOverlay.hidden = true;
       cardListContext = null;
       cardListBody.innerHTML = '';
+      deckBreakdownPanel.hidden = true;
+      deckBreakdownBody.innerHTML = '';
     }
 
     function refreshOpenListDialog(playerId) {
       if (!cardListContext || cardListContext.playerId !== playerId) return;
       if (cardListContext.type === 'hand') renderHandList(playerId);
-      else renderDeckList(playerId);
+      else { renderDeckList(playerId); refreshDeckBreakdown(playerId); }
     }
 
     function drawCard(playerId) {
@@ -488,20 +534,17 @@
         const clampedX = Math.min(x, state.deck.length);
         startDivine(playerId, clampedX);
       };
-      document.getElementById('divine-x-cancel').onclick = () => {
-        closeDivineDialog();
-      };
-      // Enter 键确认
+      // Enter 键确认，Esc 取消
       divineXInput.onkeydown = (e) => {
         if (e.key === 'Enter') document.getElementById('divine-x-confirm').click();
-        if (e.key === 'Escape') closeDivineDialog();
+        if (e.key === 'Escape') closeDivineDialog(true);
       };
     }
 
     /** 步骤2：取牌库顶X张副本，展示占卜操作界面（不修改真实牌库，确认后才应用） */
     function startDivine(playerId, x) {
       const state = getPlayerCardState(playerId);
-      if (!state.deck.length || x < 1) { closeDivineDialog(); return; }
+      if (!state.deck.length || x < 1) { closeDivineDialog(false); return; }
       const clampedX = Math.min(x, state.deck.length);
       // 复制顶部X张（深拷贝，避免引用问题）
       const divineCards = state.deck.slice(0, clampedX).map(c => ({
@@ -509,6 +552,14 @@
         name: c.name,
         curses: c.curses ? c.curses.map(cur => ({ name: cur.name, layers: cur.layers })) : [],
       }));
+      // 标记这些牌为"已占卜揭示"（自己的牌库占卜后也能看到）
+      const viewerId = getViewerPlayerId();
+      if (!playerRevealedCards[viewerId]) playerRevealedCards[viewerId] = new Set();
+      divineCards.forEach(c => playerRevealedCards[viewerId].add(c.id));
+      // 静默同步给对方（用于存档完整性）
+      if (!isSoloMode && peerConn && peerConn.open && typeof sendToPeer === 'function') {
+        sendToPeer({ type: 'revealed-cards', playerId: viewerId, cardIds: [...playerRevealedCards[viewerId]] });
+      }
       divineContext = {
         playerId,
         topGroup: divineCards,          // 默认全部留在顶部
@@ -708,22 +759,40 @@
       });
       state.deck = [...mergedTop, ...remaining, ...mergedBottom];
       divineContext = null;
-      closeDivineDialog();
+      closeDivineDialog(false);
       updateDeckButtons(playerId);
       refreshOpenListDialog(playerId);
       syncDeckState(playerId);
       const topNames = topGroup.map(c => c.name).join('、') || '（无）';
       const bottomNames = bottomGroup.map(c => c.name).join('、') || '（无）';
-      // 占卜结果仅自己可见，不同步给对手
-      addSystemChatMessage(`【系统】${getPlayerName(playerId)}完成了占卜 —— 牌库顶：[${topNames}]，牌库底：[${bottomNames}]`);
+      const topCount = topGroup.length;
+      const bottomCount = bottomGroup.length;
+      const playerName = getPlayerName(playerId);
+      // 占卜者自己看到详细信息（牌名）
+      addSystemChatMessage(`【系统】${playerName}完成了占卜 —— 牌库顶：[${topNames}]，牌库底：[${bottomNames}]`);
+      // 对手看到摘要信息（只有数量，不知道牌名）
+      if (!isSoloMode && peerConn && peerConn.open && typeof sendToPeer === 'function') {
+        const topWord = topCount > 0 ? `${topCount}张` : '0张';
+        const bottomWord = bottomCount > 0 ? `${bottomCount}张` : '0张';
+        const summaryMsg = `【系统】${playerName}完成了占卜${x}，将${topWord}牌放在了牌库顶，将${bottomWord}牌放在了牌库底`;
+        sendToPeer({ type: 'sysmsg', text: summaryMsg });
+      }
     }
 
-    /** 关闭占卜对话框（取消时仅丢弃上下文，牌库未被修改） */
-    function closeDivineDialog() {
+    /** 关闭占卜对话框（cancel=true 时清除已揭示卡牌） */
+    function closeDivineDialog(cancel) {
       if (divineContext) {
         const playerName = getPlayerName(divineContext.playerId);
+        // 取消占卜时移除本次揭示的卡牌ID
+        if (cancel) {
+          const viewerId = getViewerPlayerId();
+          const allDivined = [...(divineContext.topGroup || []), ...(divineContext.bottomGroup || [])];
+          allDivined.forEach(c => {
+            if (playerRevealedCards[viewerId]) playerRevealedCards[viewerId].delete(c.id);
+          });
+        }
         divineContext = null;
-        broadcastSystemMsg(`【系统】${playerName}取消了占卜`);
+        if (cancel) broadcastSystemMsg(`【系统】${playerName}取消了占卜`);
       }
       divineOverlay.hidden = true;
       divineXRow.hidden = false;
@@ -737,14 +806,14 @@
 
     // 绑定占卜对话框按钮事件
     document.getElementById('divine-confirm').addEventListener('click', confirmDivine);
-    document.getElementById('divine-cancel').addEventListener('click', closeDivineDialog);
+    document.getElementById('divine-cancel').addEventListener('click', () => closeDivineDialog(true));
 
     // 不再通过点击遮罩关闭（与其他弹窗行为一致）
 
     // Esc 关闭
     document.addEventListener('keydown', (e) => {
       if (e.key === 'Escape' && !divineOverlay.hidden) {
-        if (!divineMain.hidden) closeDivineDialog();
+        if (!divineMain.hidden) closeDivineDialog(true);
       }
     });
 
@@ -781,7 +850,6 @@
     }
 
     function handleDeckAction(playerId, action) {
-      if (!isMyZone(playerId)) return;
       const playerName = getPlayerName(playerId);
       switch (action) {
         case 'draw':
@@ -878,7 +946,311 @@
       }
     });
 
-    // 其他 下拉菜单
+    // ================================================================
+    //  牌表侧窗：按所属式神分组展示牌库内容
+    // ================================================================
+    function renderDeckBreakdown(playerId) {
+      const state = getPlayerCardState(playerId);
+      const deck = (state.deck || []).filter(c => c && typeof c === 'object');
+      const viewerId = getViewerPlayerId();
+      const revealedSet = playerRevealedCards[viewerId] || new Set();
+      deckBreakdownBody.innerHTML = '';
+
+      if (!deck.length) {
+        deckBreakdownBody.innerHTML = '<div class="breakdown-empty">牌库为空</div>';
+        return;
+      }
+
+      deckBreakdownTitle.textContent = `📋 牌表（${deck.length}张）`;
+
+      // 按所属式神分组：{ owner: { cards: [{name, count, cardRef}] } }
+      const ownerMap = new Map();
+      deck.forEach(card => {
+        const db = CardDB.lookup(card.name);
+        const owner = (db && db.owner) ? db.owner : '无归属';
+        if (!ownerMap.has(owner)) ownerMap.set(owner, new Map());
+        const nameMap = ownerMap.get(owner);
+        const existing = nameMap.get(card.name);
+        if (existing) {
+          existing.count += 1;
+          existing.cards.push(card);
+        } else {
+          nameMap.set(card.name, { count: 1, cards: [card], name: card.name });
+        }
+      });
+
+      // 排序：按式神名
+      const sortedOwners = [...ownerMap.keys()].sort((a, b) => a.localeCompare(b, 'zh'));
+
+      sortedOwners.forEach(owner => {
+        const group = document.createElement('div');
+        group.className = 'breakdown-owner-group';
+
+        const header = document.createElement('div');
+        header.className = 'breakdown-owner-group__header';
+        const totalInGroup = [...ownerMap.get(owner).values()].reduce((s, e) => s + e.count, 0);
+        header.textContent = `▼ ${owner}（${totalInGroup}）`;
+        group.appendChild(header);
+
+        const nameMap = ownerMap.get(owner);
+        const sortedNames = [...nameMap.keys()].sort((a, b) => a.localeCompare(b, 'zh'));
+
+        sortedNames.forEach(name => {
+          const entry = nameMap.get(name);
+          const sampleCard = entry.cards[0];
+          const isRevealed = revealedSet.has(sampleCard.id);
+          const row = document.createElement('div');
+          row.className = 'breakdown-card-row';
+
+          const nameSpan = document.createElement('span');
+          nameSpan.className = 'breakdown-card-row__name';
+          // 自己的牌表全部可见；对手的牌表仅揭示牌可见
+          const showName = isViewingOwnCards(playerId) || isRevealed;
+          nameSpan.textContent = showName ? name : '未知';
+          if (!showName) {
+            nameSpan.style.color = 'var(--text-muted, #888)';
+            nameSpan.style.cursor = 'default';
+          }
+          // 食材牌/佳肴：存储数据供浮窗显示
+          if (showName && sampleCard._food) {
+            nameSpan.dataset.food = JSON.stringify(sampleCard);
+          }
+          row.appendChild(nameSpan);
+
+          // 数量
+          if (entry.count > 1) {
+            const countSpan = document.createElement('span');
+            countSpan.className = 'breakdown-card-row__count';
+            countSpan.textContent = '×' + entry.count;
+            row.appendChild(countSpan);
+          }
+
+          // 已揭示时显示灵咒
+          if (isRevealed && sampleCard.curses && sampleCard.curses.length) {
+            const cursesSpan = document.createElement('span');
+            cursesSpan.className = 'breakdown-card-row__curses';
+            sampleCard.curses.forEach(c => {
+              const tag = document.createElement('span');
+              tag.className = 'breakdown-card-row__curse-tag';
+              tag.textContent = '⛓️' + c.name + '×' + c.layers;
+              cursesSpan.appendChild(tag);
+            });
+            row.appendChild(cursesSpan);
+          }
+
+          group.appendChild(row);
+        });
+
+        deckBreakdownBody.appendChild(group);
+      });
+    }
+
+    function refreshDeckBreakdown(playerId) {
+      if (deckBreakdownPanel.hidden) return;
+      if (!cardListContext || cardListContext.playerId !== playerId) return;
+      if (cardListContext.type !== 'deck') return;
+      renderDeckBreakdown(playerId);
+    }
+
+    // 牌表按钮：切换侧窗
+    cardListBreakdownBtn.addEventListener('click', () => {
+      if (!cardListContext || cardListContext.type !== 'deck') return;
+      const wasHidden = deckBreakdownPanel.hidden;
+      deckBreakdownPanel.hidden = !wasHidden;
+      if (!wasHidden) {
+        deckBreakdownBody.innerHTML = '';
+      } else {
+        // 应用当前拖拽偏移，让牌表出现在牌库旁边
+        if (cardListDragOffset.x !== 0 || cardListDragOffset.y !== 0) {
+          deckBreakdownPanel.style.transform = `translate(${cardListDragOffset.x}px, ${cardListDragOffset.y}px)`;
+          deckBreakdownPanel.style.transition = 'none';
+        }
+        renderDeckBreakdown(cardListContext.playerId);
+      }
+      cardListBreakdownBtn.textContent = deckBreakdownPanel.hidden ? '📋 查看牌表' : '📋 隐藏牌表';
+    });
+
+    deckBreakdownClose.addEventListener('click', () => {
+      deckBreakdownPanel.hidden = true;
+      deckBreakdownBody.innerHTML = '';
+      cardListBreakdownBtn.textContent = '📋 查看牌表';
+    });
+
+    // ================================================================
+    //  烹饪系统 (Cooking)
+    // ================================================================
+    const FOOD_TYPES = ['山珍', '海味', '时蔬'];
+    const FOOD_LEVEL_SUFFIX = { 1: '良', 2: '优', 3: '极' };
+    const FOOD_EFFECTS = {
+      '山珍': { 1: '+1力量', 2: '+2力量', 3: '+3力量' },
+      '海味': { 1: '+1生命', 2: '+2生命', 3: '+3生命' },
+      '时蔬': { 1: ['昂扬'], 2: ['昂扬', '贯通'], 3: ['昂扬', '贯通', '迅捷'] },
+    };
+    const FOOD_TYPE_ICONS = { '山珍': '🍄', '海味': '🐟', '时蔬': '🥬', '佳肴': '🍲' };
+
+    /** 判断是否为食材牌（不含佳肴） */
+    function isFoodCard(card) {
+      return card && card._food && card._foodType !== '佳肴';
+    }
+
+    /** 判断是否为佳肴 */
+    function isFeastCard(card) {
+      return card && card._food && card._foodType === '佳肴';
+    }
+
+    /** 判断任意食物牌（食材或佳肴） */
+    function isAnyFoodCard(card) {
+      return card && card._food;
+    }
+
+    /** 根据式神等级生成一张随机食材牌 */
+    function generateFoodCard(level) {
+      const lv = (level >= 1 && level <= 3) ? level : 1;
+      const type = FOOD_TYPES[Math.floor(Math.random() * FOOD_TYPES.length)];
+      const suffix = FOOD_LEVEL_SUFFIX[lv] || '良';
+      const name = type + '·' + suffix;
+      let effectDesc;
+      if (type === '时蔬') {
+        const pool = FOOD_EFFECTS[type][lv] || FOOD_EFFECTS[type][1];
+        effectDesc = pool[Math.floor(Math.random() * pool.length)];
+      } else {
+        effectDesc = FOOD_EFFECTS[type][lv] || FOOD_EFFECTS[type][1];
+      }
+      return {
+        id: ++cardIdCounter,
+        name: name,
+        curses: [],
+        _food: true,
+        _foodType: type,
+        _foodLevel: lv,
+        _foodEffects: [effectDesc],
+      };
+    }
+
+    /** 确定式神等级：从卡牌槽左上角 .card-level 读取 */
+    function getShikigamiLevel(slot) {
+      if (!slot) return 1;
+      const levelInput = slot.querySelector('.card-level');
+      if (levelInput) {
+        const val = parseInt(levelInput.value, 10);
+        if (val >= 1 && val <= 3) return val;
+      }
+      return 1;
+    }
+
+    /** 将3张食材牌合成为1张佳肴 */
+    function synthesizeFood(playerId, cards) {
+      const allEffects = [];
+      cards.forEach(c => {
+        if (c._foodEffects) allEffects.push(...c._foodEffects);
+      });
+      const nameCounts = new Map();
+      cards.forEach(c => { nameCounts.set(c.name, (nameCounts.get(c.name) || 0) + 1); });
+      const ingredients = [...nameCounts.entries()].map(([n, cnt]) => cnt > 1 ? `${n}×${cnt}` : n).join('、');
+      return {
+        id: ++cardIdCounter,
+        name: '佳肴',
+        curses: [],
+        _food: true,
+        _foodType: '佳肴',
+        _foodLevel: 0,
+        _foodEffects: allEffects,
+        _foodIngredients: ingredients,
+      };
+    }
+
+    /** 执行烹饪：选择式神 → 获得食材牌 → 可能的佳肴合成 */
+    function performCooking(slot) {
+      const playerId = slot.dataset.slotPlayer;
+      if (!playerId) return;
+      const cardName = (slot.querySelector('.card-name')?.value || '').trim();
+      if (!cardName) return;
+      const playerName = getPlayerName(playerId);
+      const isMyOp = (typeof isMyZone === 'function') ? isMyZone(playerId) : true;
+
+      // 烹饪特效动画
+      if (typeof DamageEffects !== 'undefined' && DamageEffects.playCookEffect) {
+        DamageEffects.playCookEffect(slot);
+      }
+
+      // 确定式神等级（从卡牌槽左上角 .card-level 读取）
+      const level = getShikigamiLevel(slot);
+
+      // 生成食材牌
+      const foodCard = generateFoodCard(level);
+      const state = getPlayerCardState(playerId);
+      state.hand.push(foodCard);
+      updateDeckButtons(playerId);
+      refreshOpenListDialog(playerId);
+
+      // 联机同步：需要跨玩家强制同步
+      if (typeof syncDeckStateForce === 'function') {
+        syncDeckStateForce(playerId);
+      } else {
+        syncDeckState(playerId);
+      }
+
+      // 系统消息：自己看到详细，对手看到摘要
+      const detailMsg = `【系统】${playerName}使「${cardName}」进行了一次烹饪，获得了「${foodCard.name}」`;
+      const summaryMsg = `【系统】${playerName}使「${cardName}」进行了一次烹饪，获得了一张${level}级食材牌`;
+      if (isMyOp) {
+        // 我为自己烹饪：我看到详细，对手看到摘要
+        addSystemChatMessage(detailMsg);
+        if (!isSoloMode && peerConn && peerConn.open && typeof sendToPeer === 'function') {
+          sendToPeer({ type: 'sysmsg', text: summaryMsg });
+        }
+      } else {
+        // 我为对手烹饪：双方都看到摘要
+        broadcastSystemMsg(summaryMsg);
+      }
+
+      // 检查手中是否有≥3张食材牌（不含佳肴），有则合成
+      const foodCards = state.hand.filter(c => isFoodCard(c));
+      if (foodCards.length >= 3) {
+        const shuffled = [...foodCards].sort(() => Math.random() - 0.5);
+        const selected = shuffled.slice(0, 3);
+        // 安全移除：逐张匹配，双重验证 isFoodCard 防止误删
+        selected.forEach(card => {
+          const idx = state.hand.findIndex(hc => hc.id === card.id && isFoodCard(hc));
+          if (idx !== -1) state.hand.splice(idx, 1);
+        });
+        const feast = synthesizeFood(playerId, selected);
+        state.hand.push(feast);
+        updateDeckButtons(playerId);
+        refreshOpenListDialog(playerId);
+        if (typeof syncDeckStateForce === 'function') {
+          syncDeckStateForce(playerId);
+        } else {
+          syncDeckState(playerId);
+        }
+        // 仅合成方注册佳肴到CardDB并可查看效果
+        const detailFeast = `【系统】${playerName}将3张食材牌合成为「佳肴」`;
+        const summaryFeast = `【系统】${playerName}将3张食材牌合成为佳肴（不可查看）`;
+        if (isMyOp) {
+          // 注册佳肴到CardDB，使「佳肴」可悬浮查看
+          if (typeof CardDB !== 'undefined' && typeof CardDB.addCustom === 'function') {
+            const ingredientText = feast._foodIngredients ? '由' + feast._foodIngredients + '合成' : '';
+            const feastDef = {
+              type: 'curse', name: '佳肴', owner: '中立',
+              effect: ingredientText + '\n' + feast._foodEffects.join('\n'),
+              _food: true, _foodType: '佳肴', _foodLevel: 0,
+              _foodEffects: feast._foodEffects, _foodIngredients: feast._foodIngredients,
+            };
+            CardDB.addCustom(feastDef);
+            // 同步佳肴定义给对方，使对方也能悬浮查看正确效果
+            if (!isSoloMode && peerConn && peerConn.open && typeof sendToPeer === 'function') {
+              sendToPeer({ type: 'food-card-register', card: feastDef });
+            }
+          }
+          addSystemChatMessage(detailFeast);
+          if (!isSoloMode && peerConn && peerConn.open && typeof sendToPeer === 'function') {
+            sendToPeer({ type: 'sysmsg', text: summaryFeast });
+          }
+        } else {
+          broadcastSystemMsg(summaryFeast);
+        }
+      }
+    }
     const dropdownToggle = document.getElementById('btn-dropdown-toggle');
     const dropdownMenu = document.getElementById('dropdown-other-menu');
 

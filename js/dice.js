@@ -39,7 +39,7 @@
     const damageLineSvg = document.getElementById('damage-line-svg');
     const damageLine = document.getElementById('damage-line');
     let isTargeting = false;
-    let targetingMode = 'damage'; // 'damage' | 'heal' | 'countdown' | 'energy' | 'ko' | 'curse'
+    let targetingMode = 'damage'; // 'damage' | 'heal' | 'countdown' | 'energy' | 'ko' | 'curse' | 'divine'
     let targetingOrigin = { x: 0, y: 0 };
 
     // ---- 伤害/恢复来源 ----
@@ -49,8 +49,10 @@
     const TARGETING_BTN_MAP = {
       damage:    { btn: () => btnDamage,         activeText: '🎯 选择式神…(Esc取消)', idleText: '🎯 选择目标' },
       heal:      { btn: () => btnDamage,         activeText: '🎯 选择式神…(Esc取消)', idleText: '🎯 选择目标' },
-      countdown: { btn: () => btnMechanicToggle, activeText: '⏳ 倒计时中…(Esc取消)', idleText: '🔧 添加机制 ▾' },
-      energy:    { btn: () => btnMechanicToggle, activeText: '🏮 能量中…(Esc取消)',   idleText: '🔧 添加机制 ▾' },
+      countdown: { btn: () => btnMechanicToggle, activeText: '⏳ 倒计时中…(Esc取消)', idleText: '🔧 机制 ▾' },
+      energy:    { btn: () => btnMechanicToggle, activeText: '🏮 能量中…(Esc取消)',   idleText: '🔧 机制 ▾' },
+      divine:    { btn: () => btnMechanicToggle, activeText: '🔮 选择牌手…(Esc取消)', idleText: '🔧 机制 ▾' },
+      cook:      { btn: () => btnMechanicToggle, activeText: '🍳 选择式神…(Esc取消)', idleText: '🔧 机制 ▾' },
       ko:        { btn: () => btnKo,             activeText: '💀 选择式神…(Esc取消)', idleText: '💀 气绝/复活' },
       curse:     { btn: () => btnCurse,          activeText: '⛓️ 选择式神…(Esc取消)', idleText: '⛓️ 灵咒' },
     };
@@ -221,6 +223,149 @@
       enterTargetingMode('energy');
     });
 
+    // ---- 入夜 ----
+    const btnNightfall = document.getElementById('btn-nightfall');
+    let nightfallActive = { '1': false, '2': false };
+    btnNightfall.addEventListener('click', () => {
+      dropdownMechanicMenu.hidden = true;
+      const pid = localPlayerId || '1';
+      nightfallActive[pid] = !nightfallActive[pid];
+      _toggleNightfall(pid, nightfallActive[pid]);
+      // 联机同步
+      if (peerConn && peerConn.open && typeof sendToPeer === 'function') {
+        sendToPeer({ type: 'nightfall-toggle', playerId: pid, active: nightfallActive[pid] });
+      }
+    });
+
+    // ---- 占卜（选择牌手） ----
+    const btnDivine = document.getElementById('btn-divine');
+    btnDivine.addEventListener('click', () => {
+      dropdownMechanicMenu.hidden = true;
+      if (isTargeting) { exitTargetingMode(); return; }
+      enterTargetingMode('divine');
+    });
+
+    // ---- 烹饪（选择式神） ----
+    const btnCook = document.getElementById('btn-cook');
+    btnCook.addEventListener('click', () => {
+      dropdownMechanicMenu.hidden = true;
+      if (isTargeting) { exitTargetingMode(); return; }
+      enterTargetingMode('cook');
+    });
+
+    function _toggleNightfall(playerId, show) {
+      const zone = document.querySelector(`.player-zone[data-player="${playerId}"]`);
+      if (!zone) return;
+      const fieldLayout = zone.querySelector('.field-layout');
+      if (!fieldLayout) return;
+
+      if (show) {
+        if (fieldLayout.querySelector('.nightfall-indicator')) return;
+        const container = document.createElement('div');
+        container.className = 'nightfall-indicator';
+        const moon = document.createElement('span');
+        moon.className = 'nightfall-moon';
+        moon.textContent = '🌙';
+        const input = document.createElement('input');
+        input.type = 'number';
+        input.className = 'nightfall-input';
+        input.value = '0';
+        input.min = '0';
+        input.max = '99';
+        input.addEventListener('change', () => syncNightfallToPeer(playerId));
+        input.addEventListener('input', () => syncNightfallToPeer(playerId));
+        moon.appendChild(input);
+        container.appendChild(moon);
+        // 插入到 "准备区" 标签的正下方、field-row 之前
+        const fieldRow = fieldLayout.querySelector('.field-row');
+        if (fieldRow) {
+          fieldLayout.insertBefore(container, fieldRow);
+        } else {
+          fieldLayout.appendChild(container);
+        }
+        _playNightfallEffect(container, 'in');
+      } else {
+        const existing = fieldLayout.querySelector('.nightfall-indicator');
+        if (existing) {
+          _playNightfallEffect(existing, 'out', () => existing.remove());
+        }
+      }
+    }
+
+    function _playNightfallEffect(target, dir, onComplete) {
+      if (typeof gsap === 'undefined') {
+        if (onComplete) onComplete();
+        return;
+      }
+      const origPos = target.style.position;
+      target.style.position = 'relative';
+
+      // 冲击环
+      const ring = document.createElement('div');
+      ring.className = 'nightfall-ring';
+      target.appendChild(ring);
+
+      // 星星粒子
+      const stars = [];
+      for (let i = 0; i < 12; i++) {
+        const star = document.createElement('div');
+        star.className = 'nightfall-star';
+        star.style.left = (30 + Math.random() * 40) + '%';
+        star.style.top = (20 + Math.random() * 60) + '%';
+        target.appendChild(star);
+        stars.push(star);
+      }
+
+      if (dir === 'in') {
+        gsap.fromTo(ring, { opacity: 1, scale: 0.3 }, { opacity: 0, scale: 3, duration: 0.5, ease: 'power2.out', onComplete: () => ring.remove() });
+        stars.forEach((s, i) => {
+          gsap.fromTo(s, { opacity: 0, scale: 0 }, {
+            opacity: 1, scale: 1.5,
+            x: (Math.random() - 0.5) * 50,
+            y: (Math.random() - 0.5) * 40,
+            duration: 0.4 + Math.random() * 0.3,
+            ease: 'power2.out',
+            onComplete: () => gsap.to(s, { opacity: 0, scale: 0.3, duration: 0.3, onComplete: () => s.remove() })
+          });
+        });
+        gsap.fromTo(target, { scale: 0.5, opacity: 0 }, { scale: 1, opacity: 1, duration: 0.35, ease: 'back.out(1.5)' });
+      } else {
+        gsap.fromTo(ring, { opacity: 1, scale: 3 }, { opacity: 0, scale: 0.3, duration: 0.4, ease: 'power2.in', onComplete: () => ring.remove() });
+        stars.forEach((s, i) => {
+          gsap.fromTo(s, { opacity: 1, scale: 1.5, x: (Math.random() - 0.5) * 50, y: (Math.random() - 0.5) * 40 }, {
+            opacity: 0, scale: 0,
+            duration: 0.35 + Math.random() * 0.25,
+            ease: 'power2.in',
+            onComplete: () => s.remove()
+          });
+        });
+        gsap.to(target, { scale: 0.5, opacity: 0, duration: 0.3, ease: 'power2.in', onComplete });
+      }
+    }
+
+    function syncNightfallToPeer(playerId) {
+      if (!peerConn || !peerConn.open || typeof sendToPeer !== 'function') return;
+      const container = document.querySelector(`.player-zone[data-player="${playerId}"] .nightfall-indicator`);
+      if (!container) return;
+      const input = container.querySelector('.nightfall-input');
+      sendToPeer({ type: 'nightfall-value', playerId, value: input ? input.value : '0' });
+    }
+
+    function applyRemoteNightfall(playerId, active, value) {
+      const zone = document.querySelector(`.player-zone[data-player="${playerId}"]`);
+      if (!zone) return;
+      const existing = zone.querySelector('.nightfall-indicator');
+      if (active) {
+        if (!existing) _toggleNightfall(playerId, true);
+        if (value !== undefined) {
+          const input = zone.querySelector('.nightfall-input');
+          if (input) input.value = value;
+        }
+      } else {
+        if (existing) _toggleNightfall(playerId, false);
+      }
+    }
+
     btnKo.addEventListener('click', () => {
       if (isTargeting) { exitTargetingMode(); return; }
       enterTargetingMode('ko');
@@ -249,6 +394,37 @@
 
     document.addEventListener('click', (e) => {
       if (!isTargeting) return;
+
+      // 占卜模式：选择牌手头像
+      if (targetingMode === 'divine') {
+        const avatar = e.target.closest('.player-avatar');
+        if (avatar) {
+          const playerId = avatar.dataset.avatarPlayer;
+          if (typeof openDivineXPrompt === 'function') {
+            openDivineXPrompt(playerId);
+          }
+          exitTargetingMode();
+          e.preventDefault();
+          e.stopPropagation();
+          return;
+        }
+        exitTargetingMode();
+        return;
+      }
+
+      // 烹饪模式：选择一个式神
+      if (targetingMode === 'cook') {
+        const slot = e.target.closest('.card-slot');
+        if (slot && slot.classList.contains('has-image') && typeof performCooking === 'function') {
+          performCooking(slot);
+          exitTargetingMode();
+          e.preventDefault();
+          e.stopPropagation();
+          return;
+        }
+        exitTargetingMode();
+        return;
+      }
 
       // 倒计时 / 能量 / 气绝 / 灵咒 模式
       if (targetingMode === 'countdown' || targetingMode === 'energy' || targetingMode === 'ko' || targetingMode === 'curse') {

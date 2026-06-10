@@ -232,11 +232,12 @@
     /* ================================================================
        联机权限锁定样式（仅禁用牌库按钮）
        ================================================================ */
+    /* 牌库按钮已解锁，双方均可操作 */
     .player-zone--locked .btn-deck {
       filter: grayscale(0.6);
-      opacity: 0.45;
-      pointer-events: none;
-      cursor: not-allowed;
+      /* opacity: 0.45; */
+      /* pointer-events: none; */
+      /* cursor: not-allowed; */
     }
 
     /* 中心线右侧：标签 + 发言按钮竖排 */

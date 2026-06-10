@@ -118,7 +118,6 @@
                 <button type="button" class="btn-deck" data-action="deck">牌库</button>
                 <button type="button" class="btn-deck" data-action="add-deck">置入牌库</button>
                 <button type="button" class="btn-deck" data-action="shuffle-deck">洗牌库</button>
-                <button type="button" class="btn-deck btn-deck--divine" data-action="divine">🔮 占卜</button>
               </div>
             </div>
             <div class="area-label field-label">准备区</div>
@@ -182,10 +181,13 @@
           <button type="button" class="btn-curse-target" id="btn-curse-target">⛓️ 灵咒</button>
         </div>
         <div class="dropdown-mechanic" id="dropdown-mechanic">
-          <button type="button" class="btn-mechanic-toggle" id="btn-mechanic-toggle">🔧 添加机制 ▾</button>
+          <button type="button" class="btn-mechanic-toggle" id="btn-mechanic-toggle">🔧 机制 ▾</button>
           <div class="dropdown-mechanic__menu" id="dropdown-mechanic-menu" hidden>
             <button type="button" class="dropdown-mechanic__item" id="btn-countdown">⏳ 倒计时</button>
             <button type="button" class="dropdown-mechanic__item" id="btn-energy">🏮 能量</button>
+            <button type="button" class="dropdown-mechanic__item" id="btn-nightfall">🌙 入夜</button>
+            <button type="button" class="dropdown-mechanic__item" id="btn-divine">🔮 占卜</button>
+            <button type="button" class="dropdown-mechanic__item" id="btn-cook">🍳 烹饪</button>
           </div>
         </div>
         <div class="dropdown-other" id="dropdown-other">
@@ -246,7 +248,6 @@
                 <button type="button" class="btn-deck" data-action="deck">牌库</button>
                 <button type="button" class="btn-deck" data-action="add-deck">置入牌库</button>
                 <button type="button" class="btn-deck" data-action="shuffle-deck">洗牌库</button>
-                <button type="button" class="btn-deck btn-deck--divine" data-action="divine">🔮 占卜</button>
               </div>
             </div>
             <div class="area-label field-label">准备区</div>
@@ -307,6 +308,7 @@
   <div class="speak-dialog-overlay" id="card-list-dialog-overlay" hidden>
     <div class="speak-dialog card-list-dialog" role="dialog" aria-labelledby="card-list-dialog-title">
       <h3 id="card-list-dialog-title">列表</h3>
+      <button type="button" class="btn-dialog-confirm breakdown-top-btn" id="card-list-breakdown-btn" hidden>📋 查看牌表</button>
       <div class="deck-summary-header" id="deck-summary-header" hidden></div>
       <div class="card-list" id="card-list-dialog-body"></div>
       <div class="curse-random-bar" id="curse-random-bar">
@@ -315,8 +317,16 @@
         <button type="button" class="btn-curse-toggle" id="btn-curse-toggle">🔄 优先不重复</button>
       </div>
       <div class="speak-dialog-actions">
-        <button type="button" class="btn-dialog-confirm" id="card-list-dialog-close">关闭</button>
+        <button type="button" class="btn-dialog-cancel" id="card-list-dialog-close">关闭</button>
       </div>
+    </div>
+    <!-- 牌表侧窗：与牌库弹窗并排延申 -->
+    <div class="deck-breakdown-panel" id="deck-breakdown-panel" hidden>
+      <div class="deck-breakdown__header">
+        <h4 id="deck-breakdown-title">📋 牌表</h4>
+        <button type="button" class="btn-dialog-cancel deck-breakdown__close" id="deck-breakdown-close">✕</button>
+      </div>
+      <div class="deck-breakdown__body" id="deck-breakdown-body"></div>
     </div>
   </div>
 
@@ -349,8 +359,7 @@
       <div class="divine-x-row" id="divine-x-row">
         <label>占卜数量：</label>
         <input type="number" id="divine-x-input" min="1" max="99" value="3" placeholder="X">
-        <button type="button" class="btn-dialog-confirm" id="divine-x-confirm">确认</button>
-        <button type="button" class="btn-dialog-cancel" id="divine-x-cancel">取消</button>
+        <button type="button" class="btn-dialog-confirm divine-x-confirm-btn" id="divine-x-confirm">🔮 确认</button>
       </div>
       <!-- 占卜操作区（初始隐藏） -->
       <div class="divine-main" id="divine-main" hidden>

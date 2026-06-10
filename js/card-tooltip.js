@@ -28,9 +28,26 @@
 
       function _findCardName(target) {
         if (!target) return null;
+        // 食材牌/佳肴：通过 data-food 属性获取
+        const foodEl = target.closest('[data-food]');
+        if (foodEl) {
+          try {
+            const foodData = JSON.parse(foodEl.dataset.food);
+            return { name: foodData.name, _foodData: foodData };
+          } catch(e) { /* fall through */ }
+        }
         // 直接命中
         if (target.classList.contains('card-name')) return target.value;
         if (target.classList.contains('card-list-item__name')) return target.textContent;
+        if (target.classList.contains('breakdown-card-row__name')) {
+          const t = target.textContent.trim();
+          if (t === '未知' || !t) return null; // 未揭示不弹窗
+          return t;
+        }
+        if (target.classList.contains('deck-group__name')) {
+          // 对手牌库中的已揭示卡牌，去掉"（已占卜）"后缀
+          return target.textContent.replace(/（已占卜）$/, '');
+        }
         if (target.classList.contains('chat-card-name')) return target.textContent;
         if (target.classList.contains('effect-name')) return target.value;
         // 手牌/牌库灵咒标签
@@ -62,7 +79,13 @@
         const name = _findCardName(target);
 
         if (!name) { hide(); return; }
-        const card = CardDB.lookup(name);
+        // 食材牌/佳肴：用内嵌的食物数据
+        let card;
+        if (typeof name === 'object' && name._foodData) {
+          card = _buildFoodCardInfo(name._foodData);
+        } else {
+          card = CardDB.lookup(name);
+        }
         if (!card) { hide(); return; }
         currentCard = card;
         hoveredEl = target;
@@ -83,6 +106,31 @@
           clearTimeout(timer);
           hide();
         }
+      }
+
+      function _buildFoodCardInfo(foodData) {
+        const typeClass = foodData._foodType === '佳肴' ? 'curse' : 'spell';
+        const foodTypeNames = { '山珍': '🍄 山珍', '海味': '🐟 海味', '时蔬': '🥬 时蔬', '佳肴': '🍲 佳肴' };
+        const info = {
+          type: typeClass,
+          name: foodData.name,
+          _food: true,
+          _foodType: foodData._foodType,
+          _foodEffects: foodData._foodEffects || [],
+          _foodIngredients: foodData._foodIngredients || '',
+          _foodLevel: foodData._foodLevel || 0,
+          effect: '',
+          owner: '中立',
+        };
+        if (foodData._foodType === '佳肴') {
+          // 佳肴：由xx合成 + 换行效果
+          const ingredientText = foodData._foodIngredients ? `由${foodData._foodIngredients}合成` : '';
+          info.effect = ingredientText + '\n' + foodData._foodEffects.join('\n');
+        } else {
+          // 食材牌：不显示"（X级食材）"，通过等级字段展示
+          info.effect = foodData._foodEffects.join('、');
+        }
+        return info;
       }
 
       function _show(mx, my) {
@@ -116,6 +164,28 @@
 
       function _render(card) {
         const typeNames = { shikigami: '式神', summon: '召唤物', spell: '法术', battle: '战斗', form: '形态', realm: '幻境', curse: '灵咒', xiezhan: '协战' };
+        // 食材/佳肴特殊处理
+        if (card._food) {
+          const foodTypeNames = { '山珍': '🍄 山珍', '海味': '🐟 海味', '时蔬': '🥬 时蔬', '佳肴': '🍲 佳肴' };
+          el.querySelector('.card-tooltip__badge').textContent = card._foodType === '佳肴' ? '佳肴' : '食材';
+          el.querySelector('.card-tooltip__badge').className = 'card-tooltip__badge card-tooltip__badge--' + (card._foodType === '佳肴' ? 'curse' : 'spell');
+          el.querySelector('.card-tooltip__name').textContent = card.name;
+          el.querySelector('.card-tooltip__tag').innerHTML = '';
+          const statsEl = el.querySelector('.card-tooltip__stats');
+          if (card._foodType === '佳肴') {
+            statsEl.innerHTML = `<span class="stat stat--owner">👤 中立</span>`;
+          } else {
+            statsEl.innerHTML = `<span class="stat stat--owner">👤 中立</span><span class="stat">⭐ Lv.${card._foodLevel || 1}</span>`;
+          }
+          const effectEl = el.querySelector('.card-tooltip__effect');
+          const effectText = (card.effect || '').replace(/\n/g, '<br>');
+          effectEl.innerHTML = effectText;
+          effectEl.style.display = effectText ? '' : 'none';
+          const cursesEl = el.querySelector('.card-tooltip__curses');
+          if (cursesEl) cursesEl.innerHTML = '';
+          return;
+        }
+
         const typeCN = typeNames[card.type] || card.type;
 
         // 类型徽章

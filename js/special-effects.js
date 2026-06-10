@@ -597,6 +597,73 @@ const DamageEffects = (() => {
     console.log('[DamageEffects] 👻 灵咒' + (isApply ? '结附' : '移除') + ' →', slot.querySelector('.card-name')?.value || slot.className);
   }
 
+  /** 烹饪特效：锅+蒸汽粒子 */
+  function playCookEffect(slot) {
+    if (!slot) return;
+    if (typeof gsap === 'undefined') {
+      console.warn('[DamageEffects] GSAP 未加载，烹饪特效跳过');
+      return;
+    }
+    const fxId = ++_fxUid;
+
+    const origPos = slot.style.position;
+    if (!origPos || origPos === 'static') {
+      slot.style.position = 'relative';
+    }
+
+    const tl = gsap.timeline({
+      onComplete: () => {
+        slot.style.position = origPos;
+        setTimeout(() => cleanupElements(slot, fxId), 600);
+      }
+    });
+
+    // 锅体：2倍大，居中，弹入→短暂停留→缩小消失
+    const pot = document.createElement('div');
+    pot.className = 'cook-pot';
+    pot.dataset.fxId = fxId;
+    pot.textContent = '🍳';
+    pot.style.fontSize = '84px'; // 2倍大小
+    slot.appendChild(pot);
+    tl.fromTo(pot, { scale: 0, opacity: 0, rotation: -45, y: 20 }, {
+      scale: 1.2, opacity: 1, rotation: 0, y: 0,
+      duration: 0.4, ease: 'back.out(1.7)',
+    }, 0)
+    .to(pot, { scale: 1, duration: 0.1 }, 0.4)
+    .to(pot, { scale: 1, duration: 0.5 }, 0.5)  // 停留
+    .to(pot, { scale: 0.2, opacity: 0, rotation: 25, y: -30,
+      duration: 0.5, ease: 'power2.in' }, 1.0);
+
+    // 蒸汽/火花粒子
+    const steamCount = 10;
+    for (let i = 0; i < steamCount; i++) {
+      const steam = document.createElement('div');
+      steam.className = 'cook-steam';
+      steam.dataset.fxId = fxId;
+      const size = 8 + Math.random() * 14;
+      steam.style.width = size + 'px';
+      steam.style.height = size + 'px';
+      const colors = ['#ffe8b0','#ffd080','#ffc860','#fff0d0','#ffb840'];
+      steam.style.background = colors[Math.floor(Math.random() * colors.length)];
+      slot.appendChild(steam);
+
+      const angle = (Math.random() - 0.5) * Math.PI * 0.6 - Math.PI / 2;
+      const dist = 30 + Math.random() * 55;
+      const destX = Math.cos(angle) * dist;
+      const destY = Math.sin(angle) * dist - 25;
+
+      tl.fromTo(steam, { opacity: 0, scale: 0, x: 0, y: 5 }, {
+        opacity: 0.8 + Math.random() * 0.2, scale: 1.2, x: destX, y: destY,
+        duration: 0.55 + Math.random() * 0.3, ease: 'power2.out',
+      }, 0.15 + i * 0.03)
+      .to(steam, { opacity: 0, scale: 0.2, x: destX * 1.6, y: destY - 30,
+        duration: 0.55 + Math.random() * 0.2, ease: 'power2.in',
+      }, 0.7 + i * 0.03);
+    }
+
+    console.log('[DamageEffects] 🍳 烹饪特效 →', slot.querySelector('.card-name')?.value || slot.className);
+  }
+
   return {
     playDamage,
     playDamageOnSlot,
@@ -604,6 +671,7 @@ const DamageEffects = (() => {
     playKoEffect,
     playReviveEffect,
     playCurseEffect,
+    playCookEffect,
     LEVELS,
   };
 
