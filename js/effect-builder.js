@@ -235,14 +235,14 @@
 
         // 第一条：类型
         html += `<div class="eb-field-row"><label>类型</label><select id="eb-card-type" class="eb-select eb-field-input" data-key="cardType">`;
-        const typeOpts = { shikigami:'式神', spell:'法术牌', battle:'战斗牌', form:'形态牌', xiezhan:'协战牌', realm:'幻境牌', curse:'灵咒', summon:'召唤物' };
+        const typeOpts = { shikigami:'式神', spell:'法术牌', battle:'战斗牌', form:'形态牌', bond:'协战牌', realm:'幻境牌', curse:'灵咒', summon:'召唤物' };
         for (const [val, label] of Object.entries(typeOpts)) {
           html += `<option value="${val}"${_cardType === val ? ' selected' : ''}>${label}</option>`;
         }
         html += '</select></div>';
 
         // 通用：归属式神
-        if (['spell','battle','form','xiezhan','curse','summon'].includes(t)) {
+        if (['spell','battle','form','bond','curse','summon'].includes(t)) {
           html += _fieldHtml('归属式神', 'owner', 'text', _cardOwner, '如 妖刀姬');
         }
         // 派系
@@ -255,7 +255,7 @@
           html += _fieldHtml('生命', 'hp', 'number', _cardHp, '');
         }
         // 等级
-        if (['spell','battle','form','xiezhan'].includes(t)) {
+        if (['spell','battle','form','bond'].includes(t)) {
           html += _fieldHtml('等级', 'level', 'number', _cardLevel, '');
         }
         // 觉醒
@@ -263,7 +263,7 @@
           html += _fieldHtml('觉醒', 'awakened', 'checkbox', _cardAwakened, '');
         }
         // 攻击加成 / 护甲加成
-        if (['battle','xiezhan'].includes(t)) {
+        if (['battle','bond'].includes(t)) {
           html += _fieldHtml('攻击加成', 'atkBonus', 'number', _cardAtkBonus, '');
           html += _fieldHtml('护甲加成', 'shieldBonus', 'number', _cardShieldBonus, '');
         }
@@ -277,23 +277,33 @@
         if (t === 'shikigami' || t === 'summon') {
           html += `<div class="eb-field-row eb-field-row--wide"><label>能力</label><textarea id="eb-field-ability" class="eb-field-input eb-field-textarea" data-key="ability" rows="3" placeholder="描述被动能力...">${_cardAbility}</textarea></div>`;
         }
-        // 法术/战斗等效果文字描述
-        if (['spell','battle','form','xiezhan','realm','curse'].includes(t)) {
-          html += `<div class="eb-field-row eb-field-row--wide"><label>效果文字</label><input type="text" id="eb-field-effectText" class="eb-field-input" data-key="effectText" value="${_cardAbility || ''}" placeholder="效果的文字描述"></div>`;
+        // 法术/战斗等效果文字描述（改用textarea支持多行）
+        if (['spell','battle','form','bond','realm','curse'].includes(t)) {
+          html += `<div class="eb-field-row eb-field-row--wide"><label>效果文字</label><textarea id="eb-field-effectText" class="eb-field-input eb-field-textarea" data-key="effectText" rows="3" placeholder="效果的文字描述">${_cardAbility || ''}</textarea></div>`;
         }
 
         container.innerHTML = html || '<p style="color:#889;font-size:12px;">此类型无需额外属性</p>';
 
-        // 绑定字段变更事件
+        // 绑定字段变更事件（输入时仅更新变量，变动完成才刷新JSON，避免IME卡顿）
         container.querySelectorAll('.eb-field-input').forEach(input => {
           input.addEventListener('change', function() {
             _readCardFields();
             _updateJSON();
           });
-          input.addEventListener('input', function() {
-            _readCardFields();
-            _updateJSON();
-          });
+          // 文本域/输入框仅更新变量，不重建JSON（change时统一刷新）
+          if (input.tagName === 'TEXTAREA' || input.type === 'text') {
+            input.addEventListener('input', function() {
+              // 仅读取当前字段值，不做全局扫描和JSON重建
+              const key = this.dataset.key;
+              const val = this.value;
+              if (key === 'ability' || key === 'effectText') _cardAbility = val;
+            });
+          } else {
+            input.addEventListener('input', function() {
+              _readCardFields();
+              _updateJSON();
+            });
+          }
         });
       }
 
@@ -552,7 +562,7 @@
         let text = mod.label;
         const cmpMap = { gt:'大于', lt:'小于', eq:'等于', gte:'大于等于', lte:'小于等于' };
         const sideMap = { self:'自身', ally:'友方', enemy:'敌方', any:'任意' };
-        const typeMap = { any:'任意', shikigami:'式神', summon:'召唤物', spell:'法术牌', battle:'战斗牌', form:'形态牌', realm:'幻境牌', curse:'灵咒', xiezhan:'协战牌' };
+        const typeMap = { any:'任意', shikigami:'式神', summon:'召唤物', spell:'法术牌', battle:'战斗牌', form:'形态牌', realm:'幻境牌', curse:'灵咒', bond:'协战牌' };
         const sourceMap = { self:'自身', owner_shikigami:'所属式神', any_friendly:'任意友方' };
         const counterMap = { killed_this_game:'本局消灭数', cards_in_hand:'手牌数', cards_in_deck:'牌库数', turn_number:'回合数' };
         const durationMap = { this_turn:'本回合', this_combat:'本次战斗', this_game:'本局游戏' };
@@ -604,7 +614,7 @@
       function _condOptions(condType, key, options) {
         const cmp = { gt:'大于', lt:'小于', eq:'等于', gte:'大于等于', lte:'小于等于' };
         const side = { self:'自身', ally:'友方', enemy:'敌方', any:'任意' };
-        const tMap = { any:'任意', shikigami:'式神', summon:'召唤物', spell:'法术牌', battle:'战斗牌', form:'形态牌', realm:'幻境牌', curse:'灵咒', xiezhan:'协战牌' };
+        const tMap = { any:'任意', shikigami:'式神', summon:'召唤物', spell:'法术牌', battle:'战斗牌', form:'形态牌', realm:'幻境牌', curse:'灵咒', bond:'协战牌' };
         const fMap = { '苍叶':'苍叶', '红莲':'红莲', '青岚':'青岚', '紫岩':'紫岩' };
         const cMap = { killed_this_game:'本局消灭数', cards_in_hand:'手牌数', cards_in_deck:'牌库数', turn_number:'回合数' };
         const dMap = { this_turn:'本回合', this_combat:'本次战斗', this_game:'本局游戏' };
@@ -703,9 +713,9 @@
           card.hp = _cardHp;
         }
         if (_cardType === 'shikigami') card.faction = _cardFaction;
-        if (['spell','battle','form','xiezhan'].includes(_cardType)) card.level = _cardLevel;
+        if (['spell','battle','form','bond'].includes(_cardType)) card.level = _cardLevel;
         if (_cardType === 'spell') card.awakened = _cardAwakened;
-        if (['battle','xiezhan'].includes(_cardType)) {
+        if (['battle','bond'].includes(_cardType)) {
           card.atkBonus = _cardAtkBonus;
           card.atkPenalty = 0;
           card.shieldBonus = _cardShieldBonus;

@@ -52,7 +52,7 @@
     .card-tooltip__badge--form      { background: #3a6a4a; color: #c0ffc0; }
     .card-tooltip__badge--realm     { background: #6a6a2a; color: #ffffc0; }
     .card-tooltip__badge--curse     { background: #8a3a6a; color: #ffc0e0; }
-    .card-tooltip__badge--xiezhan   { background: #8a5a2a; color: #ffe0b0; }
+    .card-tooltip__badge--bond   { background: #8a5a2a; color: #ffe0b0; }
 
     .card-tooltip__name {
       font-size: 15px;
@@ -792,7 +792,7 @@
     .sbt--summon   { background: rgba(200, 180, 100, 0.3); color: #e0c860; border: 1px solid rgba(200, 180, 100, 0.4); }
     .sbt--realm    { background: rgba(140, 200, 200, 0.3); color: #90d8d8; border: 1px solid rgba(140, 200, 200, 0.4); }
     .sbt--curse    { background: rgba(200, 100, 160, 0.3); color: #e090c0; border: 1px solid rgba(200, 100, 160, 0.4); }
-    .sbt--xiezhan  { background: rgba(200, 140, 60, 0.3); color: #f0c080; border: 1px solid rgba(200, 140, 60, 0.4); }
+    .sbt--bond  { background: rgba(200, 140, 60, 0.3); color: #f0c080; border: 1px solid rgba(200, 140, 60, 0.4); }
 
     .shikigami-book__card-stats {
       font-size: 11px;
@@ -1025,6 +1025,7 @@
       color: #e0d8c8;
       font-size: 12px;
       font-family: inherit;
+      text-align: left;
     }
     .eb-field-row .eb-field-input:focus,
     .eb-field-row .eb-select:focus {
@@ -1067,7 +1068,7 @@
       font-size: 12px;
       font-family: inherit;
       text-align: left;
-      resize: none;
+      resize: vertical;
       box-sizing: border-box;
     }
     .eb-field-textarea:focus {
@@ -1383,4 +1384,283 @@
     }
     .card-list-dialog h3 {
       padding-right: 100px; /* 给右上角按钮留空间 */
+    }
+
+    /* ================================================================
+       商店与赏金 (Shop & Bounty)
+       ================================================================ */
+    /* 赏金指示器（紧凑重叠布局：输入框遮钱袋下半，金币遮输入框20%） */
+    .bounty-indicator {
+      position: absolute !important;
+      left: 8px;
+      top: 160px;
+      z-index: 5;
+      pointer-events: auto;
+      display: flex;
+      align-items: flex-end;
+      gap: 0;
+    }
+    .player-zone--bottom .bounty-indicator {
+      top: auto;
+      bottom: 4px;
+    }
+    /* 钱袋图标（缩小10%，被金币和输入框遮挡下半部分） */
+    .bounty-icon {
+      position: relative;
+      z-index: 0;
+      width: 86px;
+      height: 86px;
+      flex-shrink: 0;
+      font-size: 64px;
+      line-height: 86px;
+      text-align: center;
+      cursor: pointer;
+      filter: drop-shadow(0 0 12px rgba(255, 200, 50, 0.65));
+      transition: transform 0.15s;
+      user-select: none;
+    }
+    .bounty-icon:hover {
+      transform: scale(1.1);
+    }
+    /* 单个金币（钱袋左下角，覆盖在输入框上方） */
+    .bounty-coin {
+      position: absolute;
+      bottom: 1px;
+      left: 2px;
+      z-index: 3;
+      font-size: 30px;
+      line-height: 1;
+      filter: drop-shadow(0 2px 4px rgba(0,0,0,0.5));
+      pointer-events: none;
+    }
+    /* 输入框（钱袋中偏右下，不拦截点击） */
+    .bounty-input {
+      position: absolute;
+      top: calc(50% + 30px);
+      left: calc(50% + 10px);
+      transform: translate(-50%, -50%);
+      z-index: 1;
+      width: 45px;
+      height: 28px;
+      padding: 0;
+      border: none;
+      border-radius: 8px;
+      background: rgba(0, 0, 0, 0.55);
+      color: #ffe8a0;
+      font-size: 20px;
+      font-weight: 700;
+      text-align: center;
+      font-family: inherit;
+      outline: none;
+      text-shadow: 0 0 5px rgba(255, 200, 50, 0.7);
+      -moz-appearance: textfield;
+      appearance: textfield;
+      pointer-events: auto;
+    }
+    .bounty-input::-webkit-inner-spin-button,
+    .bounty-input::-webkit-outer-spin-button {
+      -webkit-appearance: none;
+      margin: 0;
+    }
+    .bounty-input:focus {
+      box-shadow: 0 0 8px rgba(255, 200, 50, 0.5);
+    }
+
+    /* 商店弹窗 */
+    .shop-dialog {
+      width: min(680px, 94vw);
+      background: linear-gradient(160deg, #1e2a3a 0%, #162030 100%);
+      border: 2px solid rgba(200, 160, 60, 0.55);
+      border-radius: 12px;
+      box-shadow: 0 8px 36px rgba(0, 0, 0, 0.7);
+      padding: 20px 24px;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+    .shop-dialog__header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .shop-dialog__title-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .shop-dialog__level {
+      font-size: 17px;
+      font-weight: 700;
+      color: #ffd700;
+      background: rgba(255, 215, 0, 0.15);
+      border: 1px solid rgba(255, 215, 0, 0.35);
+      border-radius: 4px;
+      padding: 4px 14px;
+    }
+    .shop-dialog__title-row h3 {
+      margin: 0;
+      font-size: 22px;
+      color: #e0d0a0;
+    }
+    .shop-dialog__header-right {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .shop-dialog__bounty {
+      font-size: 18px;
+      font-weight: 600;
+      color: #ffe8b0;
+    }
+    .shop-dialog__close {
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      border: 1px solid rgba(200, 160, 60, 0.4);
+      background: rgba(0,0,0,0.3);
+      color: #c0a860;
+      font-size: 16px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.15s;
+    }
+    .shop-dialog__close:hover {
+      background: rgba(200, 60, 60, 0.3);
+      border-color: rgba(200, 60, 60, 0.5);
+      color: #faa;
+    }
+    .shop-dialog__products {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 10px;
+      min-height: 230px;
+    }
+    .shop-dialog__extras {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 10px;
+      margin-top: 4px;
+    }
+    .shop-product {
+      background: rgba(20, 30, 50, 0.7);
+      border: 1px solid rgba(150, 180, 220, 0.2);
+      border-radius: 8px;
+      padding: 18px 14px;
+      min-height: 190px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 6px;
+      position: relative;
+      transition: border-color 0.15s;
+    }
+    .shop-product:hover {
+      border-color: rgba(200, 160, 60, 0.5);
+    }
+    .shop-product__stock {
+      position: absolute;
+      top: 6px;
+      right: 8px;
+      font-size: 14px;
+      color: #8090a8;
+    }
+    .shop-product__stock--unlimited {
+      color: #60c080;
+    }
+    .shop-product__name {
+      font-size: 18px;
+      font-weight: 600;
+      color: #e0d8c8;
+      text-align: center;
+      margin-top: 10px;
+    }
+    .shop-product__effect {
+      font-size: 13px;
+      color: #a0a8b8;
+      text-align: center;
+      line-height: 1.4;
+      flex: 1;
+      display: flex;
+      align-items: center;
+    }
+    .shop-product__price-btn {
+      padding: 8px 24px;
+      border-radius: 5px;
+      border: 1px solid rgba(200, 160, 60, 0.5);
+      background: linear-gradient(180deg, rgba(180, 140, 60, 0.5), rgba(120, 90, 30, 0.5));
+      color: #ffe8b0;
+      font-size: 18px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.15s;
+      margin-top: 4px;
+    }
+    .shop-product__price-btn:hover {
+      background: linear-gradient(180deg, rgba(200, 160, 80, 0.65), rgba(140, 105, 40, 0.65));
+      border-color: rgba(255, 200, 100, 0.7);
+    }
+    .shop-product__price-btn:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+    }
+    .shop-product__price-btn--bought {
+      background: rgba(60, 60, 60, 0.5);
+      border-color: rgba(100, 100, 100, 0.4);
+      color: #666;
+      cursor: default;
+    }
+    .shop-dialog__footer {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding-top: 8px;
+      border-top: 1px solid rgba(150, 180, 220, 0.12);
+    }
+    .shop-dialog__footer-btns {
+      display: flex;
+      gap: 8px;
+    }
+    .shop-dialog__upgrade-hint {
+      font-size: 18px;
+      color: #8090a0;
+    }
+    .shop-dialog__refresh-btn {
+      padding: 10px 22px;
+      border-radius: 6px;
+      border: 1px solid rgba(140, 200, 140, 0.5);
+      background: linear-gradient(180deg, rgba(80, 140, 80, 0.5), rgba(40, 90, 40, 0.5));
+      color: #c0e8c0;
+      font-size: 15px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+    .shop-dialog__refresh-btn:hover {
+      background: linear-gradient(180deg, rgba(100, 160, 100, 0.65), rgba(50, 110, 50, 0.65));
+      border-color: rgba(160, 220, 160, 0.7);
+    }
+    .shop-dialog__refresh-btn:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+    }
+    .shop-dialog__free-refresh-btn {
+      padding: 10px 22px;
+      border-radius: 6px;
+      border: 1px solid rgba(180, 160, 120, 0.5);
+      background: linear-gradient(180deg, rgba(100, 100, 80, 0.5), rgba(60, 60, 40, 0.5));
+      color: #c8c0a0;
+      font-size: 15px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+    .shop-dialog__free-refresh-btn:hover {
+      background: linear-gradient(180deg, rgba(120, 120, 100, 0.65), rgba(70, 70, 50, 0.65));
+      border-color: rgba(200, 180, 140, 0.7);
+    }
+    .shop-dialog__free-refresh-btn:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
     }

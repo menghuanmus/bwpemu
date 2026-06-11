@@ -1,9 +1,81 @@
 ﻿// ================================================================
 //  百闻牌模拟器 — 卡牌数据库
 //  直接编辑此文件来增删卡牌，保存后刷新页面即可生效
-//  type: shikigami=式神, summon=召唤物, spell=法术牌,
-//        battle=战斗牌, form=形态牌, realm=幻境牌, curse=灵咒,
-//        xiezhan=协战牌
+//
+//  【卡牌类型 type】
+//    shikigami = 式神    summon = 召唤物    spell = 法术牌
+//    battle    = 战斗牌  form   = 形态牌    realm = 幻境牌
+//    curse     = 灵咒    bond = 协战牌
+//
+//  【各类型可用字段一览】
+//
+//  式神 shikigami:
+//    name（名称）, type（类型）, faction（派系）, attack（攻击）, hp（生命）,
+//    ability（能力描述）, derivative（衍生物）, effects（模块化效果,可选）
+//
+//  召唤物 summon:
+//    name（名称）, type（类型）, owner（所属式神）, faction（派系）,
+//    attack（攻击）, hp（生命）, ability（能力描述）,
+//    derivative（衍生物）, effects（模块化效果,可选）
+//
+//  法术牌 spell:
+//    name（名称）, type（类型）, owner（所属式神）, level（等级）,
+//    awakened（觉醒牌）, atkBonus（攻击加成）, hpBonus（生命加成）,
+//    maxStack（最大堆叠,0=不堆叠）, effect（效果描述）,
+//    derivative（衍生物）, effects（模块化效果,可选）
+//
+//  战斗牌 battle:
+//    name（名称）, type（类型）, owner（所属式神）, level（等级）,
+//    awakened（觉醒牌）, atkBonus（攻击加成）, atkPenalty（攻击减成）,
+//    shieldBonus（护盾加成）, shieldPenalty（护盾减成）,
+//    effect（效果描述）, derivative（衍生物）, effects（模块化效果,可选）
+//
+//  形态牌 form:
+//    name（名称）, type（类型）, owner（所属式神）, level（等级）,
+//    awakened（觉醒牌）, attack（攻击）, hp（生命）,
+//    effect（效果描述）, derivative（衍生物）, effects（模块化效果,可选）
+//
+//  幻境牌 realm:
+//    name（名称）, type（类型）, owner（所属式神）, level（等级）,
+//    awakened（觉醒牌）, durability（耐久）,
+//    effect（效果描述）, derivative（衍生物）, effects（模块化效果,可选）
+//
+//  灵咒 curse:
+//    name（名称）, type（类型）, owner（所属式神）, effect（效果描述）
+//
+//  协战牌 bond:
+//    name（名称）, type（类型）, owner（所属式神）, level（等级）,
+//    awakened（觉醒牌）, atkBonus（攻击加成）, atkPenalty（攻击减成）,
+//    shieldBonus（护盾加成）, shieldPenalty（护盾减成）,
+//    effect（效果描述）, derivative（衍生物）, effects（模块化效果,可选）
+//
+//  商店牌（以上任意类型 + _shop:true, owner:"商店"）:
+//    由商店系统筛选，不影响正常卡牌功能
+//
+//  字段说明:
+//    name          卡牌名称（必填）
+//    type          卡牌类型（必填）
+//    owner         所属式神（非式神/召唤物填写）
+//    faction       派系：苍叶/红莲/青岚/紫岩/无相
+//    level         等级 1~3
+//    attack        攻击力
+//    hp            生命值
+//    ability       式神/召唤物基础能力描述文本
+//    effect        卡牌效果描述文本（非式神）
+//    awakened      是否为觉醒牌（true/false）
+//    atkBonus      攻击加成
+//    atkPenalty    攻击减成
+//    hpBonus       生命加成
+//    shieldBonus   护盾加成
+//    shieldPenalty 护盾减成
+//    durability    幻境耐久值
+//    maxStack      最大堆叠数（0=不堆叠, 仅法术牌）
+//    derivative    是否为衍生物（true/false）
+//    effects       模块化效果JSON（可选，见 effect-modules.js）
+//    _shop         是否为商店牌（true/不填）
+//    _custom       是否为自定义卡牌（系统自动标记）
+//    _stack        当前堆叠层数（运行时，由pushCardToHand自动维护）
+//    _maxStack     最大堆叠数（运行时，由pushCardToHand自动维护）
 //
 //  【模块化效果系统】
 //  每张卡可添加 effects 字段（JSON结构化），引擎自动解析执行。
@@ -114,7 +186,7 @@ var CARD_DB_DATA = [
     }
   },
   {
-    "name":"禁锢之刃","type":"xiezhan","owner":"妖刀姬","level":2,"awakened":false,
+    "name":"禁锢之刃","type":"bond","owner":"妖刀姬","level":2,"awakened":false,
     "atkBonus":1,"atkPenalty":0,"shieldBonus":0,"shieldPenalty":0,
     "effect":"增强：本局游戏妖刀姬每消灭一个式神，此牌永久获得+2攻击。","derivative":false,
     "effects": {
@@ -253,5 +325,31 @@ var CARD_DB_DATA = [
         }
       }
     }
-  }
+  },
+
+  // ══════════════════════════════════════════════════════════════
+  //  商店牌（中立，_shop:true 供商店系统筛选）
+  // ══════════════════════════════════════════════════════════════
+
+  // ── 一级商店牌 ──
+  { "name":"离火疾行符", "type":"spell", "owner":"商店", "level":1, "_shop":true, "effect":"使一个己方式神本回合获得迅捷和突袭：+2甲" },
+  { "name":"丹青律令", "type":"spell", "owner":"商店", "level":1, "_shop":true, "effect":"抽一张牌。增强：当你购买卡牌时，此牌本回合获得瞬发。" },
+  { "name":"胧月三闪", "type":"spell", "owner":"商店", "level":1, "_shop":true, "effect":"瞬发，对一个敌方式神造成3点伤害" },
+  { "name":"潮时纸鸢", "type":"spell", "owner":"商店", "level":1, "_shop":true, "effect":"瞬发，使一个己方神气绝倒计时或倒计时-1。" },
+  { "name":"九节灵笛", "type":"spell", "owner":"商店", "level":1, "_shop":true, "effect":"瞬发，使一个己方式神获得-2，直到你的回合开始。" },
+  { "name":"生命精华", "type":"spell", "owner":"中立", "level":1, "maxStack":10, "effect":"瞬发、堆叠，为一个角色恢复1血" },
+
+  // ── 二级商店牌 ──
+  { "name":"瞬华凝露", "type":"spell", "owner":"商店", "level":2, "_shop":true, "effect":"复活己方一个式神，使其本回合获得迅捷和突袭：+1/+1甲" },
+  { "name":"共鸣回廊", "type":"realm", "owner":"商店", "level":2, "durability":5, "_shop":true, "effect":"选择一个派系，进场时使所有己方式神变为该派系，己方该派系的式神攻击时，获得+1战力和+1护盾。" },
+  { "name":"渊鸣鼓", "type":"spell", "owner":"商店", "level":2, "_shop":true, "effect":"眩晕一个敌方准备区式神，移除该式神的形态牌。" },
+  { "name":"六环破界杖", "type":"spell", "owner":"商店", "level":2, "_shop":true, "effect":"瞬发，使一个敌方幻境-6耐久。" },
+  { "name":"预制好的佳肴", "type":"spell", "owner":"商店", "level":2, "_shop":true, "effect":"瞬发，使一个己方式神获得1攻击、1生命和贯通。" },
+
+  // ── 三级商店牌 ──
+  { "name":"疾斩赤扇", "type":"spell", "owner":"商店", "level":3, "_shop":true, "effect":"使所有己方式神获得迅捷和突袭：+2攻击，贯通。" },
+  { "name":"醉仙引", "type":"spell", "owner":"商店", "level":3, "_shop":true, "effect":"不消耗鬼火，对敌方牌手造成3点伤害，使用后获得下次刷新必然刷出此牌，随后刷新商店。" },
+  { "name":"宿命罗盘", "type":"spell", "owner":"商店", "level":3, "_shop":true, "effect":"随机消灭一个敌方力量最大的式神，获得3赏金。" },
+  { "name":"射日长弓", "type":"spell", "owner":"商店", "level":3, "_shop":true, "effect":"投射：造成5点伤害，然后再投射，造成2点伤害。" },
+  { "name":"玄甲", "type":"spell", "owner":"商店", "level":3, "_shop":true, "effect":"你获得5点上限和5盾；若你生命小于等于10，恢复效果翻倍。" }
 ];

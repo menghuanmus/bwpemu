@@ -59,7 +59,7 @@
           <button type="button" class="room-btn room-btn--back" id="room-btn-back">返回</button>
         </div>
       </div>
-      <div class="room-credits">by流光　Q群：1078494503</div>
+      <div class="room-credits">交流Q群：1078494503</div>
     </div>
   </div>
 
@@ -188,6 +188,7 @@
             <button type="button" class="dropdown-mechanic__item" id="btn-nightfall">🌙 入夜</button>
             <button type="button" class="dropdown-mechanic__item" id="btn-divine">🔮 占卜</button>
             <button type="button" class="dropdown-mechanic__item" id="btn-cook">🍳 烹饪</button>
+            <button type="button" class="dropdown-mechanic__item" id="btn-bounty">💰 赏金</button>
           </div>
         </div>
         <div class="dropdown-other" id="dropdown-other">
@@ -380,6 +381,35 @@
     </div>
   </div>
 
+  <!-- 商店对话框 -->
+  <div class="speak-dialog-overlay" id="shop-dialog-overlay" hidden>
+    <div class="shop-dialog" role="dialog" aria-labelledby="shop-dialog-title">
+      <div class="shop-dialog__header">
+        <div class="shop-dialog__title-row">
+          <span class="shop-dialog__level" id="shop-level">Lv.1</span>
+          <h3 id="shop-dialog-title">神秘商店</h3>
+        </div>
+        <div class="shop-dialog__header-right">
+          <span class="shop-dialog__bounty" id="shop-bounty-display">💰 0</span>
+          <button type="button" class="shop-dialog__close" id="shop-dialog-close">✕</button>
+        </div>
+      </div>
+      <div class="shop-dialog__products" id="shop-products">
+        <!-- 4个商品栏位由JS动态生成 -->
+      </div>
+      <div class="shop-dialog__extras" id="shop-extras" hidden>
+        <!-- 额外栏位（如黄金羽），默认隐藏 -->
+      </div>
+      <div class="shop-dialog__footer">
+        <span class="shop-dialog__upgrade-hint" id="shop-upgrade-hint">再消耗5💰后商店升级</span>
+        <div class="shop-dialog__footer-btns">
+          <button type="button" class="shop-dialog__free-refresh-btn" id="shop-free-refresh-btn" title="免费刷新用于每回合开始时的自动刷新，以及一些牌给予的免费刷新效果">🔄 免费刷新</button>
+          <button type="button" class="shop-dialog__refresh-btn" id="shop-refresh-btn">🔄 刷新 1💰</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <svg id="damage-line-svg"><line id="damage-line" stroke="#f66" stroke-width="2" stroke-dasharray="6,4" opacity="0.8"/></svg>
   <input type="file" id="image-input" accept="image/*">
   <input type="file" id="avatar-input" accept="image/*">
@@ -432,5 +462,6 @@
   <script src="js/data-io.js"></script>
   <script src="js/effect-builder.js"></script>
   <script src="js/special-effects.js"></script>
+  <script src="js/shop.js"></script>
 </body>
 </html>

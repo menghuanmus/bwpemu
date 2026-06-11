@@ -119,7 +119,7 @@
 
       // 所属卡牌（排序：按类型再按名称）
       const sortedCards = [...entry.cards].sort((a, b) => {
-        const typeOrder = { spell: 0, battle: 1, xiezhan: 2, form: 3, summon: 4, realm: 5 };
+        const typeOrder = { spell: 0, battle: 1, bond: 2, form: 3, summon: 4, realm: 5 };
         const ta = typeOrder[a.type] ?? 5;
         const tb = typeOrder[b.type] ?? 5;
         if (ta !== tb) return ta - tb;
@@ -145,7 +145,7 @@
 
     /** 创建单张卡牌的条目 */
     function createBookCardEntry(card) {
-      const typeNames = { shikigami: '式神', summon: '召唤物', spell: '法术', battle: '战斗', xiezhan: '协战', form: '形态', realm: '幻境', curse: '灵咒' };
+      const typeNames = { shikigami: '式神', summon: '召唤物', spell: '法术', battle: '战斗', bond: '协战', form: '形态', realm: '幻境', curse: '灵咒' };
       const typeCN = typeNames[card.type] || card.type;
 
       const entry = document.createElement('div');
@@ -203,7 +203,7 @@
           if (card.hpBonus > 0) statsHTML += `<span>❤ +${card.hpBonus}</span>`;
           break;
         case 'battle':
-        case 'xiezhan':
+        case 'bond':
           if (card.level) statsHTML += `<span>⭐ Lv.${card.level}</span>`;
           if (card.atkBonus > 0) statsHTML += `<span>⚔ +${card.atkBonus}</span>`;
           if (card.shieldBonus > 0) statsHTML += `<span>🛡 +${card.shieldBonus}</span>`;

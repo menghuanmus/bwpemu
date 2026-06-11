@@ -151,6 +151,23 @@
       // 序列化揭示卡牌ID（Set → Array，确保 JSON 可序列化）
       const p1revealed = playerRevealedCards['1'] ? [...playerRevealedCards['1']] : [];
       const p2revealed = playerRevealedCards['2'] ? [...playerRevealedCards['2']] : [];
+      // 序列化商店牌库存（仅保存有库存变化的牌）
+      const p1shopStocks = {};
+      const p2shopStocks = {};
+      if (playerCardStocks['1']) {
+        for (const [name, s] of Object.entries(playerCardStocks['1'])) {
+          const defStock = typeof getCardDefaultStock === 'function' ? getCardDefaultStock(name) : null;
+          if (defStock === null || s !== defStock) p1shopStocks[name] = s;
+        }
+      }
+      if (playerCardStocks['2']) {
+        for (const [name, s] of Object.entries(playerCardStocks['2'])) {
+          const defStock = typeof getCardDefaultStock === 'function' ? getCardDefaultStock(name) : null;
+          if (defStock === null || s !== defStock) p2shopStocks[name] = s;
+        }
+      }
+      const p1shop = playerShops['1'] || {};
+      const p2shop = playerShops['2'] || {};
       const state = {
         version: APP_VERSION,
         time: new Date().toISOString(),
@@ -163,6 +180,11 @@
           deck: p1deck,
           hand: p1hand,
           revealedCards: p1revealed,
+          bounty: playerBounty['1'] || 0,
+          shopLevel: p1shop.level || 1,
+          shopUpgradeProgress: p1shop.upgradeProgress || 0,
+          shopSlotCount: p1shop.slotCount,
+          shopStocks: p1shopStocks,
           slots: [],
         },
         player2: {
@@ -174,6 +196,11 @@
           deck: p2deck,
           hand: p2hand,
           revealedCards: p2revealed,
+          bounty: playerBounty['2'] || 0,
+          shopLevel: p2shop.level || 1,
+          shopUpgradeProgress: p2shop.upgradeProgress || 0,
+          shopSlotCount: p2shop.slotCount,
+          shopStocks: p2shopStocks,
           slots: [],
         },
       };
@@ -237,6 +264,8 @@
         _foodLevel: typeof c._foodLevel === 'number' ? c._foodLevel : 0,
         _foodEffects: Array.isArray(c._foodEffects) ? c._foodEffects : [],
         _foodIngredients: c._foodIngredients || '',
+        _stack: typeof c._stack === 'number' ? c._stack : 0,
+        _maxStack: typeof c._maxStack === 'number' ? c._maxStack : 0,
       };
     }
 
@@ -253,6 +282,23 @@
           if (p.avatar) setAvatarImage(pid, p.avatar);
           if (p.fire !== undefined) { playerFire[pid] = p.fire; applyRemoteFireState(pid, p.fire); }
           if (p.effects) applyRemoteEffectsState(pid, p.effects);
+          if (p.bounty !== undefined) { playerBounty[pid] = p.bounty; }
+          // 恢复商店状态
+          if (p.shopLevel !== undefined) {
+            const shop = (typeof getShop === 'function') ? getShop(pid) : null;
+            if (shop) {
+              shop.level = p.shopLevel || 1;
+              shop.upgradeProgress = p.shopUpgradeProgress || 0;
+              shop.upgradeNeeded = shop.level === 1 ? 5 : 10;
+              shop.refreshCost = 1;
+              if (p.shopSlotCount != null) shop.slotCount = p.shopSlotCount;
+            }
+          }
+          if (p.shopStocks && typeof setCardStock === 'function') {
+            for (const [name, s] of Object.entries(p.shopStocks)) {
+              setCardStock(pid, name, s);
+            }
+          }
           if (Array.isArray(p.deck)) {
             const normalized = p.deck.map(c => _normalizeSavedCard(c)).filter(c => c && typeof c === 'object');
             getPlayerCardState(pid).deck = normalized;
@@ -300,6 +346,14 @@
           sendToPeer({ type: 'deck-update', playerId: pid, deckCount: cards.deck.length, handCount: cards.hand.length, deckData: cards.deck, handData: cards.hand });
           // 鬼火
           sendToPeer({ type: 'fire-update', playerId: pid, count: playerFire[pid] });
+          // 赏金
+          if ((playerBounty[pid] || 0) > 0) {
+            sendToPeer({ type: 'bounty-update', playerId: pid, amount: playerBounty[pid] });
+          }
+          // 商店状态
+          if (typeof syncShopToPeer === 'function') {
+            syncShopToPeer(pid);
+          }
           // 卡牌槽（逐个同步）
           document.querySelectorAll(`.player-zone[data-player="${pid}"] .card-slot`).forEach(slot => {
             syncSlotToPeer(slot);

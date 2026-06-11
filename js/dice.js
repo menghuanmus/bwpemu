@@ -253,6 +253,19 @@
       enterTargetingMode('cook');
     });
 
+    // ---- 赏金（切换赏金图标） ----
+    const btnBounty = document.getElementById('btn-bounty');
+    let bountyActive = { '1': false, '2': false };
+    btnBounty.addEventListener('click', () => {
+      dropdownMechanicMenu.hidden = true;
+      const pid = localPlayerId || '1';
+      bountyActive[pid] = !bountyActive[pid];
+      _toggleBounty(pid, bountyActive[pid]);
+      if (peerConn && peerConn.open && typeof sendToPeer === 'function') {
+        sendToPeer({ type: 'bounty-toggle', playerId: pid, active: bountyActive[pid] });
+      }
+    });
+
     function _toggleNightfall(playerId, show) {
       const zone = document.querySelector(`.player-zone[data-player="${playerId}"]`);
       if (!zone) return;

@@ -163,7 +163,7 @@
       }
 
       function _render(card) {
-        const typeNames = { shikigami: '式神', summon: '召唤物', spell: '法术', battle: '战斗', form: '形态', realm: '幻境', curse: '灵咒', xiezhan: '协战' };
+        const typeNames = { shikigami: '式神', summon: '召唤物', spell: '法术', battle: '战斗', form: '形态', realm: '幻境', curse: '灵咒', bond: '协战' };
         // 食材/佳肴特殊处理
         if (card._food) {
           const foodTypeNames = { '山珍': '🍄 山珍', '海味': '🐟 海味', '时蔬': '🥬 时蔬', '佳肴': '🍲 佳肴' };
@@ -239,7 +239,7 @@
           case 'curse':
             statsHTML += `<span class="stat">📎 结附效果</span>`;
             break;
-          case 'xiezhan':
+          case 'bond':
             statsHTML += `<span class="stat">⭐ Lv.${card.level}</span>`;
             if (card.atkBonus > 0) statsHTML += `<span class="stat stat--atk">⚔ +${card.atkBonus}攻击</span>`;
             if (card.atkPenalty > 0) statsHTML += `<span class="stat stat--penalty">⚔ -${card.atkPenalty}攻击</span>`;

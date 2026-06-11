@@ -548,7 +548,7 @@ var EFFECT_MODULES = {
       label: '目标筛选',
       params: {
         side: { type: 'select', options: ['self','ally','enemy','any'], default: 'enemy', desc: '阵营' },
-        card_type: { type: 'select', options: ['any','shikigami','summon','spell','battle','form','realm','curse','xiezhan'], default: 'any', desc: '卡牌类型' }
+        card_type: { type: 'select', options: ['any','shikigami','summon','spell','battle','form','realm','curse','bond'], default: 'any', desc: '卡牌类型' }
       },
       desc: '按阵营和类型过滤目标'
     },

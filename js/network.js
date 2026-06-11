@@ -249,6 +249,21 @@
             CardDB.addCustom(data.card);
           }
           break;
+        case 'bounty-update':
+          if (typeof applyRemoteBounty === 'function') {
+            applyRemoteBounty(data.playerId, data.amount);
+          }
+          break;
+        case 'bounty-toggle':
+          if (typeof applyRemoteBountyToggle === 'function') {
+            applyRemoteBountyToggle(data.playerId, data.active);
+          }
+          break;
+        case 'shop-update':
+          if (typeof applyRemoteShop === 'function') {
+            applyRemoteShop(data);
+          }
+          break;
         case 'chat':
           addChatMessage(data.playerId, data.text);
           break;

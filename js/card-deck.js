@@ -173,6 +173,13 @@
           name.style.color = 'var(--text-muted, #888)';
         }
         info.appendChild(name);
+        // 堆叠层数显示
+        if (ownCards && card._stack && card._maxStack) {
+          const stackSpan = document.createElement('span');
+          stackSpan.style.cssText = 'font-size:11px;color:#c0a860;margin-left:4px;white-space:nowrap;';
+          stackSpan.textContent = '堆叠：' + card._stack + '/' + card._maxStack;
+          info.appendChild(stackSpan);
+        }
         // 灵咒标签（仅自己可见）
         if (ownCards && card.curses && card.curses.length) {
           const curseTags = document.createElement('div');
@@ -382,7 +389,7 @@
         return;
       }
       const card = state.deck.shift();
-      state.hand.push(card);
+      pushCardToHand(playerId, card);
       updateDeckButtons(playerId);
       refreshOpenListDialog(playerId);
       syncDeckState(playerId);
@@ -831,11 +838,50 @@
     function addToHand(playerId, text) {
       const name = text.trim();
       if (!name) return;
-      getPlayerCardState(playerId).hand.push(createCard(name));
+      pushCardToHand(playerId, createCard(name));
       updateDeckButtons(playerId);
       refreshOpenListDialog(playerId);
       syncDeckState(playerId);
       broadcastSystemMsg(`【系统】${getPlayerName(playerId)}将「${name}」置入了手牌`);
+    }
+
+    /** 将卡牌置入手牌，自动处理最大堆叠 */
+    function pushCardToHand(playerId, card, fromShop) {
+      if (!card || !card.name) return;
+      const state = getPlayerCardState(playerId);
+      const db = (typeof CardDB !== 'undefined') ? CardDB.lookup(card.name) : null;
+      const maxStack = (db && db.maxStack) ? db.maxStack : 0;
+
+      if (maxStack > 0) {
+        // 从商店购买时，卡牌本身可能已有层数
+        const incomingStack = card._stack || 1;
+        let remaining = incomingStack;
+
+        // 先尝试填充手牌中已有的同名牌堆叠
+        const existing = state.hand.filter(hc => hc.name === card.name && (hc._stack || 0) < maxStack);
+        for (const hc of existing) {
+          if (remaining <= 0) break;
+          const space = maxStack - (hc._stack || 1);
+          const add = Math.min(remaining, space);
+          hc._stack = (hc._stack || 1) + add;
+          hc._maxStack = maxStack;
+          remaining -= add;
+        }
+
+        // 剩余的创建新堆叠
+        while (remaining > 0) {
+          const stack = Math.min(remaining, maxStack);
+          const newCard = createCard(card.name);
+          newCard._stack = stack;
+          newCard._maxStack = maxStack;
+          newCard._shop = card._shop || false;
+          state.hand.push(newCard);
+          remaining -= stack;
+        }
+      } else {
+        // 无堆叠：直接加入
+        state.hand.push(card);
+      }
     }
 
     function addToDeck(playerId, text) {
@@ -1178,8 +1224,7 @@
 
       // 生成食材牌
       const foodCard = generateFoodCard(level);
-      const state = getPlayerCardState(playerId);
-      state.hand.push(foodCard);
+      pushCardToHand(playerId, foodCard);
       updateDeckButtons(playerId);
       refreshOpenListDialog(playerId);
 
@@ -1215,7 +1260,7 @@
           if (idx !== -1) state.hand.splice(idx, 1);
         });
         const feast = synthesizeFood(playerId, selected);
-        state.hand.push(feast);
+        pushCardToHand(playerId, feast);
         updateDeckButtons(playerId);
         refreshOpenListDialog(playerId);
         if (typeof syncDeckStateForce === 'function') {
