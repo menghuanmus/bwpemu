@@ -181,10 +181,15 @@
           hand: p1hand,
           revealedCards: p1revealed,
           bounty: playerBounty['1'] || 0,
+          bountyActive: (typeof bountyActive !== 'undefined') ? (bountyActive['1'] || false) : false,
+          nightfallActive: (typeof nightfallActive !== 'undefined') ? (nightfallActive['1'] || false) : false,
+          nightfallValue: (() => { const el = document.querySelector('.player-zone[data-player="1"] .nightfall-input'); return el ? el.value : '0'; })(),
           shopLevel: p1shop.level || 1,
           shopUpgradeProgress: p1shop.upgradeProgress || 0,
           shopSlotCount: p1shop.slotCount,
           shopStocks: p1shopStocks,
+          oracleActive: oracleActive['1'] || false,
+          oracleHands: (oracleHands['1'] || []).map(c => ({ id: c.id, name: c.name, curses: c.curses || [] })),
           slots: [],
         },
         player2: {
@@ -197,10 +202,15 @@
           hand: p2hand,
           revealedCards: p2revealed,
           bounty: playerBounty['2'] || 0,
+          bountyActive: (typeof bountyActive !== 'undefined') ? (bountyActive['2'] || false) : false,
+          nightfallActive: (typeof nightfallActive !== 'undefined') ? (nightfallActive['2'] || false) : false,
+          nightfallValue: (() => { const el = document.querySelector('.player-zone[data-player="2"] .nightfall-input'); return el ? el.value : '0'; })(),
           shopLevel: p2shop.level || 1,
           shopUpgradeProgress: p2shop.upgradeProgress || 0,
           shopSlotCount: p2shop.slotCount,
           shopStocks: p2shopStocks,
+          oracleActive: oracleActive['2'] || false,
+          oracleHands: (oracleHands['2'] || []).map(c => ({ id: c.id, name: c.name, curses: c.curses || [] })),
           slots: [],
         },
       };
@@ -283,6 +293,27 @@
           if (p.fire !== undefined) { playerFire[pid] = p.fire; applyRemoteFireState(pid, p.fire); }
           if (p.effects) applyRemoteEffectsState(pid, p.effects);
           if (p.bounty !== undefined) { playerBounty[pid] = p.bounty; }
+          // 恢复赏金图标显示
+          if (p.bountyActive) {
+            try {
+              if (typeof applyRemoteBountyToggle === 'function') {
+                applyRemoteBountyToggle(pid, true);
+                if (typeof applyRemoteBounty === 'function') applyRemoteBounty(pid, playerBounty[pid] || 0);
+              }
+            } catch(e) { console.warn('[Load] 赏金恢复失败:', e); }
+          }
+          // 恢复入夜图标显示及数值
+          if (p.nightfallActive) {
+            try {
+              if (typeof applyRemoteNightfall === 'function') {
+                applyRemoteNightfall(pid, true, p.nightfallValue || '0');
+              } else if (typeof _toggleNightfall === 'function') {
+                _toggleNightfall(pid, true);
+                const nInp = document.querySelector(`.player-zone[data-player="${pid}"] .nightfall-input`);
+                if (nInp && p.nightfallValue !== undefined) nInp.value = p.nightfallValue;
+              }
+            } catch(e) { console.warn('[Load] 入夜恢复失败:', e); }
+          }
           // 恢复商店状态
           if (p.shopLevel !== undefined) {
             const shop = (typeof getShop === 'function') ? getShop(pid) : null;
@@ -298,6 +329,23 @@
             for (const [name, s] of Object.entries(p.shopStocks)) {
               setCardStock(pid, name, s);
             }
+          }
+          // 恢复启悟状态
+          if (p.oracleActive !== undefined && typeof oracleActive !== 'undefined') {
+            oracleActive[pid] = p.oracleActive;
+            const btn = document.getElementById('btn-oracle-zone-' + pid);
+            if (btn) {
+              if (p.oracleActive) {
+                btn.hidden = false;
+              } else {
+                btn.hidden = true;
+              }
+            }
+          }
+          if (Array.isArray(p.oracleHands) && typeof oracleHands !== 'undefined') {
+            oracleHands[pid] = p.oracleHands.map(c => ({
+              id: c.id, name: c.name, curses: c.curses || [],
+            }));
           }
           if (Array.isArray(p.deck)) {
             const normalized = p.deck.map(c => _normalizeSavedCard(c)).filter(c => c && typeof c === 'object');
@@ -349,6 +397,21 @@
           // 赏金
           if ((playerBounty[pid] || 0) > 0) {
             sendToPeer({ type: 'bounty-update', playerId: pid, amount: playerBounty[pid] });
+          }
+          // 赏金图标
+          const bzone = document.querySelector(`.player-zone[data-player="${pid}"]`);
+          if (bzone && bzone.querySelector('.bounty-indicator')) {
+            sendToPeer({ type: 'bounty-toggle', playerId: pid, active: true });
+          }
+          // 入夜图标
+          if (typeof nightfallActive !== 'undefined' && nightfallActive[pid]) {
+            const nval = bzone ? (bzone.querySelector('.nightfall-input')?.value || '0') : '0';
+            sendToPeer({ type: 'nightfall-toggle', playerId: pid, active: true, value: nval });
+          }
+          // 启悟状态
+          if (typeof oracleActive !== 'undefined' && oracleActive[pid]) {
+            const oh = (typeof oracleHands !== 'undefined' && oracleHands[pid]) ? oracleHands[pid] : [];
+            sendToPeer({ type: 'oracle-update', playerId: pid, active: true, cards: oh.map(c => ({ id: c.id, name: c.name, curses: c.curses || [] })) });
           }
           // 商店状态
           if (typeof syncShopToPeer === 'function') {

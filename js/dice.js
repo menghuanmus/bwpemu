@@ -245,11 +245,12 @@
       enterTargetingMode('divine');
     });
 
-    // ---- 烹饪（选择式神） ----
+    // ---- 烹饪（选择式神，一次烹饪后自动退出） ----
     const btnCook = document.getElementById('btn-cook');
-    btnCook.addEventListener('click', () => {
+    btnCook.addEventListener('click', (e) => {
       dropdownMechanicMenu.hidden = true;
       if (isTargeting) { exitTargetingMode(); return; }
+      e.stopPropagation(); // 防止冒泡到document导致立即退出
       enterTargetingMode('cook');
     });
 
@@ -264,6 +265,14 @@
       if (peerConn && peerConn.open && typeof sendToPeer === 'function') {
         sendToPeer({ type: 'bounty-toggle', playerId: pid, active: bountyActive[pid] });
       }
+    });
+
+    // ---- 启悟（切换启悟机制） ----
+    const btnoracle = document.getElementById('btn-oracle');
+    btnoracle.addEventListener('click', () => {
+      dropdownMechanicMenu.hidden = true;
+      const pid = localPlayerId || '1';
+      if (typeof toggleOracle === 'function') toggleOracle(pid);
     });
 
     function _toggleNightfall(playerId, show) {
@@ -367,6 +376,7 @@
     function applyRemoteNightfall(playerId, active, value) {
       const zone = document.querySelector(`.player-zone[data-player="${playerId}"]`);
       if (!zone) return;
+      nightfallActive[playerId] = active;
       const existing = zone.querySelector('.nightfall-indicator');
       if (active) {
         if (!existing) _toggleNightfall(playerId, true);

@@ -21,7 +21,7 @@
       return name || (playerId === '1' ? '玩家一' : '玩家二');
     }
 
-    function addChatMessage(playerId, text) {
+    function addChatMessage(playerId, text, senderName) {
       const trimmed = text.trim();
       if (!trimmed) return;
 
@@ -29,7 +29,7 @@
       bubble.className = `chat-bubble chat-bubble--player${playerId}`;
       const speaker = document.createElement('span');
       speaker.className = 'chat-speaker';
-      speaker.textContent = `${getPlayerName(playerId)}：`;
+      speaker.textContent = `${senderName || getPlayerName(playerId)}：`;
       bubble.appendChild(speaker);
       bubble.appendChild(document.createTextNode(trimmed));
       chatPlayerLog.appendChild(bubble);
@@ -168,6 +168,7 @@
           type: 'chat',
           playerId: activeSpeakPlayer,
           text,
+          senderName: getPlayerName(activeSpeakPlayer),
         });
       }
       closeSpeakDialog();

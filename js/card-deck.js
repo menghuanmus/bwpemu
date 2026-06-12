@@ -88,17 +88,26 @@
     function updateDeckButtons(playerId) {
       const zone = getPlayerZone(playerId);
       if (!zone) return;
+      const spec = (typeof isSpectator !== 'undefined' && isSpectator);
+      const own = (typeof isMyZone === 'function') ? isMyZone(playerId) : true;
       const { deck, hand } = getPlayerCardState(playerId);
       const drawBtn = zone.querySelector('.btn-deck[data-action="draw"]');
       const handBtn = zone.querySelector('.btn-deck[data-action="hand"]');
       const deckBtn = zone.querySelector('.btn-deck[data-action="deck"]');
       const shuffleBtn = zone.querySelector('.btn-deck[data-action="shuffle-deck"]');
-      if (drawBtn) {
-        drawBtn.disabled = deck.length === 0;
-      }
-      if (shuffleBtn) {
-        shuffleBtn.disabled = deck.length === 0;
-      }
+      const addHandBtn = zone.querySelector('.btn-deck[data-action="add-hand"]');
+      const addDeckBtn = zone.querySelector('.btn-deck[data-action="add-deck"]');
+      const importBtn = zone.querySelector('.btn-deck[data-action="import-deck"]');
+      // 非己方区域：禁用所有操作按钮，仅保留查看
+      const lockActions = spec || !own;
+      if (drawBtn)     drawBtn.disabled     = lockActions || deck.length === 0;
+      if (shuffleBtn)  shuffleBtn.disabled  = lockActions || deck.length === 0;
+      if (addHandBtn)  addHandBtn.disabled  = lockActions;
+      if (addDeckBtn)  addDeckBtn.disabled  = lockActions;
+      if (importBtn)   importBtn.disabled   = lockActions;
+      // 启悟区按钮也锁定
+      const oracleBtn = zone.querySelector('.btn-deck--oracle');
+      if (oracleBtn && lockActions) oracleBtn.disabled = true;
       if (handBtn) {
         handBtn.textContent = hand.length ? `手牌（${hand.length}）` : '手牌';
       }
@@ -218,6 +227,15 @@
         discardBtn.addEventListener('click', () => removeFromHand(playerId, card.id, 'discard'));
         actions.appendChild(useBtn);
         actions.appendChild(discardBtn);
+        // 启悟机制激活时，显示"置入启悟区"按钮
+        if (typeof oracleActive !== 'undefined' && oracleActive[playerId] && typeof moveToOracle === 'function') {
+          const oracleMoveBtn = document.createElement('button');
+          oracleMoveBtn.type = 'button';
+          oracleMoveBtn.className = 'btn-card-move-oracle';
+          oracleMoveBtn.textContent = '置入启悟区';
+          oracleMoveBtn.addEventListener('click', () => moveToOracle(playerId, card.id));
+          actions.appendChild(oracleMoveBtn);
+        }
         item.appendChild(actions);
         } // end if (ownCards)
         cardListBody.appendChild(item);
@@ -351,6 +369,9 @@
     function openCardListDialog({ title, playerId, type }) {
       cardListContext = { playerId, type };
       cardListTitle.textContent = title;
+      // 先清除牌库汇总（防止切换视图时残留）
+      document.getElementById('deck-summary-header').hidden = true;
+      document.getElementById('deck-summary-header').innerHTML = '';
       if (type === 'hand') renderHandList(playerId);
       else renderDeckList(playerId);
       // 牌表按钮：仅自己牌库可见（查看对手牌库时隐藏）
@@ -372,6 +393,8 @@
       cardListOverlay.hidden = true;
       cardListContext = null;
       cardListBody.innerHTML = '';
+      document.getElementById('deck-summary-header').hidden = true;
+      document.getElementById('deck-summary-header').innerHTML = '';
       deckBreakdownPanel.hidden = true;
       deckBreakdownBody.innerHTML = '';
     }
@@ -985,11 +1008,7 @@
       refreshOpenListDialog(playerId);
       syncDeckState(playerId);
       const loc = type === 'hand' ? '手牌中的' : '牌库中的';
-      if (type === 'hand') {
-        broadcastSystemMsg('【系统】' + getPlayerName(playerId) + '为' + loc + '「' + target.name + '」随机结附了灵咒「' + name + '」×1');
-      } else {
-        broadcastSystemMsg('【系统】' + getPlayerName(playerId) + '为' + loc + '一张牌随机结附了灵咒「' + name + '」×1');
-      }
+      broadcastSystemMsg('【系统】' + getPlayerName(playerId) + '为' + loc + '一张牌随机结附了灵咒「' + name + '」×1');
     });
 
     // ================================================================
@@ -1214,9 +1233,13 @@
       const playerName = getPlayerName(playerId);
       const isMyOp = (typeof isMyZone === 'function') ? isMyZone(playerId) : true;
 
-      // 烹饪特效动画
+      // 烹饪特效动画（本地）
       if (typeof DamageEffects !== 'undefined' && DamageEffects.playCookEffect) {
         DamageEffects.playCookEffect(slot);
+      }
+      // 同步烹饪动画到对手/观众
+      if (!isSoloMode && peerConn && peerConn.open && typeof sendToPeer === 'function') {
+        sendToPeer({ type: 'cook-effect', playerId: slot.dataset.slotPlayer, slotIndex: slot.dataset.slotIndex });
       }
 
       // 确定式神等级（从卡牌槽左上角 .card-level 读取）

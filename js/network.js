@@ -7,7 +7,7 @@
     //  JS-1：PeerJS 联机系统 —— 房间管理
     // ================================================================
 
-    /* P2P 连接配置：多重 STUN/TURN 穿透方案，适应公司网络 */
+    /* 连接配置 */
     const PEER_ICE_CONFIG = {
       iceServers: [
         // STUN 服务器（公网 IP 发现）
@@ -259,13 +259,18 @@
             applyRemoteBountyToggle(data.playerId, data.active);
           }
           break;
+        case 'oracle-update':
+          if (typeof applyRemoteOracle === 'function') {
+            applyRemoteOracle(data);
+          }
+          break;
         case 'shop-update':
           if (typeof applyRemoteShop === 'function') {
             applyRemoteShop(data);
           }
           break;
         case 'chat':
-          addChatMessage(data.playerId, data.text);
+          addChatMessage(data.playerId, data.text, data.senderName);
           break;
         case 'dice':
           addSystemChatMessage(`【系统】${data.rollerName || '对手'}骰了随机数${data.result}（${data.low}~${data.high}）`);
@@ -293,6 +298,38 @@
             document.getElementById('spectator-name-input').value = data.name;
           }
           break;
+        case 'spec-assign':
+          // 房主分配观众编号
+          if (isSpectator && data.specNum) {
+            spectatorNameCounter = data.specNum;
+            const specInput = document.getElementById('spectator-name-input');
+            if (specInput && !spectatorCustomName) {
+              specInput.value = '观众' + data.specNum;
+            }
+          }
+          break;
+        case 'spec-loaded':
+          // 观众收到：对局数据加载完成
+          if (isSpectator) {
+            setConnStatus(true, '观战中');
+            addSystemChatMessage('【系统】✅ 对局数据加载完成');
+            addSystemChatMessage('【系统】💡 提示：观战模式下仅可投骰子、保存对局和发言');
+          }
+          break;
+        case 'room-full':
+          // 加入者收到：房间已满，自动切换为观战模式
+          if (!isSpectator) {
+            isSpectator = true;
+            localPlayerId = '0';
+            const num = data.specNum || 1;
+            spectatorNameCounter = num;
+            const specInput = document.getElementById('spectator-name-input');
+            if (specInput) { specInput.value = '观众' + num; spectatorCustomName = ''; }
+            addSystemChatMessage('【系统】房间已满，自动切换为观战模式（观众' + num + '）');
+            applyPermissionLock();
+            sendToPeer({ type: 'spec-ready' });
+          }
+          break;
         case 'card-damage':
           applyRemoteCardDamage(data.playerId, data.slotIndex, data.dmg);
           break;
@@ -307,6 +344,16 @@
           break;
         case 'fire-update':
           applyRemoteFireState(data.playerId, data.count);
+          break;
+        case 'cook-effect':
+          // 对手/观众触发烹饪动画
+          if (typeof DamageEffects !== 'undefined' && DamageEffects.playCookEffect) {
+            const zone = document.querySelector(`.player-zone[data-player="${data.playerId}"]`);
+            if (zone) {
+              const slot = zone.querySelector(`.card-slot[data-slot-index="${data.slotIndex}"]`);
+              if (slot) DamageEffects.playCookEffect(slot);
+            }
+          }
           break;
         case 'nightfall-toggle':
           if (typeof applyRemoteNightfall === 'function') {
@@ -438,13 +485,44 @@
       if (isSpectator) {
         document.querySelectorAll('.player-zone').forEach(zone => {
           zone.classList.add('player-zone--locked');
+          zone.setAttribute('data-locked', 'all'); // 触发CSS全面锁定
           zone.querySelectorAll('input, textarea, button, select').forEach(el => {
             el.setAttribute('data-locked', 'true');
-            if (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA') el.readOnly = true;
-            else el.disabled = true;
+            if (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA') { el.readOnly = true; el.style.opacity = '0.6'; }
+            else { el.disabled = true; el.style.opacity = '0.4'; el.style.cursor = 'not-allowed'; }
           });
         });
-        // 仅显示观众标签行，隐藏对手标签
+        // 锁定中心栏：下拉框可展开，内部仅保存对局可用
+        const centerBar = document.querySelector('.center-dice-bar');
+        if (centerBar) {
+          centerBar.querySelectorAll('button, input').forEach(el => {
+            const id = el.id || '';
+            const action = el.dataset.action || '';
+            // 允许：骰子投掷/输入、发言、观众名称、下拉切换按钮（机制/其他）
+            const isToggle = el.classList.contains('btn-mechanic-toggle')
+              || el.classList.contains('btn-dropdown-toggle');
+            const allowed = /btn-dice-roll|dice-min|dice-max|btn-speak-unified|spectator-name-input/.test(id)
+              || action === 'save-game'
+              || isToggle;
+            if (!allowed) {
+              el.disabled = true;
+              el.setAttribute('data-locked', 'true');
+              el.style.opacity = '0.4';
+              el.style.cursor = 'not-allowed';
+            }
+          });
+        }
+        // 机制/其他下拉菜单内的按钮也全体禁用（除保存）
+        document.querySelectorAll('.dropdown-mechanic__item, .dropdown-other__item').forEach(el => {
+          const action = el.dataset.action || '';
+          if (action !== 'save-game') {
+            el.disabled = true;
+            el.setAttribute('data-locked', 'true');
+            el.style.opacity = '0.4';
+            el.style.cursor = 'not-allowed';
+          }
+        });
+        // 隐藏对手标签，显示观众标签
         if (tagYour) tagYour.hidden = true;
         if (tagOpp) tagOpp.hidden = true;
         if (specRow) specRow.hidden = false;
@@ -491,11 +569,14 @@
       ROOM_HOME.hidden = false;
       ROOM_WAITING.hidden = true;
       document.getElementById('room-joining').hidden = true;
-      setConnStatus(true, isSpectator ? '观战中' : '已连接');
       applyPermissionLock();
       if (isSpectator) {
-        addSystemChatMessage('【系统】已进入观战模式');
+        setConnStatus(true, '⏳ 正在加载对局数据…');
+        addSystemChatMessage('【系统】👁 已进入观战模式，正在加载对局数据…');
+        // 向房主请求完整对局状态
+        sendToPeer({ type: 'spec-ready' });
       } else {
+        setConnStatus(true, '已连接');
         addSystemChatMessage('【系统】连接成功，游戏开始！');
         syncFullState();
       }
@@ -538,18 +619,27 @@
 
       peer.on('connection', (conn) => {
         if (!peerConn) {
-          // 第一个连接 = 对手
+          // 第一个连接 = 对手（玩家二）
           console.log('[Peer] 对手已连接');
           peerConn = conn;
           isHost = true;
           localPlayerId = '1';
           setupPeerConnection();
         } else {
-          // 后续连接 = 观众
-          console.log('[Peer] 观众已连接');
+          // 后续连接 = 观众（房间已满，告知对方转为观战）
+          console.log('[Peer] 观众已连接（房间已满）');
           specConns.push(conn);
           setupSpectatorConnection(conn);
-          broadcastSystemMsg('【系统】一位观众进入了房间');
+          // 分配观众编号
+          const specNum = specConns.length;
+          broadcastSystemMsg('【系统】观众' + specNum + '进入了房间');
+          // 告知对方房间已满，转为观战模式，并分配编号
+          const handshake = { type: 'room-full', specNum: specNum };
+          if (conn.open) {
+            conn.send(handshake);
+          } else {
+            conn.on('open', () => conn.send(handshake));
+          }
         }
       });
 
@@ -563,24 +653,43 @@
 
     /* 设置观众连接（仅房主侧） */
     function setupSpectatorConnection(conn) {
-      conn.on('open', () => {
-        console.log('[Peer] 观众数据通道已建立');
-        setTimeout(() => syncFullStateToConn(conn), 500);
-      });
+      // 绑定 data 处理器
       conn.on('data', (data) => {
         if (!data || typeof data !== 'object') return;
-        // 心跳处理
         if (data.type === 'ping') { conn.send({ type: 'pong' }); return; }
         if (data.type === 'pong') return;
-        // 观众发言：只转发给对手，不广播回观众自己
-        if (data.type === 'chat') {
-          addChatMessage('0', data.text);
-          if (peerConn && peerConn.open) peerConn.send(data);
+        // 观众请求完整状态 → 立即响应
+        if (data.type === 'spec-ready') {
+          console.log('[Peer] 观众请求完整状态，开始同步…');
+          // 分配观众编号
+          const specNum = specConns.indexOf(conn) + 1;
+          conn.send({ type: 'spec-assign', specNum: specNum });
+          syncFullStateToConn(conn);
+          // 通知观众加载完成
+          setTimeout(() => {
+            if (conn.open) conn.send({ type: 'spec-loaded' });
+          }, 600);
           return;
         }
-        // 观众改名：转发给对手
-        if (data.type === 'spec-name') {
+        // 观众发言：转发给对手和所有其他观众
+        if (data.type === 'chat') {
+          const sName = data.senderName || ('观众' + (specConns.indexOf(conn) + 1));
+          addChatMessage('0', data.text, sName);
           if (peerConn && peerConn.open) peerConn.send(data);
+          // 转发给所有其他观众
+          specConns.forEach(c => { if (c !== conn && c.open) c.send(data); });
+          return;
+        }
+        // 观众改名：房主也更新，并转发给对手和所有其他观众
+        if (data.type === 'spec-name') {
+          if (data.name) {
+            spectatorCustomName = data.name;
+            const specInput = document.getElementById('spectator-name-input');
+            if (specInput) specInput.value = data.name;
+          }
+          if (peerConn && peerConn.open) peerConn.send(data);
+          // 转发给所有其他观众
+          specConns.forEach(c => { if (c !== conn && c.open) c.send(data); });
           return;
         }
       });
@@ -594,16 +703,54 @@
     function syncFullStateToConn(conn) {
       if (!conn || !conn.open) return;
       ['1', '2'].forEach(pid => {
+        // 卡牌槽
         document.querySelectorAll(`.player-zone[data-player="${pid}"] .card-slot`).forEach(slot => {
           const state = getSlotState(slot);
           conn.send({ type: 'slot-update', playerId: pid, slotIndex: parseInt(slot.dataset.slotIndex, 10), state });
         });
+        // 牌库/手牌（发送占位数据维持计数）
         const cards = getPlayerCardState(pid);
-        conn.send({ type: 'deck-update', playerId: pid, deckCount: cards.deck.length, handCount: cards.hand.length });
+        const dummies = (arr) => arr.map(c => ({ id: c.id, name: '未知', curses: c.curses || [] }));
+        conn.send({ type: 'deck-update', playerId: pid, deckCount: cards.deck.length, handCount: cards.hand.length, deckData: dummies(cards.deck), handData: dummies(cards.hand) });
+        // 效果/幻境
         conn.send({ type: 'effects-update', playerId: pid, effects: getEffectsState(pid) });
+        // 玩家信息
         const info = getPlayerInfo(pid);
         conn.send({ type: 'player-info', playerId: pid, name: info.name, hp: info.hp });
         conn.send({ type: 'fire-update', playerId: pid, count: playerFire[pid] });
+        // 赏金
+        if (typeof playerBounty !== 'undefined') {
+          conn.send({ type: 'bounty-update', playerId: pid, amount: playerBounty[pid] || 0 });
+          // 若赏金图标已激活，也同步切换状态
+          const bzone = document.querySelector(`.player-zone[data-player="${pid}"]`);
+          if (bzone && bzone.querySelector('.bounty-indicator')) {
+            conn.send({ type: 'bounty-toggle', playerId: pid, active: true });
+          }
+        }
+        // 入夜状态
+        const nightEl = document.querySelector(`.player-zone[data-player="${pid}"] .nightfall-indicator`);
+        if (nightEl) {
+          const nightInput = nightEl.querySelector('.nightfall-input');
+          conn.send({ type: 'nightfall-toggle', playerId: pid, active: true, value: nightInput ? nightInput.value : '0' });
+        }
+        // 头像
+        const avatarImg = document.querySelector(`.player-avatar[data-avatar-player="${pid}"] img`);
+        if (avatarImg && avatarImg.src) {
+          conn.send({ type: 'avatar-update', playerId: pid, imageSrc: avatarImg.src });
+        }
+        // 商店
+        const shop = (typeof getShop === 'function') ? getShop(pid) : null;
+        if (shop) {
+          const stocks = {};
+          if (typeof playerCardStocks !== 'undefined' && playerCardStocks[pid]) {
+            for (const [name, s] of Object.entries(playerCardStocks[pid])) stocks[name] = s;
+          }
+          conn.send({ type: 'shop-update', playerId: pid, level: shop.level, products: (shop.products||[]).map(p=>({name:p.cardDef.name,stock:p.stock,price:p.price,bought:p.bought})), upgradeProgress: shop.upgradeProgress, upgradeNeeded: shop.upgradeNeeded, refreshCost: shop.refreshCost, slotCount: shop.slotCount, cardStocks: stocks });
+        }
+        // 启悟
+        if (typeof oracleActive !== 'undefined') {
+          conn.send({ type: 'oracle-update', playerId: pid, active: oracleActive[pid] || false, cards: (oracleHands[pid]||[]).map(c=>({id:c.id,name:'未知',curses:c.curses||[]})) });
+        }
       });
     }
 
@@ -667,13 +814,12 @@
       lastRoomCode = code;
       isSpectator = true;
       localPlayerId = '0';
-      spectatorNameCounter += 1;
       ROOM_HOME.hidden = true;
       ROOM_WAITING.hidden = true;
       document.getElementById('room-joining').hidden = false;
-      // 预设观众名称
+      // 预设观众名称（等待房主分配编号后更新）
       const specInput = document.getElementById('spectator-name-input');
-      if (specInput) { specInput.value = `观众${spectatorNameCounter}`; spectatorCustomName = ''; }
+      if (specInput) { specInput.value = '观众'; spectatorCustomName = ''; }
 
       peer = new Peer(undefined, { debug: 0, config: PEER_ICE_CONFIG });
       peer.on('open', () => {
@@ -710,17 +856,8 @@
 
     /* 设置 P2P 数据连接 */
     function setupPeerConnection() {
-      peerConn.on('open', () => {
-        clearJoinTimeout(); // 连接成功，取消加入超时
-        console.log('[Peer] 数据通道已建立');
-        addSystemChatMessage('【系统】连接已建立' + (peerConn._dc && peerConn._dc._channel ? '（WebRTC 数据通道）' : ''));
-        reconnectAttempts = 0;
-        startHeartbeat();
-        onPeerConnected();
-      });
-
+      // 先绑定 data 处理器（必须在 onPeerConnected 之前，避免竞态丢失消息）
       peerConn.on('data', (data) => {
-        // 心跳响应
         if (data && data.type === 'ping') {
           sendToPeer({ type: 'pong' });
           return;
@@ -747,10 +884,9 @@
         } else if (isHost) {
           setConnStatus(false, '对手已退出');
           addSystemChatMessage('【系统】对手已退出房间，等待重连…');
-          // 房主侧：等待对手重新加入
           if (localPlayerId) { attemptReconnect(); }
         } else {
-          peerLeft = true; // 房主退出，不再自动重连
+          peerLeft = true;
           setConnStatus(false, '房主已退出');
           addSystemChatMessage('【系统】房主已退出房间，可返回主界面重新创建或加入');
         }
@@ -761,6 +897,24 @@
         stopHeartbeat();
         setConnStatus(false, '通信错误');
       });
+
+      // 若数据通道已打开，立即初始化；否则等待 open 事件
+      if (peerConn.open) {
+        console.log('[Peer] 数据通道已就绪（已打开）');
+        addSystemChatMessage('【系统】连接已建立');
+        reconnectAttempts = 0;
+        startHeartbeat();
+        onPeerConnected();
+      } else {
+        peerConn.on('open', () => {
+          clearJoinTimeout();
+          console.log('[Peer] 数据通道已建立');
+          addSystemChatMessage('【系统】连接已建立' + (peerConn._dc && peerConn._dc._channel ? '（WebRTC 数据通道）' : ''));
+          reconnectAttempts = 0;
+          startHeartbeat();
+          onPeerConnected();
+        });
+      }
     }
 
     /* 按钮事件 */

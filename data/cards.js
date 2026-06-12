@@ -328,16 +328,19 @@ var CARD_DB_DATA = [
   },
 
   // ══════════════════════════════════════════════════════════════
-  //  商店牌（中立，_shop:true 供商店系统筛选）
+  //                               中立
   // ══════════════════════════════════════════════════════════════
+  
+  // 普通中立牌
+  { "name":"生命精华", "type":"spell", "owner":"中立", "level":1, "maxStack":10, "effect":"瞬发、堆叠，为一个角色恢复1血" },
 
+  // 商店牌 _shop:true 供商店系统筛选）
   // ── 一级商店牌 ──
   { "name":"离火疾行符", "type":"spell", "owner":"商店", "level":1, "_shop":true, "effect":"使一个己方式神本回合获得迅捷和突袭：+2甲" },
   { "name":"丹青律令", "type":"spell", "owner":"商店", "level":1, "_shop":true, "effect":"抽一张牌。增强：当你购买卡牌时，此牌本回合获得瞬发。" },
   { "name":"胧月三闪", "type":"spell", "owner":"商店", "level":1, "_shop":true, "effect":"瞬发，对一个敌方式神造成3点伤害" },
   { "name":"潮时纸鸢", "type":"spell", "owner":"商店", "level":1, "_shop":true, "effect":"瞬发，使一个己方神气绝倒计时或倒计时-1。" },
   { "name":"九节灵笛", "type":"spell", "owner":"商店", "level":1, "_shop":true, "effect":"瞬发，使一个己方式神获得-2，直到你的回合开始。" },
-  { "name":"生命精华", "type":"spell", "owner":"中立", "level":1, "maxStack":10, "effect":"瞬发、堆叠，为一个角色恢复1血" },
 
   // ── 二级商店牌 ──
   { "name":"瞬华凝露", "type":"spell", "owner":"商店", "level":2, "_shop":true, "effect":"复活己方一个式神，使其本回合获得迅捷和突袭：+1/+1甲" },
@@ -351,5 +354,10 @@ var CARD_DB_DATA = [
   { "name":"醉仙引", "type":"spell", "owner":"商店", "level":3, "_shop":true, "effect":"不消耗鬼火，对敌方牌手造成3点伤害，使用后获得下次刷新必然刷出此牌，随后刷新商店。" },
   { "name":"宿命罗盘", "type":"spell", "owner":"商店", "level":3, "_shop":true, "effect":"随机消灭一个敌方力量最大的式神，获得3赏金。" },
   { "name":"射日长弓", "type":"spell", "owner":"商店", "level":3, "_shop":true, "effect":"投射：造成5点伤害，然后再投射，造成2点伤害。" },
-  { "name":"玄甲", "type":"spell", "owner":"商店", "level":3, "_shop":true, "effect":"你获得5点上限和5盾；若你生命小于等于10，恢复效果翻倍。" }
+  { "name":"玄甲", "type":"spell", "owner":"商店", "level":3, "_shop":true, "effect":"你获得5点上限和5盾；若你生命小于等于10，恢复效果翻倍。" },
+
+  // ── 启悟牌（中立法术） ──
+  { "name":"星诫", "type":"spell", "owner":"中立", "level":1, "_oracle":true, "effect":"不消耗鬼火，对一个敌方式神造成1点伤害，对敌方牌手造成1点伤害。使用后，第二次启悟时移回启悟区。" },
+  { "name":"月诫", "type":"spell", "owner":"中立", "level":1, "_oracle":true, "effect":"不消耗鬼火，占卜1，恢复你1点生命值。使用后，第二次启悟时移回启悟区。" },
+  { "name":"日诫", "type":"spell", "owner":"中立", "level":1, "_oracle":true, "effect":"消灭一个敌方战斗区式神，敌方牌手抽一张牌。" }
 ];

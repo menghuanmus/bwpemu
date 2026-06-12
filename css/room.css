@@ -47,7 +47,7 @@
     .room-credits {
       margin-top: 16px;
       text-align: right;
-      font-size: 11px;
+      font-size: 13px;
       color: rgba(150, 170, 200, 0.5);
       letter-spacing: 0.5px;
     }
@@ -230,14 +230,23 @@
     .conn-dot--warn { background: #e0a030; }
 
     /* ================================================================
-       联机权限锁定样式（仅禁用牌库按钮）
+       联机权限锁定样式
        ================================================================ */
     /* 牌库按钮已解锁，双方均可操作 */
     .player-zone--locked .btn-deck {
       filter: grayscale(0.6);
-      /* opacity: 0.45; */
-      /* pointer-events: none; */
-      /* cursor: not-allowed; */
+    }
+    /* 观战模式：玩家区域全面锁定（含动态创建的元素） */
+    .player-zone--locked[data-locked="all"] input,
+    .player-zone--locked[data-locked="all"] textarea,
+    .player-zone--locked[data-locked="all"] button:not(.btn-deck) {
+      pointer-events: none !important;
+      opacity: 0.45;
+    }
+    .player-zone--locked[data-locked="all"] .btn-deck {
+      pointer-events: none !important;
+      opacity: 0.45;
+      cursor: not-allowed;
     }
 
     /* 中心线右侧：标签 + 发言按钮竖排 */

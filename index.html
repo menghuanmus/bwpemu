@@ -59,7 +59,7 @@
           <button type="button" class="room-btn room-btn--back" id="room-btn-back">返回</button>
         </div>
       </div>
-      <div class="room-credits">交流Q群：1078494503</div>
+      <div class="room-credits">期待您提交意见及BUG反馈，交流Q群：1078494503</div>
     </div>
   </div>
 
@@ -111,6 +111,7 @@
                 <button type="button" class="btn-deck" data-action="draw">抽牌</button>
                 <button type="button" class="btn-deck" data-action="hand">手牌</button>
                 <button type="button" class="btn-deck" data-action="add-hand">置入手牌</button>
+                <button type="button" class="btn-deck btn-deck--oracle" data-action="oracle-zone" id="btn-oracle-zone-1" hidden>✨ 启悟区</button>
               </div>
               <div class="deck-toolbar-center" aria-hidden="true"></div>
               <div class="deck-btn-group deck-btn-group--deck">
@@ -189,6 +190,7 @@
             <button type="button" class="dropdown-mechanic__item" id="btn-divine">🔮 占卜</button>
             <button type="button" class="dropdown-mechanic__item" id="btn-cook">🍳 烹饪</button>
             <button type="button" class="dropdown-mechanic__item" id="btn-bounty">💰 赏金</button>
+            <button type="button" class="dropdown-mechanic__item" id="btn-oracle">✨ 启悟</button>
           </div>
         </div>
         <div class="dropdown-other" id="dropdown-other">
@@ -242,6 +244,7 @@
                 <button type="button" class="btn-deck" data-action="draw">抽牌</button>
                 <button type="button" class="btn-deck" data-action="hand">手牌</button>
                 <button type="button" class="btn-deck" data-action="add-hand">置入手牌</button>
+                <button type="button" class="btn-deck btn-deck--oracle" data-action="oracle-zone" id="btn-oracle-zone-2" hidden>✨ 启悟区</button>
               </div>
               <div class="deck-toolbar-center" aria-hidden="true"></div>
               <div class="deck-btn-group deck-btn-group--deck">
@@ -410,6 +413,52 @@
     </div>
   </div>
 
+  <!-- 启悟对话框 -->
+  <div class="oracle-dialog-overlay" id="oracle-dialog-overlay" hidden>
+    <div class="oracle-dialog" role="dialog" aria-labelledby="oracle-dialog-title" id="oracle-dialog">
+      <div class="oracle-dialog__header" id="oracle-dialog-header">
+        <h3 id="oracle-dialog-title">✨ 启悟区</h3>
+        <button type="button" class="oracle-dialog__close" id="oracle-dialog-close">✕</button>
+      </div>
+      <div class="oracle-dialog__body">
+        <!-- 启悟手牌列表（置顶） -->
+        <div class="oracle-cards-list" id="oracle-cards-list">
+          <!-- JS动态渲染 -->
+        </div>
+        <!-- 快速置入三诫 -->
+        <div class="oracle-quick-row">
+          <span class="oracle-quick-label">点击将</span>
+          <button type="button" class="oracle-quick-btn oracle-quick-btn--xing" data-oracle-card="星诫">星诫</button>
+          <span class="oracle-quick-label">/</span>
+          <button type="button" class="oracle-quick-btn oracle-quick-btn--yue" data-oracle-card="月诫">月诫</button>
+          <span class="oracle-quick-label">/</span>
+          <button type="button" class="oracle-quick-btn oracle-quick-btn--ri" data-oracle-card="日诫">日诫</button>
+          <span class="oracle-quick-label">置入启悟区</span>
+        </div>
+        <!-- 自定义输入 + 从牌库抽牌 -->
+        <div class="oracle-input-row">
+          <input type="text" id="oracle-card-input" placeholder="输入卡牌名" maxlength="24" aria-label="卡牌名">
+          <button type="button" class="oracle-btn oracle-btn--add" id="oracle-btn-add">置入启悟区</button>
+          <button type="button" class="oracle-btn oracle-btn--draw" id="oracle-btn-draw">📥 从牌库抽牌</button>
+        </div>
+        <!-- 底部魔法图标装饰 -->
+        <div class="oracle-magic-footer">
+          <span class="oracle-magic-icon" title="日诫">☀️</span>
+          <span class="oracle-magic-sep">·</span>
+          <span class="oracle-magic-icon" title="月诫">🌙</span>
+          <span class="oracle-magic-sep">·</span>
+          <span class="oracle-magic-icon" title="星诫">✨</span>
+          <span class="oracle-magic-sep">·</span>
+          <span class="oracle-magic-icon" title="魔法球">🔮</span>
+          <span class="oracle-magic-sep">·</span>
+          <span class="oracle-magic-icon" title="魔法棒">🪄</span>
+          <span class="oracle-magic-sep">·</span>
+          <span class="oracle-magic-icon" title="法术书">📜</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <svg id="damage-line-svg"><line id="damage-line" stroke="#f66" stroke-width="2" stroke-dasharray="6,4" opacity="0.8"/></svg>
   <input type="file" id="image-input" accept="image/*">
   <input type="file" id="avatar-input" accept="image/*">
@@ -463,5 +512,6 @@
   <script src="js/effect-builder.js"></script>
   <script src="js/special-effects.js"></script>
   <script src="js/shop.js"></script>
+  <script src="js/oracle.js"></script>
 </body>
 </html>

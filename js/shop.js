@@ -305,16 +305,20 @@
       shop.products = selected;
     }
 
-    /** 打开商店 */
+    /** 打开商店（观众仅可查看） */
     function openShop(playerId) {
       _activeShopPlayer = playerId;
       const shop = getShop(playerId);
-      // 延迟初始化：CardDB可能尚未加载完成
       if (!shop.products.length && typeof CardDB !== 'undefined' && CardDB.isReady()) {
         initShop(playerId, 1);
       }
       renderShop(playerId);
       shopOverlay.hidden = false;
+      // 观众模式：禁用购买、刷新按钮
+      if (typeof isSpectator !== 'undefined' && isSpectator) {
+        const btns = shopOverlay.querySelectorAll('button:not(.shop-dialog__close)');
+        btns.forEach(b => { b.disabled = true; b.title = '观战模式下不可操作'; });
+      }
     }
 
     /** 渲染商店 */
@@ -384,8 +388,9 @@
       shopExtrasEl.innerHTML = '';
     }
 
-    /** 购买商品 */
+    /** 购买商品（观众不可操作） */
     function buyProduct(playerId, productIdx) {
+      if (typeof isSpectator !== 'undefined' && isSpectator) return;
       const shop = getShop(playerId);
       const prod = shop.products[productIdx];
       if (!prod || prod.bought) return;
@@ -453,8 +458,9 @@
       }
     }
 
-    /** 刷新商店商品 */
+    /** 刷新商店商品（观众不可操作） */
     function refreshShop(playerId) {
+      if (typeof isSpectator !== 'undefined' && isSpectator) return;
       const cost = 1; // 所有等级刷新均1赏金
       if ((playerBounty[playerId] || 0) < cost) return;
       playerBounty[playerId] -= cost;
@@ -537,6 +543,7 @@
 
     shopFreeRefreshBtn.addEventListener('click', () => {
       if (!_activeShopPlayer) return;
+      if (typeof isSpectator !== 'undefined' && isSpectator) return;
       generateShopProducts(_activeShopPlayer);
       syncShopToPeer(_activeShopPlayer);
       renderShop(_activeShopPlayer);

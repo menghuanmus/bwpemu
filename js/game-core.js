@@ -200,17 +200,25 @@
         <button type="button" class="btn-remove-effect">移除</button>
       `;
       item.querySelector('.btn-remove-effect').addEventListener('click', () => {
+        if (typeof isSpectator !== 'undefined' && isSpectator) return;
         const playerId = item.closest('.player-zone').dataset.player;
         const name = item.querySelector('.effect-name').value || '未命名';
         item.remove();
         syncEffectsState(playerId);
         broadcastSystemMsg(`【系统】${getPlayerName(playerId)}移除了幻境/效果「${name}」`);
       });
+      // 观众视角下视觉变灰
+      if (typeof isSpectator !== 'undefined' && isSpectator) {
+        item.querySelector('.btn-remove-effect').disabled = true;
+        item.querySelector('.btn-remove-effect').style.opacity = '0.4';
+        item.querySelectorAll('input').forEach(inp => { inp.readOnly = true; inp.style.opacity = '0.6'; });
+      }
       return item;
     }
 
     document.querySelectorAll('.btn-add-effect').forEach(btn => {
       btn.addEventListener('click', () => {
+        if (typeof isSpectator !== 'undefined' && isSpectator) return;
         const zone = btn.closest('.player-zone');
         const panel = zone.querySelector('.effects-panel');
         panel.appendChild(createEffectItem());
@@ -506,12 +514,14 @@
       else { curses.push({ name, layers }); }
       cursePanelTarget.setCurses(curses);
       const targetLoc = cursePanelTarget.getLocation ? cursePanelTarget.getLocation() : '';
-      const targetLabel = cursePanelTarget.getLabel();
-      if (targetLoc.includes('牌库')) {
-        broadcastSystemMsg('【系统】' + getPlayerName(cursePanelTarget.getPlayerId()) + '为' + targetLoc + '一张牌结附了灵咒「' + name + '」×' + layers);
-      } else {
-        broadcastSystemMsg('【系统】' + getPlayerName(cursePanelTarget.getPlayerId()) + '为' + targetLoc + '「' + targetLabel + '」结附了灵咒「' + name + '」×' + layers);
-      }
+      const targetPid = cursePanelTarget.getPlayerId();
+      const actorName = (typeof localPlayerId !== 'undefined') ? getPlayerName(localPlayerId) : '玩家';
+      const targetName = getPlayerName(targetPid);
+      // 区分己方/对方：如 "玩家一为玩家二手牌中的一张牌结附了..."
+      const locFull = (String(targetPid) === String(localPlayerId))
+        ? ('己方' + targetLoc)
+        : (targetName + targetLoc);
+      broadcastSystemMsg('【系统】' + actorName + '为' + locFull + '一张牌结附了灵咒「' + name + '」×' + layers);
       overlay.querySelector('.inp-name').value = '';
       overlay.querySelector('.inp-layers').value = '1';
       _refreshCursePanel();
@@ -590,6 +600,7 @@
     function initCardSlots() {
       document.querySelectorAll('.card-slot').forEach(slot => {
         slot.addEventListener('pointerdown', (e) => {
+          if (typeof isSpectator !== 'undefined' && isSpectator) return;
           if (e.button !== 0 || isInteractiveTarget(e.target) || e.target.closest('.curse-badge')) return;
           pointerOrigin = { x: e.clientX, y: e.clientY, slot };
           slot.setPointerCapture(e.pointerId);
@@ -628,7 +639,7 @@
             draggedSlot = null;
             clearDragHighlights();
           } else if (!isInteractiveTarget(e.target) && !isTargeting && !slot.querySelector('.ko-overlay') && !e.target.closest('.curse-badge')) {
-            openImagePicker(slot);
+            if (typeof isSpectator === 'undefined' || !isSpectator) openImagePicker(slot);
           }
 
           pointerOrigin = null;
