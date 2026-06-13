@@ -377,6 +377,11 @@
       // 牌表按钮：仅自己牌库可见（查看对手牌库时隐藏）
       cardListBreakdownBtn.hidden = (type !== 'deck' || !isViewingOwnCards(playerId));
       cardListBreakdownBtn.textContent = '📋 查看牌表';
+      // 初始手牌按钮：仅在自己手牌弹窗中显示
+      const initialHandBtn = document.getElementById('card-list-initial-hand-btn');
+      if (initialHandBtn) {
+        initialHandBtn.hidden = (type !== 'hand' || !isViewingOwnCards(playerId) || !getPlayerCardState(playerId).deck.length);
+      }
       deckBreakdownPanel.hidden = true;
       // 重置拖拽偏移
       cardListDragOffset = { x: 0, y: 0 };
@@ -1364,3 +1369,306 @@
     });
 
     // ================================================================
+    //  初始手牌系统
+    // ================================================================
+    const initialHandOverlay = document.getElementById('initial-hand-overlay');
+    const initialHandCountInput = document.getElementById('initial-hand-count-input');
+    const initialHandDrawBtn = document.getElementById('initial-hand-draw-btn');
+    const initialHandCardsBody = document.getElementById('initial-hand-cards-body');
+    const initialHandCancelBtn = document.getElementById('initial-hand-cancel');
+    const initialHandConfirmBtn = document.getElementById('initial-hand-confirm');
+    const initialHandDrawHint = document.getElementById('initial-hand-draw-hint');
+
+    /** 初始手牌上下文 */
+    let initialHandContext = null; // { playerId, drawnCards: [], rejectedIndices: Set }
+
+    /** 打开初始手牌弹窗 */
+    function openInitialHandDialog(playerId) {
+      const state = getPlayerCardState(playerId);
+      if (!state.deck.length) {
+        broadcastSystemMsg(`【系统】${getPlayerName(playerId)}的牌库为空，无法抽取初始手牌`);
+        return;
+      }
+      initialHandContext = {
+        playerId,
+        drawnCards: [],
+        rejectedIndices: new Set(),
+      };
+      initialHandCountInput.value = Math.min(3, state.deck.length);
+      initialHandCountInput.max = state.deck.length;
+      initialHandCardsBody.innerHTML = '';
+      initialHandDrawHint.hidden = true;
+      initialHandOverlay.hidden = false;
+      initialHandCountInput.focus();
+      initialHandCountInput.select();
+
+      // 绑定标题拖拽
+      const dialogEl = initialHandOverlay.querySelector('.speak-dialog');
+      let dragStart = null;
+      let dragOffset = { x: 0, y: 0 };
+      const titleEl = document.getElementById('initial-hand-title');
+      titleEl.style.cursor = 'grab';
+      titleEl.onmousedown = function(e) {
+        if (e.target.closest('button')) return;
+        dragStart = { x: e.clientX - dragOffset.x, y: e.clientY - dragOffset.y };
+        dialogEl.style.cursor = 'grabbing';
+        e.preventDefault();
+      };
+      document.addEventListener('mousemove', function onMove(e) {
+        if (!dragStart || initialHandOverlay.hidden) return;
+        dragOffset.x = e.clientX - dragStart.x;
+        dragOffset.y = e.clientY - dragStart.y;
+        dialogEl.style.transform = `translate(${dragOffset.x}px, ${dragOffset.y}px)`;
+        dialogEl.style.transition = 'none';
+      });
+      document.addEventListener('mouseup', function onUp() {
+        if (!dragStart) return;
+        dragStart = null;
+        dialogEl.style.cursor = '';
+      });
+    }
+
+    /** 关闭初始手牌弹窗 */
+    function closeInitialHandDialog() {
+      initialHandOverlay.hidden = true;
+      initialHandContext = null;
+      initialHandCardsBody.innerHTML = '';
+      initialHandDrawHint.hidden = true;
+      // 重置拖拽
+      const dialogEl = initialHandOverlay.querySelector('.speak-dialog');
+      if (dialogEl) {
+        dialogEl.style.transform = '';
+        dialogEl.style.transition = '';
+        dialogEl.style.cursor = '';
+      }
+      document.getElementById('initial-hand-title').style.cursor = '';
+    }
+
+    /** 从牌库随机抽取 count 张牌（不改变牌库，返回副本） */
+    function drawInitialCards(playerId, count) {
+      const state = getPlayerCardState(playerId);
+      const deck = state.deck.filter(c => c && typeof c === 'object');
+      if (!deck.length) return [];
+      const clamped = Math.min(count, deck.length);
+      // 随机抽取 clamped 张（不改变牌库顺序）
+      const indices = [...Array(deck.length).keys()];
+      for (let i = indices.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [indices[i], indices[j]] = [indices[j], indices[i]];
+      }
+      const selected = indices.slice(0, clamped).map(i => ({
+        id: deck[i].id,
+        name: deck[i].name,
+        curses: deck[i].curses ? deck[i].curses.map(c => ({ name: c.name, layers: c.layers })) : [],
+      }));
+      return selected;
+    }
+
+    /** 渲染初始手牌卡牌列表 */
+    function renderInitialHandCards() {
+      if (!initialHandContext) return;
+      const { drawnCards, rejectedIndices } = initialHandContext;
+      initialHandCardsBody.innerHTML = '';
+
+      if (!drawnCards.length) {
+        return;
+      }
+
+      drawnCards.forEach((card, idx) => {
+        const item = document.createElement('div');
+        item.className = 'initial-hand-card';
+        if (rejectedIndices.has(idx)) {
+          item.classList.add('initial-hand-card--rejected');
+        }
+        item.dataset.displayIndex = idx;
+
+        const indexSpan = document.createElement('span');
+        indexSpan.className = 'initial-hand-card__index';
+        indexSpan.textContent = `#${idx + 1}`;
+        item.appendChild(indexSpan);
+
+        const nameSpan = document.createElement('span');
+        nameSpan.className = 'initial-hand-card__name card-list-item__name';
+        nameSpan.textContent = card.name || '(未命名)';
+        item.appendChild(nameSpan);
+
+        // X 标记覆盖层
+        if (rejectedIndices.has(idx)) {
+          const xMark = document.createElement('span');
+          xMark.className = 'initial-hand-card__x-mark';
+          xMark.textContent = '✕';
+          item.appendChild(xMark);
+        }
+
+        // 点击切换 X 标记（基于数组索引，彻底避免 ID 碰撞）
+        item.addEventListener('click', () => {
+          if (rejectedIndices.has(idx)) {
+            rejectedIndices.delete(idx);
+          } else {
+            rejectedIndices.add(idx);
+          }
+          renderInitialHandCards();
+        });
+
+        initialHandCardsBody.appendChild(item);
+      });
+    }
+
+    /** 抽取按钮：从牌库随机抽牌展示 */
+    initialHandDrawBtn.addEventListener('click', () => {
+      if (!initialHandContext) return;
+      const count = parseInt(initialHandCountInput.value, 10);
+      if (isNaN(count) || count < 1) {
+        initialHandCountInput.value = 1;
+        return;
+      }
+      const state = getPlayerCardState(initialHandContext.playerId);
+      const clamped = Math.min(count, state.deck.length);
+      if (clamped < 1) return;
+      initialHandCountInput.value = clamped;
+      initialHandContext.drawnCards = drawInitialCards(initialHandContext.playerId, clamped);
+      initialHandContext.rejectedIndices = new Set();
+      initialHandDrawHint.hidden = false;
+      broadcastSystemMsg(`【系统】${getPlayerName(initialHandContext.playerId)}观看了初始手牌...正在选择需要替换的卡牌..`);
+      renderInitialHandCards();
+    });
+
+    /** 确定按钮：替换X牌，抽入手牌，发系统消息 */
+    initialHandConfirmBtn.addEventListener('click', () => {
+      if (!initialHandContext) return;
+      const { playerId, drawnCards, rejectedIndices } = initialHandContext;
+      if (!drawnCards.length) {
+        closeInitialHandDialog();
+        return;
+      }
+      const state = getPlayerCardState(playerId);
+      const playerName = getPlayerName(playerId);
+
+      // === 第1步：从牌库中找到每张展示牌的原件，移除并收集 ===
+      // drawnCards 是 drawInitialCards 返回的独立副本（仅 id/name/curses），
+      // 这里通过 id 在真实牌库 state.deck 中定位原件。
+      const drawnOriginals = []; // 与 drawnCards 一一对应的牌库原件
+      for (const drawn of drawnCards) {
+        const idx = state.deck.findIndex(c => c && c.id === drawn.id);
+        if (idx !== -1) {
+          const [original] = state.deck.splice(idx, 1);
+          drawnOriginals.push(original);
+        } else {
+          // 防御：原件已不在牌库（极端情况），用副本占位
+          drawnOriginals.push(null);
+        }
+      }
+
+      // === 第2步：按 X 标记拆分原件 ===
+      const keptOriginals = [];    // 保留的牌库原件
+      const rejectedOriginals = []; // 画X的牌库原件（将退回牌库）
+      const keptNames = [];
+      const rejectedNames = [];
+
+      drawnOriginals.forEach((orig, idx) => {
+        const displayCard = drawnCards[idx];
+        if (!displayCard) return;
+        if (rejectedIndices.has(idx)) {
+          rejectedNames.push(displayCard.name);
+          if (orig) rejectedOriginals.push(orig);
+        } else {
+          keptNames.push(displayCard.name);
+          if (orig) keptOriginals.push(orig);
+        }
+      });
+
+      // === 第3步：为每张画X的牌从剩余牌库随机换一张 ===
+      // 此时 state.deck 已排除所有展示牌（含将被退回的X牌），从中选取替换
+      const replacementNames = [];
+      const replacementCards = [];
+      if (rejectedOriginals.length > 0) {
+        const pool = state.deck.filter(c => c && typeof c === 'object');
+        const shuffled = [...pool].sort(() => Math.random() - 0.5);
+
+        for (let i = 0; i < rejectedOriginals.length && i < shuffled.length; i++) {
+          const replacement = shuffled[i];
+          replacementNames.push(replacement.name);
+          const realIdx = state.deck.findIndex(c => c && c.id === replacement.id);
+          if (realIdx !== -1) {
+            const [removed] = state.deck.splice(realIdx, 1);
+            replacementCards.push(removed);
+          }
+        }
+      }
+
+      // 画X的牌原件退回牌库（交换而非丢弃，在替换选取之后放回）
+      rejectedOriginals.forEach(orig => {
+        state.deck.push(orig);
+      });
+
+      // === 第4步：所有保留原件 + 替换牌 → 抽入手牌 ===
+      const allCardsToHand = [...keptOriginals, ...replacementCards];
+      allCardsToHand.forEach(card => {
+        if (card) pushCardToHand(playerId, card);
+      });
+
+      // === 第5步：更新UI ===
+      updateDeckButtons(playerId);
+      refreshOpenListDialog(playerId);
+      syncDeckState(playerId);
+
+      // === 第6步：系统消息 ===
+      const totalCount = drawnCards.length;
+
+      // 自己看到详细消息
+      let detailMsg = `【系统】${playerName}抽取了${totalCount}张初始手牌`;
+      if (keptNames.length > 0) {
+        detailMsg += ` —— 保留：「${keptNames.join('」、「')}」`;
+      }
+      if (rejectedNames.length > 0) {
+        detailMsg += ` —— 放弃：「${rejectedNames.join('」、「')}」`;
+        if (replacementNames.length > 0) {
+          detailMsg += `，替换为：「${replacementNames.join('」、「')}」`;
+        }
+      }
+      detailMsg += '（此消息仅自己可见）';
+
+      // 对手只看到摘要
+      const summaryMsg = `【系统】${playerName}抽了${totalCount}张初始手牌`;
+
+      // 本地显示详细信息
+      addSystemChatMessage(detailMsg);
+
+      // 发送给对手：仅摘要
+      if (!isSoloMode && peerConn && peerConn.open && typeof sendToPeer === 'function') {
+        sendToPeer({ type: 'sysmsg', text: summaryMsg });
+      }
+
+      closeInitialHandDialog();
+    });
+
+    /** 取消按钮 */
+    initialHandCancelBtn.addEventListener('click', closeInitialHandDialog);
+
+    // Esc 关闭
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && initialHandOverlay && !initialHandOverlay.hidden) {
+        closeInitialHandDialog();
+      }
+    });
+
+    // 点击遮罩关闭
+    initialHandOverlay.addEventListener('click', (e) => {
+      if (e.target === initialHandOverlay) {
+        closeInitialHandDialog();
+      }
+    });
+
+    /** "初始手牌"按钮点击事件 */
+    document.getElementById('card-list-initial-hand-btn').addEventListener('click', () => {
+      if (!cardListContext || cardListContext.type !== 'hand') return;
+      openInitialHandDialog(cardListContext.playerId);
+    });
+
+    // 输入框回车触发抽取
+    initialHandCountInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        initialHandDrawBtn.click();
+      }
+    });

@@ -311,7 +311,10 @@
 
   <div class="speak-dialog-overlay" id="card-list-dialog-overlay" hidden>
     <div class="speak-dialog card-list-dialog" role="dialog" aria-labelledby="card-list-dialog-title">
-      <h3 id="card-list-dialog-title">列表</h3>
+      <div class="card-list-title-row">
+        <h3 id="card-list-dialog-title">列表</h3>
+        <button type="button" class="btn-dialog-confirm initial-hand-btn" id="card-list-initial-hand-btn" hidden>🎴 初始手牌</button>
+      </div>
       <button type="button" class="btn-dialog-confirm breakdown-top-btn" id="card-list-breakdown-btn" hidden>📋 查看牌表</button>
       <div class="deck-summary-header" id="deck-summary-header" hidden></div>
       <div class="card-list" id="card-list-dialog-body"></div>
@@ -331,6 +334,25 @@
         <button type="button" class="btn-dialog-cancel deck-breakdown__close" id="deck-breakdown-close">✕</button>
       </div>
       <div class="deck-breakdown__body" id="deck-breakdown-body"></div>
+    </div>
+  </div>
+
+  <!-- 初始手牌对话框 -->
+  <div class="speak-dialog-overlay" id="initial-hand-overlay" hidden>
+    <div class="speak-dialog initial-hand-dialog" role="dialog" aria-labelledby="initial-hand-title">
+      <h3 id="initial-hand-title">🎴 初始手牌</h3>
+      <div class="initial-hand-draw-row">
+        <input type="number" id="initial-hand-count-input" value="3" min="1" max="99" placeholder="数量" aria-label="抽取数量">
+        <button type="button" class="btn-dialog-confirm" id="initial-hand-draw-btn">🎲 抽取</button>
+        <span class="initial-hand-draw-hint" id="initial-hand-draw-hint" hidden>点击你需要替换的卡牌</span>
+      </div>
+      <div class="initial-hand-cards" id="initial-hand-cards-body">
+        <!-- JS动态渲染抽取的卡牌 -->
+      </div>
+      <div class="speak-dialog-actions">
+        <button type="button" class="btn-dialog-cancel" id="initial-hand-cancel">取消</button>
+        <button type="button" class="btn-dialog-confirm" id="initial-hand-confirm">确定</button>
+      </div>
     </div>
   </div>
 

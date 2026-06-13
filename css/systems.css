@@ -2034,3 +2034,208 @@
       0%, 100% { transform: translateY(0) scale(1); }
       50% { transform: translateY(-4px) scale(1.08); }
     }
+
+    /* ================================================================
+       初始手牌对话框 (Initial Hand)
+       ================================================================ */
+    /* 标题行：标题 + 初始手牌按钮 中线对齐 */
+    .card-list-title-row {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      margin-bottom: 0;
+    }
+    .card-list-title-row h3 {
+      margin: 0;
+    }
+
+    /* 初始手牌按钮：标题右侧，中线对齐 */
+    .initial-hand-btn {
+      flex-shrink: 0;
+      font-size: 12px;
+      padding: 5px 14px;
+      border-radius: 6px;
+      background: linear-gradient(135deg, rgba(180, 140, 60, 0.55), rgba(140, 100, 30, 0.5));
+      border: 1px solid rgba(220, 180, 80, 0.55);
+      color: #ffe8b0;
+      font-weight: 600;
+      letter-spacing: 0.5px;
+      text-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
+      box-shadow: 0 2px 8px rgba(180, 130, 50, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+      transition: background 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease, transform 0.15s ease;
+      cursor: pointer;
+      line-height: 1.4;
+    }
+    .initial-hand-btn:hover {
+      background: linear-gradient(135deg, rgba(210, 165, 70, 0.7), rgba(170, 120, 40, 0.65));
+      border-color: rgba(255, 200, 100, 0.75);
+      color: #fff2c0;
+      box-shadow: 0 4px 16px rgba(200, 150, 60, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.12);
+      transform: translateY(-1px);
+    }
+    .initial-hand-btn:active {
+      transform: translateY(0);
+      box-shadow: 0 1px 4px rgba(180, 130, 50, 0.3);
+    }
+    .card-list-dialog h3 {
+      padding-right: 0; /* 按钮在 flex 行内，无需额外留空 */
+    }
+
+    /* 初始手牌弹窗 */
+    .initial-hand-dialog {
+      min-width: 380px;
+      max-width: 520px;
+    }
+
+    .initial-hand-dialog h3 {
+      color: #ffd700;
+    }
+
+    /* 抽取行：输入框 + 抽取按钮 */
+    .initial-hand-draw-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 12px 0 8px;
+    }
+
+    .initial-hand-draw-row input[type="number"] {
+      width: 80px;
+      padding: 8px 12px;
+      border-radius: 6px;
+      border: 1px solid rgba(200, 160, 80, 0.5);
+      background: rgba(20, 30, 50, 0.85);
+      color: #ffe8b0;
+      font-size: 16px;
+      text-align: center;
+      font-family: inherit;
+      -moz-appearance: textfield;
+      appearance: textfield;
+    }
+    .initial-hand-draw-row input[type="number"]::-webkit-inner-spin-button,
+    .initial-hand-draw-row input[type="number"]::-webkit-outer-spin-button {
+      -webkit-appearance: none;
+      margin: 0;
+    }
+    .initial-hand-draw-row input[type="number"]:focus {
+      outline: none;
+      border-color: rgba(255, 200, 100, 0.7);
+      box-shadow: 0 0 10px rgba(255, 200, 100, 0.2);
+    }
+
+    .initial-hand-draw-row .btn-dialog-confirm {
+      background: linear-gradient(135deg, rgba(200, 140, 60, 0.6), rgba(160, 100, 30, 0.6));
+      border-color: rgba(220, 170, 80, 0.5);
+      color: #ffe8b0;
+      font-weight: 600;
+      padding: 8px 20px;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: all 0.2s;
+      font-size: 14px;
+    }
+    .initial-hand-draw-row .btn-dialog-confirm:hover {
+      background: linear-gradient(135deg, rgba(220, 160, 80, 0.8), rgba(180, 120, 40, 0.8));
+      border-color: rgba(240, 190, 100, 0.7);
+      box-shadow: 0 0 12px rgba(220, 160, 80, 0.3);
+    }
+
+    /* 抽取后的操作提示 */
+    .initial-hand-draw-hint {
+      font-size: 12px;
+      color: rgba(180, 160, 130, 0.7);
+      white-space: nowrap;
+      margin-left: 4px;
+      animation: hintFadeIn 0.4s ease;
+    }
+    @keyframes hintFadeIn {
+      from { opacity: 0; transform: translateX(-6px); }
+      to { opacity: 1; transform: translateX(0); }
+    }
+
+    /* 卡牌展示区域 */
+    .initial-hand-cards {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      min-height: 80px;
+      max-height: 360px;
+      overflow-y: auto;
+      padding: 6px 0;
+    }
+
+    .initial-hand-cards:empty::after {
+      content: '请先输入数量并点击"抽取"';
+      display: block;
+      text-align: center;
+      color: rgba(160, 180, 210, 0.4);
+      font-size: 13px;
+      padding: 24px 0;
+    }
+
+    /* 单张初始手牌卡片 */
+    .initial-hand-card {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 14px;
+      min-height: 44px;
+      background: rgba(30, 44, 66, 0.7);
+      border: 1px solid rgba(200, 160, 80, 0.2);
+      border-radius: 8px;
+      cursor: pointer;
+      transition: background 0.15s, border-color 0.15s, opacity 0.15s;
+      user-select: none;
+      position: relative;
+      overflow: hidden;
+      box-sizing: border-box;
+    }
+    .initial-hand-card:hover {
+      background: rgba(40, 58, 86, 0.8);
+      border-color: rgba(220, 180, 100, 0.45);
+    }
+    .initial-hand-card--rejected {
+      opacity: 0.45;
+      border-color: rgba(200, 80, 80, 0.4);
+      background: rgba(60, 20, 20, 0.5);
+    }
+    .initial-hand-card--rejected:hover {
+      background: rgba(80, 30, 30, 0.6);
+      border-color: rgba(220, 100, 100, 0.6);
+    }
+
+    /* X 标记覆盖层 */
+    .initial-hand-card__x-mark {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      pointer-events: none;
+      font-size: 48px;
+      font-weight: 900;
+      color: rgba(220, 50, 50, 0.7);
+      text-shadow: 0 0 16px rgba(255, 0, 0, 0.5);
+      z-index: 2;
+      transform: rotate(-5deg);
+    }
+
+    /* 卡牌名称 */
+    .initial-hand-card__name {
+      flex: 1;
+      min-width: 0;
+      font-size: 14px;
+      font-weight: 600;
+      color: #e0d8c8;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    /* 卡牌序号 */
+    .initial-hand-card__index {
+      flex-shrink: 0;
+      font-size: 12px;
+      color: #8090a8;
+      min-width: 28px;
+    }
