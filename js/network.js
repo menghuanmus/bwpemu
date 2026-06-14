@@ -381,6 +381,11 @@
             }
           }
           break;
+        case 'fx-anim':
+          if (data.anim && typeof CardFlight !== 'undefined' && typeof CardFlight.playRemoteAnim === 'function') {
+            CardFlight.playRemoteAnim(data.anim);
+          }
+          break;
         default:
           console.log('[Peer] 未知消息类型:', data.type);
       }

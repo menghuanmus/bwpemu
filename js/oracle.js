@@ -111,6 +111,14 @@
         }
         info.appendChild(nameEl);
 
+        // 堆叠层数显示
+        if ((own || solo) && card._maxStack > 0) {
+          const stackSpan = document.createElement('span');
+          stackSpan.style.cssText = 'font-size:11px;color:#c0a860;margin-left:4px;white-space:nowrap;';
+          stackSpan.textContent = (card._stack || 1) + '/' + card._maxStack;
+          info.appendChild(stackSpan);
+        }
+
         // 灵咒标签（仅自己可见）
         if ((own || solo) && card.curses && card.curses.length) {
           const curseTags = document.createElement('div');
@@ -168,7 +176,7 @@
         // 置入手牌区按钮
         const moveBtn = document.createElement('button');
         moveBtn.className = 'oracle-act--move';
-        moveBtn.textContent = '置入手牌区';
+        moveBtn.textContent = '置入手牌';
         moveBtn.addEventListener('click', () => moveToHand(playerId, idx));
         actions.appendChild(moveBtn);
 
@@ -202,6 +210,10 @@
       const verb = reason === 'use' ? '使用' : '弃置';
       const msg = '【系统】' + name + '从启悟区' + verb + '了「' + (card.name || '未知牌') + '」';
       broadcastSystemMsg(msg);
+      // 使用动画
+      if (reason === 'use' && typeof CardFlight !== 'undefined') {
+        CardFlight.playUseCardAnim(playerId, card);
+      }
       renderOracleCards(playerId);
       syncOracleToPeer(playerId);
     }
@@ -225,8 +237,13 @@
       if (typeof refreshOpenListDialog === 'function') refreshOpenListDialog(playerId);
       if (typeof syncDeckStateForce === 'function') syncDeckStateForce(playerId);
       syncOracleToPeer(playerId);
+      // 飞行动画：启悟 → 手牌
+      if (typeof CardFlight !== 'undefined') {
+        const oracleBtn = document.getElementById('btn-oracle-zone-' + playerId);
+        const handBtn = CardFlight.getPlayerBtn(playerId, 'hand');
+        CardFlight.flyAndBroadcast(playerId, 'oracle', 'hand');
+      }
     }
-
     /** 从启悟区移动到牌库（随机位置） */
     function moveToDeck(playerId, idx) {
       const cards = oracleHands[playerId] || [];
@@ -244,6 +261,12 @@
       if (typeof updateDeckButtons === 'function') updateDeckButtons(playerId);
       if (typeof syncDeckStateForce === 'function') syncDeckStateForce(playerId);
       syncOracleToPeer(playerId);
+      // 飞行动画：启悟 → 牌库
+      if (typeof CardFlight !== 'undefined') {
+        const oracleBtn = document.getElementById('btn-oracle-zone-' + playerId);
+        const deckBtn = CardFlight.getPlayerBtn(playerId, 'deck');
+        CardFlight.flyAndBroadcast(playerId, 'oracle', 'deck');
+      }
     }
 
     /** 从普通手牌区移动到启悟区 */
@@ -255,7 +278,7 @@
       if (idx === -1) return;
       const card = hand.splice(idx, 1)[0];
       if (!oracleHands[playerId]) oracleHands[playerId] = [];
-      oracleHands[playerId].push(card);
+      pushCardToOracle(playerId, card);
       const name = (typeof getPlayerName === 'function') ? getPlayerName(playerId) : ('玩家' + playerId);
       const msg = '【系统】' + name + '将' + _oracleCardLabel(card.name) + '从手牌区移入启悟区';
       broadcastSystemMsg(msg);
@@ -265,20 +288,70 @@
         renderOracleCards(playerId);
       }
       syncOracleToPeer(playerId);
+      // 飞行动画：手牌 → 启悟
+      if (typeof CardFlight !== 'undefined') {
+        const handBtn = CardFlight.getPlayerBtn(playerId, 'hand');
+        const oracleBtn = document.getElementById('btn-oracle-zone-' + playerId);
+        CardFlight.flyAndBroadcast(playerId, 'hand', 'oracle');
+      }
     }
 
-    /** 添加卡牌到启悟区（通过牌名） */
-    function addCardToOracle(playerId, cardName) {
+    /** 将卡牌置入启悟区，自动处理最大堆叠 */
+    function pushCardToOracle(playerId, card) {
+      if (!card || !card.name) return;
+      if (!oracleHands[playerId]) oracleHands[playerId] = [];
+      const db = (typeof CardDB !== 'undefined') ? CardDB.lookup(card.name) : null;
+      const maxStack = (db && db.maxStack) ? db.maxStack : 0;
+
+      if (maxStack > 0) {
+        const incomingStack = card._stack || 1;
+        let remaining = incomingStack;
+        const existing = oracleHands[playerId].filter(hc => hc.name === card.name && (hc._stack || 0) < maxStack);
+        for (const hc of existing) {
+          if (remaining <= 0) break;
+          const space = maxStack - (hc._stack || 1);
+          const add = Math.min(remaining, space);
+          hc._stack = (hc._stack || 1) + add;
+          hc._maxStack = maxStack;
+          remaining -= add;
+        }
+        while (remaining > 0) {
+          const stack = Math.min(remaining, maxStack);
+          const newCard = (typeof createCard === 'function') ? createCard(card.name) : { id: Date.now(), name: card.name, curses: [] };
+          newCard._stack = stack;
+          newCard._maxStack = maxStack;
+          oracleHands[playerId].push(newCard);
+          remaining -= stack;
+        }
+      } else {
+        oracleHands[playerId].push(card);
+      }
+    }
+
+    /** 添加卡牌到启悟区（通过牌名），支持数量 */
+    function addCardToOracle(playerId, cardName, qty) {
       const name = cardName.trim();
       if (!name) return;
+      const count = Math.max(1, qty || 1);
       if (!oracleHands[playerId]) oracleHands[playerId] = [];
-      const card = (typeof createCard === 'function') ? createCard(name) : { id: Date.now(), name: name, curses: [] };
-      oracleHands[playerId].push(card);
+      for (let i = 0; i < count; i++) {
+        const card = (typeof createCard === 'function') ? createCard(name) : { id: Date.now() + i, name: name, curses: [] };
+        pushCardToOracle(playerId, card);
+      }
       const pname = (typeof getPlayerName === 'function') ? getPlayerName(playerId) : ('玩家' + playerId);
-      const msg = '【系统】' + pname + '将' + _oracleCardLabel(name) + '置入了启悟区';
+      const msg = count > 1 ? ('【系统】' + pname + '将' + count + '张' + _oracleCardLabel(name) + '置入了启悟区')
+                            : ('【系统】' + pname + '将' + _oracleCardLabel(name) + '置入了启悟区');
       broadcastSystemMsg(msg);
       renderOracleCards(playerId);
       syncOracleToPeer(playerId);
+      if (typeof CardFlight !== 'undefined') {
+        const oracleBtn = document.getElementById('btn-oracle-zone-' + playerId);
+        if (oracleBtn) {
+          const r = oracleBtn.getBoundingClientRect();
+          const srcY = playerId === '2' ? r.top - 150 : r.bottom + 150;
+          CardFlight.flySeqAndBroadcast(playerId, count, 'oracle', { x: r.left + r.width / 2, y: srcY }, 'oracle', { interval: 0.18, arcHeight: 60 });
+        }
+      }
     }
 
     /** 从牌库抽牌到启悟区 */
@@ -291,7 +364,7 @@
       }
       const card = state.deck.shift();
       if (!oracleHands[playerId]) oracleHands[playerId] = [];
-      oracleHands[playerId].push(card);
+      pushCardToOracle(playerId, card);
       const pname = (typeof getPlayerName === 'function') ? getPlayerName(playerId) : ('玩家' + playerId);
       const msg = '【系统】' + pname + '从牌库抽' + _oracleCardLabel(card.name) + '到了启悟区';
       broadcastSystemMsg(msg);
@@ -299,6 +372,12 @@
       renderOracleCards(playerId);
       syncOracleToPeer(playerId);
       if (typeof syncDeckStateForce === 'function') syncDeckStateForce(playerId);
+      // 飞行动画：牌库 → 启悟
+      if (typeof CardFlight !== 'undefined') {
+        const deckBtn = CardFlight.getPlayerBtn(playerId, 'deck');
+        const oracleBtn = document.getElementById('btn-oracle-zone-' + playerId);
+        CardFlight.flyAndBroadcast(playerId, 'deck', 'oracle');
+      }
     }
 
     /** 同步启悟状态到对手 */
@@ -380,14 +459,20 @@
 
     oracleBtnAdd.addEventListener('click', () => {
       if (_activeOraclePlayer && oracleCardInput.value.trim()) {
-        addCardToOracle(_activeOraclePlayer, oracleCardInput.value.trim());
+        const qtyEl = document.getElementById('oracle-card-qty');
+        let qty = parseInt(qtyEl ? qtyEl.value : '1', 10);
+        if (isNaN(qty) || qty < 1) qty = 1;
+        addCardToOracle(_activeOraclePlayer, oracleCardInput.value.trim(), qty);
         oracleCardInput.value = '';
       }
     });
 
     oracleCardInput.addEventListener('keydown', (e) => {
       if (e.key === 'Enter' && _activeOraclePlayer && oracleCardInput.value.trim()) {
-        addCardToOracle(_activeOraclePlayer, oracleCardInput.value.trim());
+        const qtyEl = document.getElementById('oracle-card-qty');
+        let qty = parseInt(qtyEl ? qtyEl.value : '1', 10);
+        if (isNaN(qty) || qty < 1) qty = 1;
+        addCardToOracle(_activeOraclePlayer, oracleCardInput.value.trim(), qty);
         oracleCardInput.value = '';
       }
     });

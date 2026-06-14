@@ -174,7 +174,7 @@
     #curse-panel-overlay {
       position: fixed; inset: 0;
       background: rgba(0,0,0,0.45);
-      z-index: 400; /* curse panel */
+      z-index: 500; /* curse panel */
       display: flex; align-items: center; justify-content: center;
     }
     #curse-panel-overlay[hidden] { display: none; }
@@ -1825,6 +1825,7 @@
     }
     .oracle-input-row input {
       flex: 1;
+      /*max-width: 120px;*/
       padding: 8px 12px;
       border-radius: 6px;
       border: 1px solid rgba(140, 110, 220, 0.35);
@@ -1842,9 +1843,35 @@
       color: rgba(160, 140, 200, 0.45);
     }
 
+    /* 启悟置入数量 */
+    .oracle-qty-wrap {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      white-space: nowrap;
+    }
+    .oracle-qty-label {
+      font-size: 12px;
+      color: #a090c0;
+    }
+    #oracle-card-qty {
+      width: 36px !important;
+      flex: none !important;
+      padding: 5px 4px !important;
+      text-align: center;
+      font-size: 13px !important;
+      -moz-appearance: textfield;
+      appearance: textfield;
+    }
+    #oracle-card-qty::-webkit-inner-spin-button,
+    #oracle-card-qty::-webkit-outer-spin-button {
+      -webkit-appearance: none;
+      margin: 0;
+    }
+
     /* 通用启悟按钮 */
     .oracle-btn {
-      padding: 8px 18px;
+      padding: 8px 12px;
       border-radius: 6px;
       border: 1px solid rgba(140, 110, 220, 0.45);
       background: linear-gradient(180deg, rgba(120, 80, 200, 0.3), rgba(80, 40, 160, 0.3));

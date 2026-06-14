@@ -128,6 +128,7 @@
       cardTextInput.placeholder = placeholder;
       cardTextInput.rows = multiline ? 6 : 2;
       cardTextOverlay.hidden = false;
+      document.getElementById('card-text-dialog-quantity').value = '1';
       cardTextInput.focus();
     }
 
@@ -140,7 +141,10 @@
     function confirmCardTextDialog() {
       if (!cardTextContext) return;
       const value = cardTextInput.value;
-      cardTextContext.onConfirm(value);
+      const qtyEl = document.getElementById('card-text-dialog-quantity');
+      let qty = parseInt(qtyEl ? qtyEl.value : '1', 10);
+      if (isNaN(qty) || qty < 1) qty = 1;
+      cardTextContext.onConfirm(value, qty);
       closeCardTextDialog();
     }
 
@@ -227,12 +231,19 @@
         discardBtn.addEventListener('click', () => removeFromHand(playerId, card.id, 'discard'));
         actions.appendChild(useBtn);
         actions.appendChild(discardBtn);
-        // 启悟机制激活时，显示"置入启悟区"按钮
+        // 置入牌库按钮
+        const toDeckBtn = document.createElement('button');
+        toDeckBtn.type = 'button';
+        toDeckBtn.className = 'btn-card-action btn-card-to-deck';
+        toDeckBtn.textContent = '置入牌库';
+        toDeckBtn.addEventListener('click', () => moveToDeckFromHand(playerId, card.id));
+        actions.appendChild(toDeckBtn);
+        // 启悟机制激活时，显示"置入启悟"按钮
         if (typeof oracleActive !== 'undefined' && oracleActive[playerId] && typeof moveToOracle === 'function') {
           const oracleMoveBtn = document.createElement('button');
           oracleMoveBtn.type = 'button';
           oracleMoveBtn.className = 'btn-card-move-oracle';
-          oracleMoveBtn.textContent = '置入启悟区';
+          oracleMoveBtn.textContent = '置入启悟';
           oracleMoveBtn.addEventListener('click', () => moveToOracle(playerId, card.id));
           actions.appendChild(oracleMoveBtn);
         }
@@ -323,6 +334,20 @@
           nameSpan.style.color = 'var(--text-muted, #888)';
         }
         row.appendChild(nameSpan);
+
+        // 弃牌按钮（仅自己牌库可见）
+        if (isViewingOwnCards(playerId)) {
+          const discardBtn = document.createElement('button');
+          discardBtn.type = 'button';
+          discardBtn.className = 'btn-card-action btn-card-discard';
+          discardBtn.textContent = '弃牌';
+          discardBtn.style.cssText = 'font-size:10px;padding:2px 6px;flex-shrink:0;';
+          discardBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            discardFromDeckById(playerId, card.id);
+          });
+          row.appendChild(discardBtn);
+        }
 
         section.appendChild(row);
       });
@@ -422,6 +447,10 @@
       refreshOpenListDialog(playerId);
       syncDeckState(playerId);
       broadcastSystemMsg(`【系统】${getPlayerName(playerId)}抽了一张牌`);
+      // 飞行动画：牌库 → 手牌
+      if (typeof CardFlight !== 'undefined') {
+        CardFlight.flyAndBroadcast(playerId, 'deck', 'hand');
+      }
     }
 
     function removeFromHand(playerId, cardId, action) {
@@ -442,8 +471,13 @@
 
       // 使用幻境牌时，自动添加到幻境/效果面板
       if (action === 'use') {
+        // 使用牌动画：飞行→翻转→预展示
+        if (typeof CardFlight !== 'undefined') {
+          CardFlight.playUseCardAnim(playerId, card);
+        }
         // 【消息分组】开始：后续所有效果消息都归入这条主消息下
-        const mainMsg = `【系统】${getPlayerName(playerId)}${verb}「${card.name}」`;
+        const stackInfo = (card._maxStack > 0) ? `（${card._stack || 1}/${card._maxStack}）` : '';
+        const mainMsg = `【系统】${getPlayerName(playerId)}${verb}「${card.name}」${stackInfo}`;
         if (typeof startMessageGroup === 'function') {
           startMessageGroup(mainMsg);
         } else {
@@ -513,12 +547,93 @@
       } else {
         // 弃置：普通消息，不分组
         broadcastSystemMsg(`【系统】${getPlayerName(playerId)}${verb}「${card.name}」`);
+        // 弃牌动画：P1向下、P2向上飞150px
+        if (typeof CardFlight !== 'undefined') {
+          const handBtn = CardFlight.getPlayerBtn(playerId, 'hand');
+          if (handBtn) {
+            const r = handBtn.getBoundingClientRect();
+            const tgtY = playerId === '2' ? r.top - 150 : r.bottom + 150;
+            CardFlight.fly(handBtn, { x: r.left + r.width / 2, y: tgtY }, { arcHeight: 20, duration: 0.45 });
+            // 联机广播弃牌动画
+            if (typeof CardFlight._broadcastAnim === 'function') {
+              CardFlight._broadcastAnim({ action: 'fly-single', playerId, fromType: 'hand', toCoord: { x: r.left + r.width / 2, y: tgtY }, opts: { arcHeight: 20, duration: 0.45 } });
+            }
+          }
+        }
       }
     }
 
     function insertCardAtRandomPosition(deck, card) {
       const index = Math.floor(Math.random() * (deck.length + 1));
       deck.splice(index, 0, card);
+    }
+
+    /** 将手牌中的某张牌放回牌库随机位置 */
+    function moveToDeckFromHand(playerId, cardId) {
+      if (typeof isSpectator !== 'undefined' && isSpectator) return;
+      if (typeof isMyZone === 'function' && !isMyZone(playerId)) return;
+      const state = getPlayerCardState(playerId);
+      const index = state.hand.findIndex(card => card.id === cardId);
+      if (index === -1) return;
+      const [card] = state.hand.splice(index, 1);
+      insertCardAtRandomPosition(state.deck, card);
+      updateDeckButtons(playerId);
+      refreshOpenListDialog(playerId);
+      syncDeckState(playerId);
+      broadcastSystemMsg(`【系统】${getPlayerName(playerId)}将「${card.name}」从手牌放回了牌库`);
+      // 飞行动画：手牌 → 牌库
+      if (typeof CardFlight !== 'undefined') {
+        CardFlight.flyAndBroadcast(playerId, 'hand', 'deck');
+      }
+    }
+
+    /** 从牌库弃置一张牌（按ID），带动画 */
+    function discardFromDeckById(playerId, cardId) {
+      if (typeof isSpectator !== 'undefined' && isSpectator) return;
+      if (typeof isMyZone === 'function' && !isMyZone(playerId)) return;
+      const state = getPlayerCardState(playerId);
+      const idx = state.deck.findIndex(c => c && c.id === cardId);
+      if (idx === -1) return;
+      const [card] = state.deck.splice(idx, 1);
+      if (!state.grave) state.grave = [];
+      state.grave.push(card);
+      updateDeckButtons(playerId);
+      refreshOpenListDialog(playerId);
+      syncDeckState(playerId);
+      broadcastSystemMsg(`【系统】${getPlayerName(playerId)}从牌库弃置了「${card.name}」`);
+      // 弃牌动画：从牌库按钮飞出
+      _playDiscardAnim(playerId);
+    }
+
+    /** 从牌库弃置一张牌（按牌名，用于牌表），带动画 */
+    function discardFromDeckByName(playerId, cardName) {
+      if (typeof isSpectator !== 'undefined' && isSpectator) return;
+      if (typeof isMyZone === 'function' && !isMyZone(playerId)) return;
+      const state = getPlayerCardState(playerId);
+      const idx = state.deck.findIndex(c => c && c.name === cardName);
+      if (idx === -1) return;
+      const [card] = state.deck.splice(idx, 1);
+      if (!state.grave) state.grave = [];
+      state.grave.push(card);
+      updateDeckButtons(playerId);
+      refreshOpenListDialog(playerId);
+      syncDeckState(playerId);
+      broadcastSystemMsg(`【系统】${getPlayerName(playerId)}从牌库弃置了「${cardName}」`);
+      _playDiscardAnim(playerId);
+    }
+
+    /** 弃牌动画：卡牌从牌库按钮飞出 */
+    function _playDiscardAnim(playerId) {
+      if (typeof CardFlight === 'undefined') return;
+      const deckBtn = CardFlight.getPlayerBtn(playerId, 'deck');
+      if (!deckBtn) return;
+      const r = deckBtn.getBoundingClientRect();
+      const tgtY = playerId === '2' ? r.top - 150 : r.bottom + 150;
+      CardFlight.fly(deckBtn, { x: r.left + r.width / 2, y: tgtY }, { arcHeight: 20, duration: 0.45 });
+      // 联机广播
+      if (typeof CardFlight._broadcastAnim === 'function') {
+        CardFlight._broadcastAnim({ action: 'fly-single', playerId, fromType: 'deck', toCoord: { x: r.left + r.width / 2, y: tgtY }, opts: { arcHeight: 20, duration: 0.45 } });
+      }
     }
 
     function shuffleDeck(playerId) {
@@ -532,6 +647,10 @@
       refreshOpenListDialog(playerId);
       syncDeckState(playerId);
       broadcastSystemMsg(`【系统】${getPlayerName(playerId)}洗了牌库`);
+      // 洗牌动画
+      if (typeof CardFlight !== 'undefined') {
+        CardFlight.shuffleDeckAnim(playerId);
+      }
     }
 
     // ---- 占卜系统 ----
@@ -863,14 +982,27 @@
       broadcastSystemMsg(`【系统】${getPlayerName(playerId)}导入了卡组（${cards.length}张）`);
     }
 
-    function addToHand(playerId, text) {
+    function addToHand(playerId, text, qty) {
       const name = text.trim();
       if (!name) return;
-      pushCardToHand(playerId, createCard(name));
+      const count = Math.max(1, qty || 1);
+      for (let i = 0; i < count; i++) {
+        pushCardToHand(playerId, createCard(name));
+      }
       updateDeckButtons(playerId);
       refreshOpenListDialog(playerId);
       syncDeckState(playerId);
-      broadcastSystemMsg(`【系统】${getPlayerName(playerId)}将「${name}」置入了手牌`);
+      broadcastSystemMsg(`【系统】${getPlayerName(playerId)}将${count}张「${name}」置入了手牌`);
+      // 飞行动画
+      if (typeof CardFlight !== 'undefined') {
+        const addBtn = CardFlight.getPlayerBtn(playerId, 'addHand');
+        const handBtn = CardFlight.getPlayerBtn(playerId, 'hand');
+        if (addBtn) {
+          const r = addBtn.getBoundingClientRect();
+          const srcY = playerId === '2' ? r.top - 150 : r.bottom + 150;
+          CardFlight.flySeqAndBroadcast(playerId, count, 'addHand', { x: r.left + r.width / 2, y: srcY }, 'hand', { interval: 0.18, arcHeight: 60 });
+        }
+      }
     }
 
     /** 将卡牌置入手牌，自动处理最大堆叠 */
@@ -912,15 +1044,28 @@
       }
     }
 
-    function addToDeck(playerId, text) {
+    function addToDeck(playerId, text, qty) {
       const name = text.trim();
       if (!name) return;
+      const count = Math.max(1, qty || 1);
       const deck = getPlayerCardState(playerId).deck;
-      insertCardAtRandomPosition(deck, createCard(name));
+      for (let i = 0; i < count; i++) {
+        insertCardAtRandomPosition(deck, createCard(name));
+      }
       updateDeckButtons(playerId);
       refreshOpenListDialog(playerId);
       syncDeckState(playerId);
-      broadcastSystemMsg(`【系统】${getPlayerName(playerId)}将「${name}」置入了牌库`);
+      broadcastSystemMsg(`【系统】${getPlayerName(playerId)}将${count}张「${name}」置入了牌库`);
+      // 飞行动画
+      if (typeof CardFlight !== 'undefined') {
+        const addDeckBtn = CardFlight.getPlayerBtn(playerId, 'addDeck');
+        const deckBtn = CardFlight.getPlayerBtn(playerId, 'deck');
+        if (addDeckBtn) {
+          const r = addDeckBtn.getBoundingClientRect();
+          const srcY = playerId === '2' ? r.top - 150 : r.bottom + 150;
+          CardFlight.flySeqAndBroadcast(playerId, count, 'addDeck', { x: r.left + r.width / 2, y: srcY }, 'deck', { interval: 0.18, arcHeight: 60 });
+        }
+      }
     }
 
     function handleDeckAction(playerId, action) {
@@ -938,7 +1083,7 @@
             title: `${playerName} 置入手牌`,
             placeholder: '输入卡牌名称…',
             multiline: false,
-            onConfirm: (text) => addToHand(playerId, text),
+            onConfirm: (text, qty) => addToHand(playerId, text, qty),
           });
           break;
         case 'import-deck':
@@ -958,7 +1103,7 @@
             title: `${playerName} 置入牌库`,
             placeholder: '输入卡牌名称…',
             multiline: false,
-            onConfirm: (text) => addToDeck(playerId, text),
+            onConfirm: (text, qty) => addToDeck(playerId, text, qty),
           });
           break;
         case 'shuffle-deck':
@@ -1106,6 +1251,20 @@
               cursesSpan.appendChild(tag);
             });
             row.appendChild(cursesSpan);
+          }
+
+          // 弃牌按钮（仅自己牌表可见）
+          if (isViewingOwnCards(playerId)) {
+            const discardBtn = document.createElement('button');
+            discardBtn.type = 'button';
+            discardBtn.className = 'btn-card-action btn-card-discard';
+            discardBtn.textContent = '弃牌';
+            discardBtn.style.cssText = 'font-size:10px;padding:2px 6px;flex-shrink:0;';
+            discardBtn.addEventListener('click', (e) => {
+              e.stopPropagation();
+              discardFromDeckByName(playerId, name);
+            });
+            row.appendChild(discardBtn);
           }
 
           group.appendChild(row);
@@ -1611,6 +1770,11 @@
       updateDeckButtons(playerId);
       refreshOpenListDialog(playerId);
       syncDeckState(playerId);
+
+      // 飞行动画：N张牌依次从牌库飞入手牌
+      if (typeof CardFlight !== 'undefined') {
+        CardFlight.flySeqAndBroadcast(playerId, allCardsToHand.length, 'deck', null, 'hand', { interval: 0.18, arcHeight: 60 });
+      }
 
       // === 第6步：系统消息 ===
       const totalCount = drawnCards.length;

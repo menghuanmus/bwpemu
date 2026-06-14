@@ -12,6 +12,7 @@
   <link rel="stylesheet" href="css/room.css">
   <link rel="stylesheet" href="css/systems.css">
   <link rel="stylesheet" href="css/special-effects.css">
+  <link rel="stylesheet" href="css/card-flight.css">
   <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
 </head>
@@ -302,6 +303,11 @@
     <div class="speak-dialog" role="dialog" aria-labelledby="card-text-dialog-title">
       <h3 id="card-text-dialog-title">输入</h3>
       <textarea id="card-text-dialog-input" placeholder="输入内容…" rows="5"></textarea>
+      <div class="card-text-quantity-row">
+        <span class="card-text-quantity-label">置入数量：</span>
+        <input type="text" id="card-text-dialog-quantity" value="1" inputmode="numeric" aria-label="置入数量">
+        <span class="card-text-quantity-label">张</span>
+      </div>
       <div class="speak-dialog-actions">
         <button type="button" class="btn-dialog-cancel" id="card-text-dialog-cancel">取消</button>
         <button type="button" class="btn-dialog-confirm" id="card-text-dialog-confirm">确定</button>
@@ -460,6 +466,7 @@
         <!-- 自定义输入 + 从牌库抽牌 -->
         <div class="oracle-input-row">
           <input type="text" id="oracle-card-input" placeholder="输入卡牌名" maxlength="24" aria-label="卡牌名">
+          <span class="oracle-qty-wrap"><span class="oracle-qty-label">置入数量：</span><input type="text" id="oracle-card-qty" value="1" inputmode="numeric" aria-label="置入数量"><span class="oracle-qty-label">张</span></span>
           <button type="button" class="oracle-btn oracle-btn--add" id="oracle-btn-add">置入启悟区</button>
           <button type="button" class="oracle-btn oracle-btn--draw" id="oracle-btn-draw">📥 从牌库抽牌</button>
         </div>
@@ -517,12 +524,25 @@
     <div class="card-tooltip__effect"></div>
   </div>
 
+  <!-- 使用牌预展示 -->
+  <div id="card-preview-overlay" class="card-preview-overlay" hidden>
+    <div class="card-preview" id="card-preview">
+      <span class="card-preview__level" id="cp-level"><span></span></span>
+      <span class="card-preview__name" id="cp-name"></span>
+      <span class="card-preview__effect" id="cp-effect"></span>
+      <span class="card-preview__footer" id="cp-footer"></span>
+      <span class="card-preview__stat-bl" id="cp-stat-bl"></span>
+      <span class="card-preview__stat-br" id="cp-stat-br"></span>
+    </div>
+  </div>
+
   <!-- JS 模块（按依赖顺序加载） -->
   <script src="data/cards.js"></script>
   <script src="data/effect-modules.js"></script>
   <script src="js/constants.js"></script>
   <script src="js/card-db.js"></script>
   <script src="js/card-tooltip.js"></script>
+  <script src="js/card-flight.js"></script>
   <script src="js/network.js"></script>
   <script src="js/game-core.js"></script>
   <script src="js/chat.js"></script>

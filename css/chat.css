@@ -540,6 +540,15 @@
       background: #8a4d4d;
     }
 
+    .btn-card-to-deck {
+      background: #3d5a6a;
+      border-color: #5a8a9a;
+    }
+
+    .btn-card-to-deck:hover {
+      background: #4d6a7a;
+    }
+
     .card-list-empty {
       color: rgba(160, 180, 210, 0.65);
       font-size: 13px;
