@@ -192,6 +192,7 @@
             <button type="button" class="dropdown-mechanic__item" id="btn-cook">🍳 烹饪</button>
             <button type="button" class="dropdown-mechanic__item" id="btn-bounty">💰 赏金</button>
             <button type="button" class="dropdown-mechanic__item" id="btn-oracle">✨ 启悟</button>
+            <button type="button" class="dropdown-mechanic__item" id="btn-fate">🔀 命运抉择</button>
           </div>
         </div>
         <div class="dropdown-other" id="dropdown-other">
@@ -533,6 +534,27 @@
       <span class="card-preview__footer" id="cp-footer"></span>
       <span class="card-preview__stat-bl" id="cp-stat-bl"></span>
       <span class="card-preview__stat-br" id="cp-stat-br"></span>
+    </div>
+  </div>
+
+  <!-- 命运抉择对话框 -->
+  <div class="speak-dialog-overlay" id="fate-dialog-overlay" hidden>
+    <div class="speak-dialog fate-dialog" role="dialog" aria-labelledby="fate-dialog-title">
+      <h3 id="fate-dialog-title">🔀 命运抉择</h3>
+      <div class="fate-card-slot fate-card-slot--top" id="fate-slot-top">
+        <span class="fate-slot-placeholder">牌库顶</span>
+      </div>
+      <div class="fate-center">
+        <button type="button" class="btn-dialog-confirm fate-btn" id="fate-btn-start">🎲 开始命运抉择</button>
+        <button type="button" class="btn-dialog-confirm fate-btn fate-btn--swap" id="fate-btn-swap" hidden>🔄 交换</button>
+      </div>
+      <div class="fate-card-slot fate-card-slot--bottom" id="fate-slot-bottom">
+        <span class="fate-slot-placeholder">牌库底</span>
+      </div>
+      <div class="speak-dialog-actions">
+        <button type="button" class="btn-dialog-cancel" id="fate-dialog-cancel">取消</button>
+        <button type="button" class="btn-dialog-confirm" id="fate-dialog-confirm">完成抉择</button>
+      </div>
     </div>
   </div>
 

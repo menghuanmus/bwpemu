@@ -2063,6 +2063,157 @@
     }
 
     /* ================================================================
+       命运抉择 (Fate Decision)
+       ================================================================ */
+    .fate-dialog {
+      min-width: 240px;
+      max-width: 280px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+    .fate-dialog h3 { color: #ffd700; }
+
+    .fate-card-slot {
+      width: 180px;
+      min-height: 260px;
+      border: 2px dashed rgba(200, 160, 60, 0.35);
+      border-radius: 10px;
+      background: linear-gradient(160deg, #1a2440 0%, #101c30 100%);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 12px 10px;
+      position: relative;
+      align-self: center;
+      text-align: center;
+      box-sizing: border-box;
+    }
+    .fate-card-slot--top { border-color: rgba(100, 180, 255, 0.4); }
+    .fate-card-slot--bottom { border-color: rgba(255, 150, 100, 0.4); }
+
+    .fate-slot-placeholder {
+      font-size: 13px;
+      color: rgba(160, 180, 210, 0.45);
+    }
+
+    .fate-card-name {
+      font-size: 15px;
+      font-weight: 600;
+      color: #e0d8c8;
+    }
+
+    .fate-center {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+      padding: 10px 0;
+    }
+
+    .fate-btn {
+      background: linear-gradient(135deg, rgba(80, 140, 220, 0.5), rgba(50, 100, 180, 0.5));
+      border-color: rgba(120, 170, 240, 0.5);
+      color: #c0d8f8;
+      padding: 8px 20px;
+      font-size: 14px;
+      border-radius: 8px;
+    }
+    .fate-btn:hover {
+      background: linear-gradient(135deg, rgba(100, 160, 240, 0.65), rgba(70, 120, 200, 0.65));
+    }
+
+    .fate-btn--swap {
+      background: linear-gradient(135deg, rgba(80, 140, 220, 0.5), rgba(50, 100, 180, 0.5));
+      border-color: rgba(120, 170, 240, 0.5);
+      color: #c0d8f8;
+    }
+    .fate-btn--swap:hover {
+      background: linear-gradient(135deg, rgba(100, 160, 240, 0.65), rgba(70, 120, 200, 0.65));
+    }
+
+    /* 命运抉择卡牌内容 */
+    .fate-card-title {
+      font-size: 15px;
+      color: #8098b8;
+      margin-bottom: 4px;
+      letter-spacing: 1px;
+    }
+    .fate-card-name {
+      font-size: 21px;
+      font-weight: 600;
+      color: #e0d8c8;
+    }
+    .fate-card-effect {
+      font-size: 15px;
+      color: #b0a890;
+      line-height: 1.4;
+      margin-top: 6px;
+      flex: 1;
+      overflow: hidden;
+    }
+    .fate-card-curses {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 3px;
+      margin-top: 4px;
+    }
+    .fate-curse-tag {
+      font-size: 14px;
+      padding: 1px 5px;
+      border-radius: 3px;
+      background: rgba(100,35,75,0.55);
+      color: #ffc0e0;
+      white-space: nowrap;
+    }
+    .fate-card-footer {
+      font-size: 17px;
+      color: #8090a8;
+      margin-top: auto;
+      padding-top: 4px;
+      width: 100%;
+      border-top: 1px solid rgba(255,255,255,0.06);
+    }
+    .fate-mini-level {
+      position: absolute;
+      top: 6px;
+      left: -10px;
+      width: 28px;
+      height: 28px;
+      transform: rotate(45deg);
+      border-radius: 4px;
+      background: linear-gradient(160deg, #1a2740, #0f1928);
+      border: 1.5px solid rgba(220, 190, 80, 0.7);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 1;
+    }
+    .fate-mini-level span {
+      transform: rotate(-45deg);
+      font-size: 13px;
+      font-weight: 700;
+      color: #ffe8b0;
+    }
+    .fate-stat {
+      position: absolute;
+      bottom: -5px;
+      width: 30px;
+      height: 30px;
+      border-radius: 50%;
+      background: rgba(20, 30, 50, 0.9);
+      border: 2px solid;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 14px;
+      font-weight: 700;
+      z-index: 1;
+    }
+    .fate-stat--bl { left: -12px; }
+    .fate-stat--br { right: -12px; }
+
+    /* ================================================================
        初始手牌对话框 (Initial Hand)
        ================================================================ */
     /* 标题行：标题 + 初始手牌按钮 中线对齐 */

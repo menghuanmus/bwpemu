@@ -39,7 +39,7 @@
     const damageLineSvg = document.getElementById('damage-line-svg');
     const damageLine = document.getElementById('damage-line');
     let isTargeting = false;
-    let targetingMode = 'damage'; // 'damage' | 'heal' | 'countdown' | 'energy' | 'ko' | 'curse' | 'divine'
+    let targetingMode = 'damage'; // 'damage' | 'heal' | 'countdown' | 'energy' | 'ko' | 'curse' | 'divine' | 'cook' | 'nightfall' | 'bounty' | 'oracle' | 'fate'
     let targetingOrigin = { x: 0, y: 0 };
 
     // ---- 伤害/恢复来源 ----
@@ -53,6 +53,10 @@
       energy:    { btn: () => btnMechanicToggle, activeText: '🏮 能量中…(Esc取消)',   idleText: '🔧 机制 ▾' },
       divine:    { btn: () => btnMechanicToggle, activeText: '🔮 选择牌手…(Esc取消)', idleText: '🔧 机制 ▾' },
       cook:      { btn: () => btnMechanicToggle, activeText: '🍳 选择式神…(Esc取消)', idleText: '🔧 机制 ▾' },
+      nightfall: { btn: () => btnMechanicToggle, activeText: '🌙 选择牌手…(Esc取消)', idleText: '🔧 机制 ▾' },
+      bounty:    { btn: () => btnMechanicToggle, activeText: '💰 选择牌手…(Esc取消)', idleText: '🔧 机制 ▾' },
+      oracle:    { btn: () => btnMechanicToggle, activeText: '✨ 选择牌手…(Esc取消)', idleText: '🔧 机制 ▾' },
+      fate:      { btn: () => btnMechanicToggle, activeText: '🔀 选择牌手…(Esc取消)', idleText: '🔧 机制 ▾' },
       ko:        { btn: () => btnKo,             activeText: '💀 选择式神…(Esc取消)', idleText: '💀 气绝/复活' },
       curse:     { btn: () => btnCurse,          activeText: '⛓️ 选择式神…(Esc取消)', idleText: '⛓️ 灵咒' },
     };
@@ -228,13 +232,8 @@
     let nightfallActive = { '1': false, '2': false };
     btnNightfall.addEventListener('click', () => {
       dropdownMechanicMenu.hidden = true;
-      const pid = localPlayerId || '1';
-      nightfallActive[pid] = !nightfallActive[pid];
-      _toggleNightfall(pid, nightfallActive[pid]);
-      // 联机同步
-      if (peerConn && peerConn.open && typeof sendToPeer === 'function') {
-        sendToPeer({ type: 'nightfall-toggle', playerId: pid, active: nightfallActive[pid] });
-      }
+      if (isTargeting) { exitTargetingMode(); return; }
+      enterTargetingMode('nightfall');
     });
 
     // ---- 占卜（选择牌手） ----
@@ -259,21 +258,27 @@
     let bountyActive = { '1': false, '2': false };
     btnBounty.addEventListener('click', () => {
       dropdownMechanicMenu.hidden = true;
-      const pid = localPlayerId || '1';
-      bountyActive[pid] = !bountyActive[pid];
-      _toggleBounty(pid, bountyActive[pid]);
-      if (peerConn && peerConn.open && typeof sendToPeer === 'function') {
-        sendToPeer({ type: 'bounty-toggle', playerId: pid, active: bountyActive[pid] });
-      }
+      if (isTargeting) { exitTargetingMode(); return; }
+      enterTargetingMode('bounty');
     });
 
     // ---- 启悟（切换启悟机制） ----
     const btnoracle = document.getElementById('btn-oracle');
     btnoracle.addEventListener('click', () => {
       dropdownMechanicMenu.hidden = true;
-      const pid = localPlayerId || '1';
-      if (typeof toggleOracle === 'function') toggleOracle(pid);
+      if (isTargeting) { exitTargetingMode(); return; }
+      enterTargetingMode('oracle');
     });
+
+    // ---- 命运抉择（选择牌手） ----
+    const btnFate = document.getElementById('btn-fate');
+    if (btnFate) {
+      btnFate.addEventListener('click', () => {
+        dropdownMechanicMenu.hidden = true;
+        if (isTargeting) { exitTargetingMode(); return; }
+        enterTargetingMode('fate');
+      });
+    }
 
     function _toggleNightfall(playerId, show) {
       const zone = document.querySelector(`.player-zone[data-player="${playerId}"]`);
@@ -423,8 +428,52 @@
         const avatar = e.target.closest('.player-avatar');
         if (avatar) {
           const playerId = avatar.dataset.avatarPlayer;
+          const myPid = localPlayerId || '1';
           if (typeof openDivineXPrompt === 'function') {
-            openDivineXPrompt(playerId);
+            openDivineXPrompt(playerId, myPid);
+          }
+          exitTargetingMode();
+          e.preventDefault();
+          e.stopPropagation();
+          return;
+        }
+        exitTargetingMode();
+        return;
+      }
+
+      // 入夜 / 赏金 / 启悟 / 命运抉择：选择牌手头像
+      if (targetingMode === 'nightfall' || targetingMode === 'bounty' || targetingMode === 'oracle' || targetingMode === 'fate') {
+        const avatar = e.target.closest('.player-avatar');
+        if (avatar) {
+          const playerId = avatar.dataset.avatarPlayer;
+          const myPid = localPlayerId || '1';
+          const isHelp = playerId !== myPid;
+          const myName = getPlayerName(myPid);
+          const tgtName = getPlayerName(playerId);
+
+          if (targetingMode === 'nightfall') {
+            nightfallActive[playerId] = !nightfallActive[playerId];
+            _toggleNightfall(playerId, nightfallActive[playerId]);
+            if (peerConn && peerConn.open && typeof sendToPeer === 'function') {
+              sendToPeer({ type: 'nightfall-toggle', playerId, active: nightfallActive[playerId] });
+            }
+            const verb = nightfallActive[playerId] ? '开启了' : '关闭了';
+            const msg = isHelp ? `【系统】${myName}为${tgtName}${verb}入夜` : `【系统】${tgtName}${verb}入夜`;
+            broadcastSystemMsg(msg);
+          } else if (targetingMode === 'bounty') {
+            bountyActive[playerId] = !bountyActive[playerId];
+            _toggleBounty(playerId, bountyActive[playerId]);
+            if (peerConn && peerConn.open && typeof sendToPeer === 'function') {
+              sendToPeer({ type: 'bounty-toggle', playerId, active: bountyActive[playerId] });
+            }
+            const verb = bountyActive[playerId] ? '开启了' : '关闭了';
+            const msg = isHelp ? `【系统】${myName}为${tgtName}${verb}赏金` : `【系统】${tgtName}${verb}赏金`;
+            broadcastSystemMsg(msg);
+          } else if (targetingMode === 'oracle') {
+            if (typeof toggleOracle === 'function') toggleOracle(playerId, myPid);
+          } else if (targetingMode === 'fate') {
+            if (typeof openFateDialog === 'function') openFateDialog(playerId);
+            // 命运抉择内部已有广播
           }
           exitTargetingMode();
           e.preventDefault();

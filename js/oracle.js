@@ -34,7 +34,7 @@
     }
 
     /** 切换启悟机制 */
-    function toggleOracle(playerId) {
+    function toggleOracle(playerId, operatorId) {
       oracleActive[playerId] = !oracleActive[playerId];
       const active = oracleActive[playerId];
       const btn = getOracleZoneBtn(playerId);
@@ -42,23 +42,25 @@
         if (active) {
           btn.hidden = false;
           btn.classList.add('oracle-appear');
-          // 动画结束后移除appear类
           setTimeout(() => btn.classList.remove('oracle-appear'), 600);
         } else {
           btn.hidden = true;
         }
       }
-      // 刷新手牌列表以显示/隐藏"置入启悟区"按钮
       refreshOpenListDialog(playerId);
-      // 关闭启悟机制时，若弹窗仍开着则一并关闭
       if (!active && !oracleOverlay.hidden && _activeOraclePlayer === playerId) {
         closeOracleDialog();
       }
-      // 系统消息
-      const name = (typeof getPlayerName === 'function') ? getPlayerName(playerId) : ('玩家' + playerId);
-      const msg = active ? ('【系统】' + name + '开启了启悟机制') : ('【系统】' + name + '关闭了启悟机制');
+      const tgtName = (typeof getPlayerName === 'function') ? getPlayerName(playerId) : ('玩家' + playerId);
+      const verb = active ? '开启了' : '关闭了';
+      let msg;
+      if (operatorId && operatorId !== playerId) {
+        const opName = (typeof getPlayerName === 'function') ? getPlayerName(operatorId) : ('玩家' + operatorId);
+        msg = '【系统】' + opName + '为' + tgtName + verb + '启悟机制';
+      } else {
+        msg = '【系统】' + tgtName + verb + '启悟机制';
+      }
       broadcastSystemMsg(msg);
-      // 同步到对手
       syncOracleToPeer(playerId);
     }
 
@@ -234,6 +236,7 @@
         if (state) state.hand.push(card);
       }
       renderOracleCards(playerId);
+      if (typeof updateDeckButtons === 'function') updateDeckButtons(playerId);
       if (typeof refreshOpenListDialog === 'function') refreshOpenListDialog(playerId);
       if (typeof syncDeckStateForce === 'function') syncDeckStateForce(playerId);
       syncOracleToPeer(playerId);

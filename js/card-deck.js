@@ -32,6 +32,12 @@
       '2': new Set(),
     };
 
+    // 玩家通过命运抉择揭示的对方卡牌ID
+    const playerFateRevealedCards = {
+      '1': new Set(),
+      '2': new Set(),
+    };
+
     /** 获取当前查看者ID */
     function getViewerPlayerId() {
       if (typeof localPlayerId !== 'undefined' && localPlayerId && localPlayerId !== '0') {
@@ -307,9 +313,13 @@
 
         const nameSpan = document.createElement('span');
         const isRevealed = revealedSet.has(card.id);
-        if (isRevealed) {
+        const isFateRevealed = (playerFateRevealedCards[viewerId] && playerFateRevealedCards[viewerId].has(card.id));
+        if (isRevealed || isFateRevealed) {
           nameSpan.className = 'deck-group__name';
-          nameSpan.textContent = card.name + '（已占卜）';
+          const labels = [];
+          if (isRevealed) labels.push('已占卜');
+          if (isFateRevealed) labels.push('已命运抉择');
+          nameSpan.textContent = card.name + '（' + labels.join('，') + '）';
           nameSpan.style.cursor = 'help';
           // 食材牌/佳肴：存储数据供浮窗显示
           if (card._food) {
@@ -655,6 +665,7 @@
 
     // ---- 占卜系统 ----
     let divineContext = null; // { playerId, topGroup:[], bottomGroup:[], restDeck:[], x }
+    let divineTempOpId = null; // 操作者ID（辅助对方时）
 
     const divineOverlay = document.getElementById('divine-dialog-overlay');
     const divineXRow = document.getElementById('divine-x-row');
@@ -666,12 +677,14 @@
     const divineTitle = document.getElementById('divine-dialog-title');
 
     /** 步骤1：弹出占卜X输入框 */
-    function openDivineXPrompt(playerId) {
+    function openDivineXPrompt(playerId, operatorId) {
       const state = getPlayerCardState(playerId);
       if (!state.deck.length) {
         broadcastSystemMsg(`【系统】${getPlayerName(playerId)}试图占卜，但牌库为空`);
         return;
       }
+      // 存储操作者信息
+      divineTempOpId = operatorId || playerId;
       divineXRow.hidden = false;
       divineMain.hidden = true;
       divineActions.hidden = true;
@@ -716,17 +729,26 @@
       }
       divineContext = {
         playerId,
-        topGroup: divineCards,          // 默认全部留在顶部
-        bottomGroup: [],                // 暂无移到底部
+        topGroup: divineCards,
+        bottomGroup: [],
         x: clampedX,
+        operatorId: divineTempOpId || playerId,
       };
+      divineTempOpId = null;
       // UI切换
       divineXRow.hidden = true;
       divineMain.hidden = false;
       divineActions.hidden = false;
       divineTitle.textContent = `🔮 占卜 ${clampedX} — ${getPlayerName(playerId)}`;
       renderDivineLists();
-      broadcastSystemMsg(`【系统】${getPlayerName(playerId)}进行了占卜${clampedX}`);
+      const opId = divineContext.operatorId;
+      const isHelp = opId !== playerId;
+      const tgtName = getPlayerName(playerId);
+      const opName = getPlayerName(opId);
+      const startMsg = isHelp
+        ? `【系统】${opName}为${tgtName}开始占卜${clampedX}..`
+        : `【系统】${tgtName}进行了占卜${clampedX}`;
+      broadcastSystemMsg(startMsg);
     }
 
     // ---- 拖拽状态 ----
@@ -912,6 +934,8 @@
         return bc;
       });
       state.deck = [...mergedTop, ...remaining, ...mergedBottom];
+      const savedOpId = divineContext.operatorId || playerId;
+      const savedX = divineContext.x;
       divineContext = null;
       closeDivineDialog(false);
       updateDeckButtons(playerId);
@@ -922,13 +946,21 @@
       const topCount = topGroup.length;
       const bottomCount = bottomGroup.length;
       const playerName = getPlayerName(playerId);
-      // 占卜者自己看到详细信息（牌名）
-      addSystemChatMessage(`【系统】${playerName}完成了占卜 —— 牌库顶：[${topNames}]，牌库底：[${bottomNames}]`);
-      // 对手看到摘要信息（只有数量，不知道牌名）
+      const opId = savedOpId;
+      const isHelp = opId !== playerId;
+      const opName = getPlayerName(opId);
+      const xVal = savedX;
+
+      // 操作者和牌主自己看到详细信息（牌名）
+      const prefix = isHelp ? `【系统】${opName}完成了对${playerName}的占卜${xVal}` : `【系统】${playerName}完成了占卜`;
+      addSystemChatMessage(`${prefix} —— 牌库顶：[${topNames}]，牌库底：[${bottomNames}]`);
+
+      // 其他人（对手/观众）看到摘要信息（只有数量，不知道牌名）
       if (!isSoloMode && peerConn && peerConn.open && typeof sendToPeer === 'function') {
         const topWord = topCount > 0 ? `${topCount}张` : '0张';
         const bottomWord = bottomCount > 0 ? `${bottomCount}张` : '0张';
-        const summaryMsg = `【系统】${playerName}完成了占卜${x}，将${topWord}牌放在了牌库顶，将${bottomWord}牌放在了牌库底`;
+        const summaryPrefix = isHelp ? `【系统】${opName}完成了对${playerName}的占卜${xVal}` : `【系统】${playerName}完成了占卜${xVal}`;
+        const summaryMsg = `${summaryPrefix}，将${topWord}牌放在了牌库顶，将${bottomWord}牌放在了牌库底`;
         sendToPeer({ type: 'sysmsg', text: summaryMsg });
       }
     }
@@ -1528,8 +1560,235 @@
     });
 
     // ================================================================
-    //  初始手牌系统
+    //  命运抉择系统
     // ================================================================
+    const fateOverlay = document.getElementById('fate-dialog-overlay');
+    const fateSlotTop = document.getElementById('fate-slot-top');
+    const fateSlotBottom = document.getElementById('fate-slot-bottom');
+    const fateBtnStart = document.getElementById('fate-btn-start');
+    const fateBtnSwap = document.getElementById('fate-btn-swap');
+    const fateBtnConfirm = document.getElementById('fate-dialog-confirm');
+    const fateBtnCancel = document.getElementById('fate-dialog-cancel');
+
+    let fateContext = null;
+
+    function openFateDialog(playerId) {
+      if (typeof isSpectator !== 'undefined' && isSpectator) return;
+      const state = getPlayerCardState(playerId);
+      if (state.deck.length < 2) {
+        broadcastSystemMsg(`【系统】${getPlayerName(playerId)}牌库不足2张，无法进行命运抉择`);
+        return;
+      }
+      const opId = (typeof localPlayerId !== 'undefined' && localPlayerId && localPlayerId !== '0') ? localPlayerId : '1';
+      document.getElementById('fate-dialog-title').textContent = `🔀 命运抉择 - ${getPlayerName(playerId)}`;
+      fateContext = { playerId, operatorId: opId, topCard: null, bottomCard: null, swapped: false };
+      fateSlotTop.innerHTML = '<span class="fate-slot-placeholder">牌库顶</span>';
+      fateSlotBottom.innerHTML = '<span class="fate-slot-placeholder">牌库底</span>';
+      fateBtnStart.hidden = false;
+      fateBtnSwap.hidden = true;
+      fateBtnCancel.hidden = false;
+      fateOverlay.hidden = false;
+    }
+
+    function closeFateDialog(cancel) {
+      if (cancel && fateContext && fateContext.topCard) {
+        broadcastSystemMsg(`【系统】${getPlayerName(fateContext.playerId)}取消了命运抉择..`);
+      }
+      fateOverlay.hidden = true;
+      fateContext = null;
+    }
+
+    function startFate() {
+      if (!fateContext) return;
+      const { playerId } = fateContext;
+      const state = getPlayerCardState(playerId);
+      if (state.deck.length < 2) return;
+      const topCard = state.deck[0];
+      const bottomCard = state.deck[state.deck.length - 1];
+      fateContext.topCard = topCard;
+      fateContext.bottomCard = bottomCard;
+      fateContext.swapped = false;
+
+      // 为对手操作时，先揭示再渲染（仅命运抉择揭示，不混入占卜集）
+      const opId = fateContext.operatorId || playerId;
+      if (opId !== playerId) {
+        if (!playerFateRevealedCards[opId]) playerFateRevealedCards[opId] = new Set();
+        playerFateRevealedCards[opId].add(topCard.id);
+        playerFateRevealedCards[opId].add(bottomCard.id);
+      }
+
+      _renderFateSlots(fateContext, playerId);
+      fateBtnStart.hidden = true;
+      fateBtnSwap.hidden = false;
+      fateBtnCancel.hidden = true;
+
+      const tgtName = getPlayerName(playerId);
+      const opName = getPlayerName(opId);
+      const msg = opId !== playerId
+        ? `【系统】${opName}正在为${tgtName}命运抉择...`
+        : `【系统】${tgtName}正在命运抉择...`;
+      broadcastSystemMsg(msg);
+    }
+
+    function _renderFateSlots(ctx, playerId) {
+      const own = isViewingOwnCards(playerId);
+      _renderFateCardSlot(fateSlotTop, '牌库顶', ctx.topCard, own);
+      _renderFateCardSlot(fateSlotBottom, '牌库底', ctx.bottomCard, own);
+    }
+
+    function _renderFateCardSlot(slotEl, title, card, own) {
+      // 命运抉择揭示：操作者即使不是牌主也能看到
+      const opId = fateContext ? (fateContext.operatorId || fateContext.playerId) : null;
+      const viewerId = getViewerPlayerId();
+      const isFateRevealed = opId && playerFateRevealedCards[viewerId] && playerFateRevealedCards[viewerId].has(card.id);
+      const canSee = own || isFateRevealed;
+
+      if (!canSee) {
+        slotEl.innerHTML = `<div class="fate-card-title">${title}</div><div class="fate-card-name" style="color:#888">未知</div>`;
+        return;
+      }
+      const db = (typeof CardDB !== 'undefined') ? CardDB.lookup(card.name) : null;
+      const typeNames = { shikigami:'式神', summon:'召唤物', spell:'法术', battle:'战斗', form:'形态', realm:'幻境', curse:'灵咒', bond:'协战' };
+
+      let html = `<div class="fate-card-title">${title}</div>`;
+
+      // 等级菱形
+      if (db && db.level) {
+        html += `<span class="fate-mini-level"><span>${db.level}</span></span>`;
+      }
+
+      // 名称
+      html += `<div class="fate-card-name">${card.name}</div>`;
+
+      // 效果描述
+      const eff = db ? (db.effect || db.ability || '') : '';
+      if (eff) html += `<div class="fate-card-effect">${eff}</div>`;
+
+      // 灵咒
+      if (card.curses && card.curses.length) {
+        html += '<div class="fate-card-curses">';
+        card.curses.forEach(c => {
+          html += `<span class="fate-curse-tag">⛓️${c.name}×${c.layers}</span>`;
+        });
+        html += '</div>';
+      }
+
+      // 底部
+      if (db) {
+        const typeCN = typeNames[db.type] || db.type;
+        html += `<div class="fate-card-footer">${db.owner || '中立'} - ${typeCN}</div>`;
+      } else {
+        html += '<div class="fate-card-footer">未录入数据</div>';
+      }
+
+      // 左右下角属性
+      if (db) {
+        let bl = '', br = '', blColor = '', brColor = '';
+        switch (db.type) {
+          case 'battle': case 'bond':
+            if (db.atkBonus > 0) { bl = '+' + db.atkBonus; blColor = '#50c8b4'; }
+            if (db.atkPenalty > 0) { bl = '-' + db.atkPenalty; blColor = '#ff6e6e'; }
+            if (db.shieldBonus > 0) { br = '+' + db.shieldBonus; brColor = '#64d264'; }
+            if (db.shieldPenalty > 0) { br = '-' + db.shieldPenalty; brColor = '#ff6e6e'; }
+            break;
+          case 'spell':
+            if (db.atkBonus > 0) { bl = '+' + db.atkBonus; blColor = '#50c8b4'; }
+            if (db.hpBonus > 0) { br = '+' + db.hpBonus; brColor = '#64d264'; }
+            break;
+          case 'realm':
+            if (db.durability > 0) { br = '' + db.durability; brColor = '#c8a0f0'; }
+            break;
+          case 'form':
+            if (db.attack != null) { bl = '' + db.attack; blColor = '#50c8b4'; }
+            if (db.hp != null) { br = '' + db.hp; brColor = '#ff8282'; }
+            break;
+          case 'shikigami': case 'summon':
+            if (db.attack != null) { bl = '' + db.attack; blColor = '#50c8b4'; }
+            if (db.hp != null) { br = '' + db.hp; brColor = '#ff8282'; }
+            break;
+        }
+        if (bl) html += `<span class="fate-stat fate-stat--bl" style="color:${blColor};border-color:${blColor}">${bl}</span>`;
+        if (br) html += `<span class="fate-stat fate-stat--br" style="color:${brColor};border-color:${brColor}">${br}</span>`;
+      }
+
+      slotEl.innerHTML = html;
+
+      // 自适应缩字：效果描述超出时缩小字号
+      if (eff) {
+        const effEl = slotEl.querySelector('.fate-card-effect');
+        if (effEl) {
+          let s = 15;
+          effEl.style.fontSize = s + 'px';
+          requestAnimationFrame(() => {
+            while (effEl.scrollHeight > effEl.clientHeight + 2 && s > 9) {
+              s -= 1;
+              effEl.style.fontSize = s + 'px';
+            }
+          });
+        }
+      }
+    }
+
+    function swapFateCards() {
+      if (!fateContext) return;
+      fateContext.swapped = !fateContext.swapped;
+      const tmp = fateContext.topCard;
+      fateContext.topCard = fateContext.bottomCard;
+      fateContext.bottomCard = tmp;
+      if (typeof gsap !== 'undefined') {
+        const topEl = fateSlotTop;
+        const bottomEl = fateSlotBottom;
+        const topY = topEl.getBoundingClientRect().top;
+        const bottomY = bottomEl.getBoundingClientRect().top;
+        const delta = bottomY - topY;
+        const tl = gsap.timeline();
+        tl.to(topEl, { y: delta, duration: 0.35, ease: 'power2.inOut' }, 0);
+        tl.to(bottomEl, { y: -delta, duration: 0.35, ease: 'power2.inOut' }, 0);
+        tl.call(() => {
+          _renderFateSlots(fateContext, fateContext.playerId);
+          gsap.set([topEl, bottomEl], { y: 0 });
+        });
+      }
+    }
+
+    function confirmFate() {
+      if (!fateContext) return;
+      const { playerId, swapped } = fateContext;
+      const state = getPlayerCardState(playerId);
+      if (swapped && state.deck.length >= 2) {
+        const top = state.deck.shift();
+        const bottom = state.deck.pop();
+        state.deck.unshift(bottom);
+        state.deck.push(top);
+      }
+      updateDeckButtons(playerId);
+      refreshOpenListDialog(playerId);
+      syncDeckState(playerId);
+      const opId = fateContext.operatorId || playerId;
+      const isHelp = opId !== playerId;
+      const tgtName = getPlayerName(playerId);
+      const opName = getPlayerName(opId);
+      const msg = isHelp
+        ? `【系统】${opName}完成了对${tgtName}的命运抉择`
+        : `【系统】${tgtName}完成了命运抉择`;
+      broadcastSystemMsg(msg);
+      closeFateDialog();
+    }
+
+    fateBtnStart.addEventListener('click', startFate);
+    fateBtnSwap.addEventListener('click', swapFateCards);
+    fateBtnConfirm.addEventListener('click', confirmFate);
+    fateBtnCancel.addEventListener('click', () => closeFateDialog(true));
+
+    // Esc 关闭命运抉择
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && fateOverlay && !fateOverlay.hidden) {
+        closeFateDialog(true);
+      }
+    });
+
+    // ================================================================
+    //  初始手牌系统
     const initialHandOverlay = document.getElementById('initial-hand-overlay');
     const initialHandCountInput = document.getElementById('initial-hand-count-input');
     const initialHandDrawBtn = document.getElementById('initial-hand-draw-btn');

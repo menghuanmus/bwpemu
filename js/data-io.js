@@ -151,6 +151,8 @@
       // 序列化揭示卡牌ID（Set → Array，确保 JSON 可序列化）
       const p1revealed = playerRevealedCards['1'] ? [...playerRevealedCards['1']] : [];
       const p2revealed = playerRevealedCards['2'] ? [...playerRevealedCards['2']] : [];
+      const p1fateRevealed = (typeof playerFateRevealedCards !== 'undefined' && playerFateRevealedCards['1']) ? [...playerFateRevealedCards['1']] : [];
+      const p2fateRevealed = (typeof playerFateRevealedCards !== 'undefined' && playerFateRevealedCards['2']) ? [...playerFateRevealedCards['2']] : [];
       // 序列化商店牌库存（仅保存有库存变化的牌）
       const p1shopStocks = {};
       const p2shopStocks = {};
@@ -180,6 +182,7 @@
           deck: p1deck,
           hand: p1hand,
           revealedCards: p1revealed,
+          fateRevealedCards: p1fateRevealed,
           bounty: playerBounty['1'] || 0,
           bountyActive: (typeof bountyActive !== 'undefined') ? (bountyActive['1'] || false) : false,
           nightfallActive: (typeof nightfallActive !== 'undefined') ? (nightfallActive['1'] || false) : false,
@@ -189,7 +192,7 @@
           shopSlotCount: p1shop.slotCount,
           shopStocks: p1shopStocks,
           oracleActive: oracleActive['1'] || false,
-          oracleHands: (oracleHands['1'] || []).map(c => ({ id: c.id, name: c.name, curses: c.curses || [] })),
+          oracleHands: (oracleHands['1'] || []).map(c => ({ id: c.id, name: c.name, curses: c.curses || [], _stack: c._stack, _maxStack: c._maxStack })),
           slots: [],
         },
         player2: {
@@ -201,6 +204,7 @@
           deck: p2deck,
           hand: p2hand,
           revealedCards: p2revealed,
+          fateRevealedCards: p2fateRevealed,
           bounty: playerBounty['2'] || 0,
           bountyActive: (typeof bountyActive !== 'undefined') ? (bountyActive['2'] || false) : false,
           nightfallActive: (typeof nightfallActive !== 'undefined') ? (nightfallActive['2'] || false) : false,
@@ -210,7 +214,7 @@
           shopSlotCount: p2shop.slotCount,
           shopStocks: p2shopStocks,
           oracleActive: oracleActive['2'] || false,
-          oracleHands: (oracleHands['2'] || []).map(c => ({ id: c.id, name: c.name, curses: c.curses || [] })),
+          oracleHands: (oracleHands['2'] || []).map(c => ({ id: c.id, name: c.name, curses: c.curses || [], _stack: c._stack, _maxStack: c._maxStack })),
           slots: [],
         },
       };
@@ -345,6 +349,7 @@
           if (Array.isArray(p.oracleHands) && typeof oracleHands !== 'undefined') {
             oracleHands[pid] = p.oracleHands.map(c => ({
               id: c.id, name: c.name, curses: c.curses || [],
+              _stack: c._stack, _maxStack: c._maxStack,
             }));
           }
           if (Array.isArray(p.deck)) {
@@ -358,6 +363,10 @@
           // 恢复揭示卡牌ID（Array → Set）
           if (Array.isArray(p.revealedCards)) {
             playerRevealedCards[pid] = new Set(p.revealedCards.filter(id => typeof id === 'number'));
+          }
+          // 恢复命运抉择揭示
+          if (Array.isArray(p.fateRevealedCards) && typeof playerFateRevealedCards !== 'undefined') {
+            playerFateRevealedCards[pid] = new Set(p.fateRevealedCards.filter(id => typeof id === 'number'));
           }
           if (p.slots) {
             p.slots.forEach((s, i) => {
