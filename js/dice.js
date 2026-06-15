@@ -577,29 +577,28 @@
       exitTargetingMode();
     }, true);
 
-    // ---- 倒计时 / 能量 开关逻辑 ----
+    // ---- 倒计时 / 能量 开关逻辑（兼容：可同时存在）----
     function applyToggleBadge(slot, mode) {
-      // 无图片的卡牌不生效
       if (!slot.classList.contains('has-image')) return;
       const hasCountdown = slot.querySelector('.card-badge--countdown');
       const hasEnergy = slot.querySelector('.card-badge--energy');
 
       if (mode === 'countdown') {
         if (hasCountdown) {
-          // 已有倒计时 → 移除（关闭）
           removeCountdownBadge(slot);
         } else {
-          // 移除对方徽章（如有），添加倒计时
-          removeEnergyBadge(slot);
-          slot.appendChild(createCountdownBadge('1'));
+          const badge = createCountdownBadge('1');
+          // 确保倒计时在能量之前（CSS 兄弟选择器依赖此顺序）
+          if (hasEnergy) {
+            slot.insertBefore(badge, hasEnergy);
+          } else {
+            slot.appendChild(badge);
+          }
         }
       } else { // energy
         if (hasEnergy) {
-          // 已有能量 → 移除（关闭）
           removeEnergyBadge(slot);
         } else {
-          // 移除对方徽章（如有），添加能量
-          removeCountdownBadge(slot);
           slot.appendChild(createEnergyBadge('1'));
         }
       }
@@ -823,6 +822,9 @@
     // ---- 添加机制 下拉菜单 ----
     btnMechanicToggle.addEventListener('click', (e) => {
       e.stopPropagation();
+      // 互斥：关闭另一个下拉
+      const otherMenu = document.getElementById('dropdown-other-menu');
+      if (otherMenu) otherMenu.hidden = true;
       dropdownMechanicMenu.hidden = !dropdownMechanicMenu.hidden;
     });
 

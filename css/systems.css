@@ -2417,3 +2417,20 @@
       color: #8090a8;
       min-width: 28px;
     }
+
+    /* ── 弹窗字体放大 30% ── */
+    .card-list-dialog,
+    .speak-dialog,
+    .card-list-item__name,
+    .card-list-item__info,
+    .deck-summary-header {
+      font-size: 118% !important;
+    }
+    /* 牌库里牌名保持和手牌一致，不重复放大 */
+    .deck-group__name {
+      font-size: 100% !important;
+    }
+    .card-list-dialog h3,
+    .card-list-title-row h3 {
+      font-size: 138% !important;
+    }

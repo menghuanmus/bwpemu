@@ -1,0 +1,291 @@
+/* ================================================================
+   css/renyin.css — 连引系统样式（五步筛选面板）
+   ================================================================ */
+
+/* 全屏遮罩 */
+.renyin-overlay {
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(0,0,0,0.65);
+  z-index: 2000;
+  display: none;
+  align-items: center;
+  justify-content: center;
+}
+.renyin-overlay[hidden] { display: none; }
+
+.renyin-dialog {
+  background: linear-gradient(180deg, #2a1a3a, #1a0a2a);
+  border: 2px solid rgba(180,140,220,0.5);
+  border-radius: 12px;
+  width: 640px;
+  max-width: 97vw;
+  max-height: 88vh;
+  overflow-y: auto;
+  color: #e0d8f0;
+  box-shadow: 0 8px 40px rgba(0,0,0,0.5);
+}
+
+.renyin-dialog__header {
+  padding: 14px 20px 10px;
+  border-bottom: 1px solid rgba(180,140,220,0.25);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.renyin-dialog__title { font-size: 17px; font-weight: bold; color: #d4b8f0; }
+.renyin-dialog__close {
+  background: none; border: 1px solid rgba(180,140,220,0.3);
+  color: #c0a0e0; font-size: 18px; cursor: pointer;
+  width: 30px; height: 30px; border-radius: 6px;
+  display: flex; align-items: center; justify-content: center;
+}
+.renyin-dialog__close:hover { background: rgba(180,140,220,0.2); }
+
+.renyin-dialog__body { padding: 14px 20px; }
+
+/* 使用的卡牌 */
+.renyin-used-card {
+  background: rgba(180,140,220,0.12);
+  border: 1px solid rgba(180,140,220,0.25);
+  border-radius: 8px; padding: 10px; margin-bottom: 14px; text-align: center;
+}
+.renyin-used-card__label { font-size: 11px; color: #a090c0; }
+.renyin-used-card__name { font-size: 17px; font-weight: bold; color: #e8d8ff; }
+
+/* ── 步骤通用 ── */
+.renyin-step { margin-bottom: 14px; }
+.renyin-step__label {
+  display: block; font-size: 12px; color: #b0a0d0;
+  margin-bottom: 6px; font-weight: bold;
+}
+.renyin-step__hint {
+  font-size: 11px; color: #706090; font-weight: normal; margin-left: 6px;
+}
+
+/* ── 五列网格（步骤1&2）── */
+.renyin-columns {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 8px;
+}
+
+.renyin-col-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 8px 4px;
+  border: 1px solid rgba(180,140,220,0.2);
+  border-radius: 8px;
+  background: rgba(30,15,50,0.5);
+  cursor: pointer;
+  user-select: none;
+  transition: all 0.15s;
+}
+.renyin-col-item:hover { border-color: rgba(180,140,220,0.4); background: rgba(50,25,80,0.5); }
+.renyin-col-item--selected {
+  border-color: rgba(180,140,220,0.7) !important;
+  background: rgba(120,60,200,0.25) !important;
+  box-shadow: 0 0 8px rgba(160,100,220,0.3);
+}
+
+.renyin-col-item__icon {
+  width: 36px; height: 36px;
+  background: linear-gradient(135deg, #3a2a5a, #2a1a3a);
+  border: 1px solid rgba(180,140,220,0.3);
+  border-radius: 6px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 18px;
+}
+.renyin-col-item__name {
+  font-size: 12px; color: #c0b0e0; text-align: center;
+  max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+
+/* ── 数量输入（步骤2）── */
+.renyin-qty-input {
+  width: 42px; padding: 4px 6px;
+  border: 1px solid rgba(180,140,220,0.3);
+  border-radius: 5px;
+  background: rgba(20,10,30,0.6);
+  color: #e0d8f0; font-size: 14px; text-align: center;
+  -moz-appearance: textfield;
+  appearance: textfield;
+}
+.renyin-qty-input::-webkit-inner-spin-button,
+.renyin-qty-input::-webkit-outer-spin-button {
+  -webkit-appearance: none; margin: 0;
+}
+.renyin-qty-input:focus { outline: none; border-color: rgba(200,160,240,0.7); }
+
+/* ── 按钮组（步骤3&4）── */
+.renyin-btn-group {
+  display: flex; gap: 8px; flex-wrap: wrap;
+}
+.renyin-opt-btn {
+  padding: 6px 16px;
+  border: 1px solid rgba(180,140,220,0.3);
+  border-radius: 16px;
+  background: rgba(40,20,60,0.5);
+  color: #c0b0e0; font-size: 13px; cursor: pointer; user-select: none;
+  transition: all 0.15s;
+}
+.renyin-opt-btn:hover { background: rgba(100,60,180,0.25); }
+.renyin-opt-btn--active {
+  background: rgba(160,100,220,0.4);
+  border-color: rgba(180,140,220,0.7);
+  color: #e8d8ff;
+}
+
+/* ── 标签队列（步骤5）── */
+.renyin-tag-row {
+  display: flex; gap: 8px; align-items: center; margin-bottom: 6px;
+}
+.renyin-tag-row input[type="text"] {
+  flex: 1; padding: 6px 10px;
+  border: 1px solid rgba(180,140,220,0.3); border-radius: 6px;
+  background: rgba(20,10,30,0.6); color: #e0d8f0; font-size: 13px;
+}
+.renyin-tag-row input:focus { outline: none; border-color: rgba(200,160,240,0.7); }
+.renyin-tag-add-btn {
+  padding: 6px 14px;
+  border: 1px solid rgba(180,140,220,0.3); border-radius: 6px;
+  background: rgba(40,20,60,0.5); color: #c0b0e0; font-size: 12px; cursor: pointer;
+  white-space: nowrap;
+}
+.renyin-tag-add-btn:hover { background: rgba(100,60,180,0.3); }
+
+.renyin-tag-list {
+  display: flex; flex-wrap: wrap; gap: 5px; margin-bottom: 8px; min-height: 24px;
+}
+.renyin-tag-chip {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 3px 10px;
+  border: 1px solid rgba(180,140,220,0.35); border-radius: 12px;
+  background: rgba(100,60,180,0.25); color: #d4c0f0; font-size: 12px;
+}
+.renyin-tag-chip__del {
+  cursor: pointer; font-size: 14px; color: #a090c0; line-height: 1;
+}
+.renyin-tag-chip__del:hover { color: #f0c0c0; }
+
+/* ── 结果区 ── */
+.renyin-result-area { margin-top: 4px; }
+.renyin-result-card-list {
+  display: flex; flex-direction: column; gap: 8px;
+  max-height: 240px; overflow-y: auto; margin-bottom: 12px;
+}
+.renyin-result-card {
+  background: rgba(200,160,120,0.12);
+  border: 2px solid rgba(200,160,120,0.25);
+  border-radius: 8px; padding: 10px 14px; cursor: pointer;
+  transition: all 0.15s; display: flex; align-items: center; gap: 8px;
+}
+.renyin-result-card:hover {
+  border-color: rgba(220,180,100,0.6); background: rgba(200,160,120,0.22);
+}
+.renyin-result-card--used {
+  border-color: rgba(180,140,220,0.6) !important;
+  background: rgba(160,100,220,0.2) !important;
+}
+.renyin-result-card--selected {
+  border-color: #e0b040 !important;
+  background: rgba(200,160,40,0.3) !important;
+  box-shadow: 0 0 12px rgba(200,160,40,0.3);
+}
+.renyin-result-card__icon {
+  width: 36px; height: 48px;
+  background: linear-gradient(135deg, #3a2a5a, #2a1a3a);
+  border: 1px solid rgba(180,140,220,0.3); border-radius: 4px;
+  flex-shrink: 0; display: flex; align-items: center; justify-content: center; font-size: 18px;
+}
+.renyin-result-card__info { flex: 1; min-width: 0; }
+.renyin-result-card__name { font-size: 14px; font-weight: bold; color: #e8d8f0; }
+.renyin-result-card__tags { font-size: 11px; color: #a090c0; margin-top: 2px; }
+.renyin-result-card__curses {
+  font-size: 11px; color: #e0a0c0; margin-top: 2px;
+}
+.renyin-result-card__badge {
+  font-size: 11px; padding: 2px 8px; border-radius: 8px;
+  background: rgba(180,140,220,0.2); color: #c0a0e0; white-space: nowrap;
+}
+
+/* ── 按钮 ── */
+.renyin-actions {
+  display: flex; gap: 10px; justify-content: flex-end;
+  margin-top: 8px; padding-top: 12px;
+  border-top: 1px solid rgba(180,140,220,0.2);
+}
+.renyin-btn {
+  padding: 8px 20px; border-radius: 8px; font-size: 14px; cursor: pointer;
+  border: 1px solid rgba(180,140,220,0.3); font-weight: bold;
+}
+.renyin-btn--search {
+  background: linear-gradient(180deg, #5a3a8a, #3a1a6a);
+  color: #e0d8f0; border-color: rgba(180,140,220,0.5);
+}
+.renyin-btn--search:hover { background: linear-gradient(180deg, #6a4a9a, #4a2a7a); }
+.renyin-btn--confirm {
+  background: linear-gradient(180deg, #8a6a3a, #6a4a1a);
+  color: #f0e0c0; border-color: rgba(220,180,100,0.5);
+}
+.renyin-btn--confirm:hover { background: linear-gradient(180deg, #9a7a4a, #7a5a2a); }
+.renyin-btn--cancel {
+  background: rgba(40,20,60,0.6); color: #a090c0;
+}
+.renyin-btn--cancel:hover { background: rgba(60,30,80,0.6); }
+.renyin-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+/* 搜索中 */
+.renyin-searching {
+  text-align: center; padding: 20px; color: #a090c0; font-size: 14px;
+}
+.renyin-searching .spinner {
+  display: inline-block; width: 20px; height: 20px;
+  border: 2px solid rgba(180,140,220,0.3); border-top-color: #c0a0e0;
+  border-radius: 50%; animation: spin 0.8s linear infinite;
+  vertical-align: middle; margin-right: 8px;
+}
+.renyin-empty { text-align: center; padding: 24px; color: #a090c0; font-size: 14px; }
+
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ── 验证错误 ── */
+.renyin-step--error {
+  border-left: 3px solid #e05050;
+  padding-left: 8px;
+  background: rgba(200,40,40,0.08);
+  border-radius: 4px;
+}
+.renyin-validate-msg {
+  color: #f08080; font-size: 11px; margin-top: 4px;
+}
+
+/* 抖动动画 */
+.renyin-shake {
+  animation: renyinShake 0.35s ease-in-out;
+}
+@keyframes renyinShake {
+  0%, 100% { transform: translateX(0); }
+  10%, 50%, 90% { transform: translateX(-6px); }
+  30%, 70% { transform: translateX(6px); }
+}
+
+/* 确保 tooltip 在连引遮罩之上 */
+#card-tooltip { z-index: 2100; }
+
+/* 手牌列表中的连引按钮 */
+.btn-card-renyin {
+  background: linear-gradient(180deg, #5a3a8a, #3a1a6a);
+  color: #d4b8f0; border-color: rgba(180,140,220,0.5);
+}
+.btn-card-renyin:hover { background: linear-gradient(180deg, #6a4a9a, #4a2a7a); }
+
+/* ── 连引弹窗字体放大 30% ── */
+.renyin-dialog {
+  font-size: 15px;
+}
+.renyin-dialog__title {
+  font-size: 22px !important;
+}

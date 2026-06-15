@@ -356,6 +356,14 @@
       flex-shrink: 0;
     }
 
+    /* 准备区拉开：第一个左移，第四个右移 */
+    .prep-group:first-of-type .card-slot:first-child {
+      transform: translateX(-15px);
+    }
+    .prep-group:last-of-type .card-slot:last-child {
+      transform: translateX(15px);
+    }
+
     .battle-block {
       display: flex;
       flex-direction: column;
@@ -407,8 +415,8 @@
     }
 
     .btn-deck {
-      padding: 6px 10px;
-      font-size: 12px;
+      padding: 7px 12px;
+      font-size: 16px;
       white-space: nowrap;
       background: linear-gradient(180deg, #455a7a, #354860);
       border: 1px solid rgba(120, 150, 190, 0.55);

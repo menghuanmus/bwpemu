@@ -230,12 +230,27 @@
         useBtn.className = 'btn-card-action btn-card-use';
         useBtn.textContent = '使用';
         useBtn.addEventListener('click', () => removeFromHand(playerId, card.id, 'use'));
+        const renyinBtn = document.createElement('button');
+        renyinBtn.type = 'button';
+        renyinBtn.className = 'btn-card-action btn-card-renyin';
+        renyinBtn.textContent = '连引';
+        renyinBtn.title = '连引使用：设置搜索条件，从牌库连引其他卡牌';
+        renyinBtn.hidden = true; // 默认隐藏，由左下角「连引使用」按钮切换
+        renyinBtn.dataset.renyinBtn = 'true';
+        renyinBtn.addEventListener('click', () => {
+          if (typeof Renyin !== 'undefined') {
+            Renyin.open(playerId, card);
+          } else {
+            broadcastSystemMsg('【系统】连引模块未加载');
+          }
+        });
         const discardBtn = document.createElement('button');
         discardBtn.type = 'button';
         discardBtn.className = 'btn-card-action btn-card-discard';
         discardBtn.textContent = '弃置';
         discardBtn.addEventListener('click', () => removeFromHand(playerId, card.id, 'discard'));
         actions.appendChild(useBtn);
+        actions.appendChild(renyinBtn);
         actions.appendChild(discardBtn);
         // 置入牌库按钮
         const toDeckBtn = document.createElement('button');
@@ -403,6 +418,15 @@
 
     function openCardListDialog({ title, playerId, type }) {
       cardListContext = { playerId, type };
+      // 重置连引按钮状态
+      renyinBtnsVisible = false;
+      const toggleBtn = document.getElementById('card-list-renyin-toggle');
+      if (toggleBtn) {
+        toggleBtn.hidden = (type !== 'hand' || !isViewingOwnCards(playerId));
+        toggleBtn.textContent = '🔗 连引使用';
+        toggleBtn.style.background = 'linear-gradient(180deg,#4a3a6a,#3a2a5a)';
+        toggleBtn.style.color = '#c0b0e0';
+      }
       cardListTitle.textContent = title;
       // 先清除牌库汇总（防止切换视图时残留）
       document.getElementById('deck-summary-header').hidden = true;
@@ -487,7 +511,8 @@
         }
         // 【消息分组】开始：后续所有效果消息都归入这条主消息下
         const stackInfo = (card._maxStack > 0) ? `（${card._stack || 1}/${card._maxStack}）` : '';
-        const mainMsg = `【系统】${getPlayerName(playerId)}${verb}「${card.name}」${stackInfo}`;
+        const curseInfo = (card.curses && card.curses.length) ? '（结附灵咒：' + card.curses.map(c => c.name + '×' + c.layers).join('、') + '）' : '';
+        const mainMsg = `【系统】${getPlayerName(playerId)}${verb}「${card.name}」${stackInfo}${curseInfo}`;
         if (typeof startMessageGroup === 'function') {
           startMessageGroup(mainMsg);
         } else {
@@ -1160,6 +1185,31 @@
     document.getElementById('card-text-dialog-confirm').addEventListener('click', confirmCardTextDialog);
     document.getElementById('card-list-dialog-close').addEventListener('click', closeCardListDialog);
 
+    // 连引使用切换按钮
+    const renyinToggleBtn = document.getElementById('card-list-renyin-toggle');
+    let renyinBtnsVisible = false;
+    if (renyinToggleBtn) {
+      // 初始样式
+      renyinToggleBtn.style.background = 'linear-gradient(180deg,#4a3a6a,#3a2a5a)';
+      renyinToggleBtn.style.color = '#c0b0e0';
+      renyinToggleBtn.addEventListener('click', () => {
+        renyinBtnsVisible = !renyinBtnsVisible;
+        document.querySelectorAll('[data-renyin-btn]').forEach(btn => {
+          btn.hidden = !renyinBtnsVisible;
+        });
+        renyinToggleBtn.textContent = renyinBtnsVisible ? '🔗 连引使用 ✓' : '🔗 连引使用';
+        if (renyinBtnsVisible) {
+          renyinToggleBtn.style.background = 'linear-gradient(180deg,#7a5ac8,#5a3aa8)';
+          renyinToggleBtn.style.color = '#e8d8ff';
+          renyinToggleBtn.style.borderColor = 'rgba(180,140,240,0.7)';
+        } else {
+          renyinToggleBtn.style.background = 'linear-gradient(180deg,#4a3a6a,#3a2a5a)';
+          renyinToggleBtn.style.color = '#c0b0e0';
+          renyinToggleBtn.style.borderColor = 'rgba(140,120,180,0.4)';
+        }
+      });
+    }
+
     // 随机结附灵咒
     let curseRandomRepeat = false; // false=优先不重复, true=全随机
     document.getElementById('btn-curse-toggle').addEventListener('click', function() {
@@ -1520,6 +1570,9 @@
 
     dropdownToggle.addEventListener('click', (e) => {
       e.stopPropagation();
+      // 互斥：关闭另一个下拉
+      const mechanicMenu = document.getElementById('dropdown-mechanic-menu');
+      if (mechanicMenu) mechanicMenu.hidden = true;
       dropdownMenu.hidden = !dropdownMenu.hidden;
     });
 
