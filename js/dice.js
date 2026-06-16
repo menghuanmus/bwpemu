@@ -39,7 +39,7 @@
     const damageLineSvg = document.getElementById('damage-line-svg');
     const damageLine = document.getElementById('damage-line');
     let isTargeting = false;
-    let targetingMode = 'damage'; // 'damage' | 'heal' | 'countdown' | 'energy' | 'ko' | 'curse' | 'divine' | 'cook' | 'nightfall' | 'bounty' | 'oracle' | 'fate'
+    let targetingMode = 'damage'; // 'damage' | 'heal' | 'countdown' | 'energy' | 'ko' | 'curse' | 'divine' | 'cook' | 'nightfall' | 'bounty' | 'oracle' | 'fate' | 'reset-stats'
     let targetingOrigin = { x: 0, y: 0 };
 
     // ---- 伤害/恢复来源 ----
@@ -57,6 +57,7 @@
       bounty:    { btn: () => btnMechanicToggle, activeText: '💰 选择牌手…(Esc取消)', idleText: '🔧 机制 ▾' },
       oracle:    { btn: () => btnMechanicToggle, activeText: '✨ 选择牌手…(Esc取消)', idleText: '🔧 机制 ▾' },
       fate:      { btn: () => btnMechanicToggle, activeText: '🔀 选择牌手…(Esc取消)', idleText: '🔧 机制 ▾' },
+      'reset-stats': { btn: () => btnMechanicToggle, activeText: '🔄 选择式神…(Esc取消)', idleText: '🔧 机制 ▾' },
       ko:        { btn: () => btnKo,             activeText: '💀 选择式神…(Esc取消)', idleText: '💀 气绝/复活' },
       curse:     { btn: () => btnCurse,          activeText: '⛓️ 选择式神…(Esc取消)', idleText: '⛓️ 灵咒' },
     };
@@ -280,6 +281,16 @@
       });
     }
 
+    // ---- 重置属性 ----
+    const btnResetStats = document.getElementById('btn-reset-stats');
+    if (btnResetStats) {
+      btnResetStats.addEventListener('click', () => {
+        dropdownMechanicMenu.hidden = true;
+        if (isTargeting) { exitTargetingMode(); return; }
+        enterTargetingMode('reset-stats');
+      });
+    }
+
     function _toggleNightfall(playerId, show) {
       const zone = document.querySelector(`.player-zone[data-player="${playerId}"]`);
       if (!zone) return;
@@ -498,8 +509,8 @@
         return;
       }
 
-      // 倒计时 / 能量 / 气绝 / 灵咒 模式
-      if (targetingMode === 'countdown' || targetingMode === 'energy' || targetingMode === 'ko' || targetingMode === 'curse') {
+      // 倒计时 / 能量 / 气绝 / 灵咒 / 重置属性 模式
+      if (targetingMode === 'countdown' || targetingMode === 'energy' || targetingMode === 'ko' || targetingMode === 'curse' || targetingMode === 'reset-stats') {
         const slot = e.target.closest('.card-slot');
         if (slot) {
           if (targetingMode === 'curse') {
@@ -522,6 +533,17 @@
           if (slot.classList.contains('has-image')) {
             if (targetingMode === 'ko') {
             applyKoToCard(slot);
+          } else if (targetingMode === 'reset-stats') {
+            if (typeof resetToPermStats === 'function') {
+              const oldAtk = slot.querySelector('.card-attack').value || '0';
+              const oldHp = slot.querySelector('.card-hp').value || '0';
+              resetToPermStats(slot);
+              const newAtk = slot.querySelector('.card-attack').value || '0';
+              const newHp = slot.querySelector('.card-hp').value || '0';
+              const cardName = slot.querySelector('.card-name').value || '未命名';
+              const userName = localPlayerId ? getPlayerName(localPlayerId) : '玩家';
+              broadcastSystemMsg(`【系统】${userName}重置了「${cardName}」的属性（${oldAtk}/${oldHp} → ${newAtk}/${newHp}）`);
+            }
           } else {
             applyToggleBadge(slot, targetingMode);
           }
@@ -656,7 +678,7 @@
         }
       } else {
         createKoOverlay(slot, '3');
-        // 气绝时，攻击和生命重置为基础值
+        // 气绝时重置到基础属性
         const cardName = slot.querySelector('.card-name')?.value || '';
         if (cardName && typeof CardDB !== 'undefined') {
           const dbCard = CardDB.lookup(cardName);
@@ -668,6 +690,10 @@
               slot.querySelector('.card-hp').value = dbCard.hp;
             }
           }
+        }
+        // 恢复永久加成
+        if (typeof resetToPermStats === 'function') {
+          resetToPermStats(slot);
         }
         // 【特效】气绝动画
         if (typeof DamageEffects !== 'undefined' && DamageEffects.playKoEffect) {

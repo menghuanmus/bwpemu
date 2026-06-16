@@ -251,9 +251,74 @@
 
         // 效果/能力描述
         const effectEl = el.querySelector('.card-tooltip__effect');
-        const effectText = card.effect || card.ability || '';
+        let effectText = '';
+        // 觉醒替换能力优先
+        if (currentSlot && currentSlot._permAbility) {
+          effectText = currentSlot._permAbility;
+        } else {
+          effectText = card.effect || card.ability || '';
+        }
         effectEl.textContent = effectText;
         effectEl.style.display = effectText ? '' : 'none';
+
+        // 永久加成记录
+        let permHTML = '';
+        if (currentSlot) {
+          const mods = currentSlot._permAtkMods || [];
+          const hpMods = currentSlot._permHpMods || [];
+          const effects = currentSlot._permEffects || [];
+          const allSources = new Set();
+          mods.forEach(m => { if (m.source) allSources.add(m.source); });
+          hpMods.forEach(m => { if (m.source) allSources.add(m.source); });
+          const permAtk = typeof calcPermAtk === 'function' ? calcPermAtk(currentSlot) : 0;
+          const permHp = typeof calcPermHp === 'function' ? calcPermHp(currentSlot) : 0;
+          if (allSources.size > 0 || effects.length > 0) {
+            permHTML = '<div class="card-tooltip__perm">';
+            if (allSources.size > 0) {
+              permHTML += `<div class="card-tooltip__perm-head">⚔️ 永久属性（当前：<span style="color:#ff9070;">⚔ 攻击:${permAtk}</span> <span style="color:#70d070;">  ❤ 生命:${permHp}</span>）</div>`;
+              allSources.forEach(src => {
+                const am = mods.find(m => m.source === src);
+                const hm = hpMods.find(m => m.source === src);
+                const layers = (am && am.layers) || (hm && hm.layers) || 1;
+                const layersText = layers > 1 ? ` ×${layers}` : '';
+                const atkVal = am ? (am.value >= 0 ? '+' + am.value : am.value) : '';
+                const hpVal = hm ? (hm.value >= 0 ? '+' + hm.value : hm.value) : '';
+                permHTML += `<div class="card-tooltip__perm-item"><span>${escapeHTML(src)}${layersText}：</span>`;
+                if (atkVal) permHTML += `<span style="color:#ff9070;">攻击${atkVal}</span>`;
+                if (atkVal && hpVal) permHTML += '、';
+                if (hpVal) permHTML += `<span style="color:#70d070;">生命${hpVal}</span>`;
+                permHTML += '</div>';
+              });
+            }
+            // 效果记录
+            if (effects.length > 0) {
+              permHTML += '<div class="card-tooltip__perm-head" style="margin-top:6px;">📋 效果记录</div>';
+              effects.forEach(ef => {
+                const layers = ef.layers || 1;
+                const layersText = layers > 1 ? ` ×${layers}` : '';
+                permHTML += `<div class="card-tooltip__perm-item"><span>${escapeHTML(ef.source)}${layersText}：</span><span style="color:#b0a890;">${escapeHTML(ef.desc)}</span></div>`;
+              });
+            }
+            permHTML += '</div>';
+          }
+        }
+        // 插入或更新永久信息区
+        let permEl = el.querySelector('.card-tooltip__perm');
+        if (permHTML) {
+          if (!permEl) {
+            permEl = document.createElement('div');
+            permEl.className = 'card-tooltip__perm';
+            const effectElRef = el.querySelector('.card-tooltip__effect');
+            if (effectElRef) {
+              effectElRef.insertAdjacentElement('afterend', permEl);
+            } else {
+              el.appendChild(permEl);
+            }
+          }
+          permEl.outerHTML = permHTML;
+        } else if (permEl) {
+          permEl.remove();
+        }
 
         // 结附灵咒（从战场卡牌槽或手牌/牌库数据读取）
         let cursesHTML = '';

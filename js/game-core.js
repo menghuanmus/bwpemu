@@ -19,6 +19,8 @@
       <label class="card-badge card-badge--level" title="等级">
         <input type="text" class="card-level" placeholder="级" aria-label="等级">
       </label>
+      <div class="card-badge card-badge--awakened-frame"></div>
+      <button type="button" class="card-badge card-badge--bonus" title="加成" aria-label="加成弹窗">💠</button>
       <label class="card-badge card-badge--attack" title="攻击">
         <input type="text" class="card-attack" placeholder="攻" aria-label="攻击">
       </label>
@@ -267,6 +269,11 @@
         energy: enBadge ? (enBadge.querySelector('input').value || '') : '',
         ko: slot.querySelector('.ko-overlay') ? (slot.querySelector('.ko-circle input').value || '1') : '',
         curses: getSlotCurses(slot),
+        awakened: slot.classList.contains('awakened'),
+        permAtkMods: slot._permAtkMods || [],
+        permHpMods: slot._permHpMods || [],
+        permAbility: slot._permAbility || '',
+        permEffects: slot._permEffects || [],
       };
     }
 
@@ -277,13 +284,19 @@
       slot.querySelector('.card-attack').value = state.attack;
       slot.querySelector('.card-hp').value = state.hp;
       slot.querySelector('.card-name').value = state.name;
-      // 倒计时 / 能量 徽章
       updateSlotCountdownBadge(slot, state.countdown || '');
       updateSlotEnergyBadge(slot, state.energy || '');
       updateKoOverlay(slot, state.ko || '');
-      // 灵咒
       setSlotCurses(slot, state.curses || []);
-      // 所有字段就绪后再同步（若被 suppress 则跳过）
+      // 觉醒标记
+      if (state.awakened) { slot.classList.add('awakened'); } else { slot.classList.remove('awakened'); }
+      // 永久属性
+      slot._permAtkMods = state.permAtkMods || [];
+      slot._permHpMods = state.permHpMods || [];
+      slot._permAbility = state.permAbility || '';
+      slot._permEffects = state.permEffects || [];
+      // 觉醒标记（换位时跳过，减少卡顿）
+      if (!slotSyncSuppress) updateAwakenedMark(slot);
       if (!slotSyncSuppress) syncSlotToPeer(slot);
     }
 
@@ -783,3 +796,81 @@
     scheduleBattlefieldLayout();
 
     // ================================================================
+    //  加成弹窗 💠 按钮事件
+    // ================================================================
+    document.addEventListener('click', (e) => {
+      const bonusBtn = e.target.closest('.card-badge--bonus');
+      if (!bonusBtn) return;
+      e.stopPropagation();
+      const slot = bonusBtn.closest('.card-slot');
+      if (!slot) return;
+      if (typeof BonusPanel !== 'undefined') BonusPanel.open(slot);
+    });
+
+    /** 记录永久基础值（取自卡牌数据库，自定义卡用当前值） */
+    function recordPermBase(slot) {
+      if (slot._permBaseAtk !== undefined) return;
+      const cardName = slot.querySelector('.card-name').value.trim();
+      const dbCard = cardName ? CardDB.lookup(cardName) : null;
+      if (dbCard && dbCard.attack !== undefined) {
+        slot._permBaseAtk = dbCard.attack || 0;
+        slot._permBaseHp = dbCard.hp || 0;
+      } else {
+        // 自定义卡牌或无数据，用当前显示值作为基础
+        slot._permBaseAtk = parseInt(slot.querySelector('.card-attack').value, 10) || 0;
+        slot._permBaseHp = parseInt(slot.querySelector('.card-hp').value, 10) || 0;
+      }
+    }
+
+    /** 计算永久属性 = 基础 + 加成×层数 */
+    function calcPermAtk(slot) {
+      const base = slot._permBaseAtk !== undefined ? slot._permBaseAtk : 0;
+      return base + (slot._permAtkMods || []).reduce((s, m) => s + (m.value || 0) * (m.layers || 1), 0);
+    }
+    function calcPermHp(slot) {
+      const base = slot._permBaseHp !== undefined ? slot._permBaseHp : 0;
+      return base + (slot._permHpMods || []).reduce((s, m) => s + (m.value || 0) * (m.layers || 1), 0);
+    }
+
+    /** 重置当前属性到永久值 */
+    function resetToPermStats(slot) {
+      recordPermBase(slot);
+      const atkInput = slot.querySelector('.card-attack');
+      const hpInput = slot.querySelector('.card-hp');
+      const atkVal = calcPermAtk(slot);
+      const hpVal = calcPermHp(slot);
+      atkInput.value = atkVal !== undefined ? atkVal : '';
+      hpInput.value = hpVal !== undefined ? hpVal : '';
+      syncSlotToPeer(slot);
+    }
+
+    /** 应用永久属性变化，保留临时改动 */
+    function applyPermStats(slot, oldPermAtk, oldPermHp) {
+      recordPermBase(slot);
+      if (oldPermAtk === undefined) oldPermAtk = calcPermAtk(slot);
+      if (oldPermHp === undefined) oldPermHp = calcPermHp(slot);
+      const curAtk = parseInt(slot.querySelector('.card-attack').value, 10) || 0;
+      const curHp = parseInt(slot.querySelector('.card-hp').value, 10) || 0;
+      const tempAtk = curAtk - oldPermAtk;
+      const tempHp = curHp - oldPermHp;
+      const newAtk = calcPermAtk(slot) + tempAtk;
+      const newHp = calcPermHp(slot) + tempHp;
+      slot.querySelector('.card-attack').value = newAtk !== undefined ? newAtk : '';
+      slot.querySelector('.card-hp').value = newHp !== undefined ? newHp : '';
+      updateAwakenedMark(slot);
+      syncSlotToPeer(slot);
+    }
+
+    /** 检查永久加成来源是否含"觉醒"，控制八角星标记 */
+    function updateAwakenedMark(slot) {
+      const allSources = [
+        ...(slot._permAtkMods || []).map(m => m.source),
+        ...(slot._permHpMods || []).map(m => m.source)
+      ];
+      const hasAwakening = allSources.some(s => s && s.includes('觉醒'));
+      if (hasAwakening) {
+        slot.classList.add('awakened');
+      } else {
+        slot.classList.remove('awakened');
+      }
+    }

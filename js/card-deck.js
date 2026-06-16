@@ -532,6 +532,31 @@
             broadcastSystemMsg(`${getPlayerName(playerId)}展开了幻境「${dbCard.name}」（耐久${dbCard.durability}）`);
           }
         }
+        // 觉醒法术牌：自动设置觉醒标记和永久属性
+        if (dbCard && dbCard.awakened && (dbCard.type === 'spell' || dbCard.type === '法术')) {
+          const zone = getPlayerZone(playerId);
+          if (zone) {
+            const slots = zone.querySelectorAll('.card-slot');
+            for (const slot of slots) {
+              const slotName = slot.querySelector('.card-name').value;
+              if (slotName === dbCard.owner || (dbCard.owner && slotName === card.name)) {
+                slot.classList.add('awakened');
+                if (typeof recordPermBase === 'function') recordPermBase(slot);
+                // 记录旧永久值
+                const oldAtk = typeof calcPermAtk === 'function' ? calcPermAtk(slot) : 0;
+                const oldHp = typeof calcPermHp === 'function' ? calcPermHp(slot) : 0;
+                if (!slot._permAtkMods) slot._permAtkMods = [];
+                if (!slot._permHpMods) slot._permHpMods = [];
+                slot._permAtkMods.push({ source: dbCard.name, value: dbCard.atkBonus || 0, layers: 1 });
+                slot._permHpMods.push({ source: dbCard.name, value: dbCard.hpBonus || 0, layers: 1 });
+                if (typeof applyPermStats === 'function') applyPermStats(slot, oldAtk, oldHp);
+                syncSlotToPeer(slot);
+                broadcastSystemMsg(`【系统】${getPlayerName(playerId)}为「${slotName}」使用了觉醒「${dbCard.name}」`);
+                break;
+              }
+            }
+          }
+        }
         // 若卡牌有灵咒，转移到战场同名卡牌槽
         if (card.curses && card.curses.length) {
           const zone = getPlayerZone(playerId);

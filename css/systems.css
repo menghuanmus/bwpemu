@@ -290,6 +290,24 @@
       word-break: break-word;
     }
 
+    /* 永久加成/效果记录（工具提示中） */
+    .card-tooltip__perm {
+      margin-top: 8px;
+      padding-top: 6px;
+      border-top: 1px dashed rgba(240,200,60,0.35);
+    }
+    .card-tooltip__perm-head {
+      font-size: 17px;
+      color: #f0d060;
+      font-weight: 600;
+      margin-bottom: 2px;
+    }
+    .card-tooltip__perm-item {
+      font-size: 17px;
+      color: #c0a060;
+      padding: 2px 0 2px 12px;
+    }
+
     .card-tooltip__effect {
       font-size: 18px;
       color: #b0a890;
