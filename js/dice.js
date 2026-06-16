@@ -678,23 +678,9 @@
         }
       } else {
         createKoOverlay(slot, '3');
-        // 气绝时重置到基础属性
-        const cardName = slot.querySelector('.card-name')?.value || '';
-        if (cardName && typeof CardDB !== 'undefined') {
-          const dbCard = CardDB.lookup(cardName);
-          if (dbCard) {
-            if (dbCard.attack !== undefined) {
-              slot.querySelector('.card-attack').value = dbCard.attack;
-            }
-            if (dbCard.hp !== undefined) {
-              slot.querySelector('.card-hp').value = dbCard.hp;
-            }
-          }
-        }
-        // 恢复永久加成
-        if (typeof resetToPermStats === 'function') {
-          resetToPermStats(slot);
-        }
+        // 气绝时清除形态，然后重置属性（清临时属性+恢复永久值）
+        slot._formName = ''; slot._formAtk = 0; slot._formHp = 0; slot._formAbility = '';
+        if (typeof resetToPermStats === 'function') resetToPermStats(slot);
         // 【特效】气绝动画
         if (typeof DamageEffects !== 'undefined' && DamageEffects.playKoEffect) {
           setTimeout(() => DamageEffects.playKoEffect(slot), 50);

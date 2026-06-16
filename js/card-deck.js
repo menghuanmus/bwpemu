@@ -40,6 +40,7 @@
 
     /** 获取当前查看者ID */
     function getViewerPlayerId() {
+      if (typeof isSpectator !== 'undefined' && isSpectator) return '0';
       if (typeof localPlayerId !== 'undefined' && localPlayerId && localPlayerId !== '0') {
         return localPlayerId;
       }
@@ -488,6 +489,8 @@
     }
 
     function removeFromHand(playerId, cardId, action) {
+      // 观众禁止任何手牌操作
+      if (typeof isSpectator !== 'undefined' && isSpectator) return;
       const state = getPlayerCardState(playerId);
       const index = state.hand.findIndex(card => card.id === cardId);
       if (index === -1) return;
@@ -505,11 +508,6 @@
 
       // 使用幻境牌时，自动添加到幻境/效果面板
       if (action === 'use') {
-        // 使用牌动画：飞行→翻转→预展示
-        if (typeof CardFlight !== 'undefined') {
-          CardFlight.playUseCardAnim(playerId, card);
-        }
-        // 【消息分组】开始：后续所有效果消息都归入这条主消息下
         const stackInfo = (card._maxStack > 0) ? `（${card._stack || 1}/${card._maxStack}）` : '';
         const curseInfo = (card.curses && card.curses.length) ? '（结附灵咒：' + card.curses.map(c => c.name + '×' + c.layers).join('、') + '）' : '';
         const mainMsg = `【系统】${getPlayerName(playerId)}${verb}「${card.name}」${stackInfo}${curseInfo}`;
@@ -520,6 +518,39 @@
         }
 
         const dbCard = CardDB.lookup(card.name);
+        let animTarget = null;
+
+        // 1) 形态牌：自动结附到所属式神
+        if (dbCard && dbCard.type === 'form' && dbCard.owner) {
+          const zone = getPlayerZone(playerId);
+          if (zone) {
+            const slots = zone.querySelectorAll('.card-slot');
+            for (const slot of slots) {
+              if (slot.querySelector('.card-name')?.value === dbCard.owner) {
+                const oldForm = slot._formName || '';
+                slot._formName = dbCard.name;
+                slot._formAtk = dbCard.attack || 0;
+                slot._formHp = dbCard.hp || 0;
+                slot._formAbility = dbCard.effect || '';
+                if (typeof recordPermBase === 'function') recordPermBase(slot);
+                const curAtk = parseInt(slot.querySelector('.card-attack')?.value, 10) || 0;
+                const oldFullAtk = typeof calcFullAtk === 'function' ? calcFullAtk(slot) : curAtk;
+                const manualAtk = curAtk - oldFullAtk;
+                const newFullAtk = (typeof calcFullAtk === 'function' ? calcFullAtk(slot) : 0) + manualAtk;
+                const newFullHp = typeof calcFullHp === 'function' ? calcFullHp(slot) : 0;
+                if (slot.querySelector('.card-attack')) slot.querySelector('.card-attack').value = newFullAtk || '';
+                if (slot.querySelector('.card-hp')) slot.querySelector('.card-hp').value = newFullHp || '';
+                syncSlotToPeer(slot);
+                const replaceMsg = oldForm ? `（替换了原有形态「${oldForm}」）` : '';
+                broadcastSystemMsg(`【系统】${getPlayerName(playerId)}为「${dbCard.owner}」结附了形态「${dbCard.name}」${replaceMsg}`);
+                animTarget = slot;
+                break;
+              }
+            }
+          }
+        }
+
+        // 2) 幻境牌：创建幻境条目
         if (dbCard && dbCard.type === 'realm') {
           const zone = getPlayerZone(playerId);
           if (zone) {
@@ -530,19 +561,20 @@
             panel.appendChild(item);
             syncEffectsState(playerId);
             broadcastSystemMsg(`${getPlayerName(playerId)}展开了幻境「${dbCard.name}」（耐久${dbCard.durability}）`);
+            animTarget = item;
           }
         }
-        // 觉醒法术牌：自动设置觉醒标记和永久属性
+
+        // 3) 觉醒牌：自动设置觉醒标记和永久属性
         if (dbCard && dbCard.awakened && (dbCard.type === 'spell' || dbCard.type === '法术')) {
           const zone = getPlayerZone(playerId);
           if (zone) {
             const slots = zone.querySelectorAll('.card-slot');
             for (const slot of slots) {
-              const slotName = slot.querySelector('.card-name').value;
-              if (slotName === dbCard.owner || (dbCard.owner && slotName === card.name)) {
+              const slotName = slot.querySelector('.card-name')?.value;
+              if (slotName === dbCard.owner) {
                 slot.classList.add('awakened');
                 if (typeof recordPermBase === 'function') recordPermBase(slot);
-                // 记录旧永久值
                 const oldAtk = typeof calcPermAtk === 'function' ? calcPermAtk(slot) : 0;
                 const oldHp = typeof calcPermHp === 'function' ? calcPermHp(slot) : 0;
                 if (!slot._permAtkMods) slot._permAtkMods = [];
@@ -552,10 +584,16 @@
                 if (typeof applyPermStats === 'function') applyPermStats(slot, oldAtk, oldHp);
                 syncSlotToPeer(slot);
                 broadcastSystemMsg(`【系统】${getPlayerName(playerId)}为「${slotName}」使用了觉醒「${dbCard.name}」`);
+                if (!animTarget) animTarget = slot;
                 break;
               }
             }
           }
+        }
+
+        // 4) 使用牌动画：飞行→翻转→预展示（如果有目标则追加飞行到目标阶段）
+        if (typeof CardFlight !== 'undefined') {
+          CardFlight.playUseCardAnim(playerId, card, { targetEl: animTarget });
         }
         // 若卡牌有灵咒，转移到战场同名卡牌槽
         if (card.curses && card.curses.length) {

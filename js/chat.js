@@ -131,14 +131,14 @@
     /* 系统消息：本地显示 + 同步给对方（单人模式仅本地） */
     function broadcastSystemMsg(msg) {
       console.log('[SysMsg]', msg);
-      // 联机：始终同步给对方
-      if (!isSoloMode && peerConn && peerConn.open) {
-        sendToPeer({ type: 'sysmsg', text: msg });
-      }
-      // 如果处于消息分组中，收集为子消息（本地显示由分组渲染）
+      // 如果处于消息分组中，收集为子消息（由 endMessageGroup 统一同步，不单独发送）
       if (_msgGroup) {
         _msgGroup.subMsgs.push(msg);
         return;
+      }
+      // 联机：同步给对方
+      if (!isSoloMode && peerConn && peerConn.open && typeof sendToPeer === 'function') {
+        sendToPeer({ type: 'sysmsg', text: msg });
       }
       addSystemChatMessage(msg);
     }

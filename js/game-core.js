@@ -274,6 +274,12 @@
         permHpMods: slot._permHpMods || [],
         permAbility: slot._permAbility || '',
         permEffects: slot._permEffects || [],
+        formName: slot._formName || '',
+        formAtk: slot._formAtk || 0,
+        formHp: slot._formHp || 0,
+        formAbility: slot._formAbility || '',
+        tempAtkMods: slot._tempAtkMods || [],
+        tempHpMods: slot._tempHpMods || [],
       };
     }
 
@@ -295,7 +301,14 @@
       slot._permHpMods = state.permHpMods || [];
       slot._permAbility = state.permAbility || '';
       slot._permEffects = state.permEffects || [];
-      // 觉醒标记（换位时跳过，减少卡顿）
+      // 形态
+      slot._formName = state.formName || '';
+      slot._formAtk = state.formAtk || 0;
+      slot._formHp = state.formHp || 0;
+      slot._formAbility = state.formAbility || '';
+      // 临时属性
+      slot._tempAtkMods = state.tempAtkMods || [];
+      slot._tempHpMods = state.tempHpMods || [];
       if (!slotSyncSuppress) updateAwakenedMark(slot);
       if (!slotSyncSuppress) syncSlotToPeer(slot);
     }
@@ -802,6 +815,8 @@
       const bonusBtn = e.target.closest('.card-badge--bonus');
       if (!bonusBtn) return;
       e.stopPropagation();
+      // 观众禁止打开加成弹窗
+      if (typeof isSpectator !== 'undefined' && isSpectator) return;
       const slot = bonusBtn.closest('.card-slot');
       if (!slot) return;
       if (typeof BonusPanel !== 'undefined') BonusPanel.open(slot);
@@ -822,46 +837,72 @@
       }
     }
 
-    /** 计算永久属性 = 基础 + 加成×层数 */
-    function calcPermAtk(slot) {
-      const base = slot._permBaseAtk !== undefined ? slot._permBaseAtk : 0;
-      return base + (slot._permAtkMods || []).reduce((s, m) => s + (m.value || 0) * (m.layers || 1), 0);
+    /** 获取有效基础（有形态→形态值，无→CardDB原始值） */
+    function effectiveBaseAtk(slot) {
+      if (slot._formName) return slot._formAtk || 0;
+      return slot._permBaseAtk !== undefined ? slot._permBaseAtk : 0;
     }
-    function calcPermHp(slot) {
-      const base = slot._permBaseHp !== undefined ? slot._permBaseHp : 0;
-      return base + (slot._permHpMods || []).reduce((s, m) => s + (m.value || 0) * (m.layers || 1), 0);
+    function effectiveBaseHp(slot) {
+      if (slot._formName) return slot._formHp || 0;
+      return slot._permBaseHp !== undefined ? slot._permBaseHp : 0;
     }
 
-    /** 重置当前属性到永久值 */
+    /** 计算永久属性 = 有效基础 + 永久加成×层数 */
+    function calcPermAtk(slot) {
+      return effectiveBaseAtk(slot) + (slot._permAtkMods || []).reduce((s, m) => s + (m.value || 0) * (m.layers || 1), 0);
+    }
+    function calcPermHp(slot) {
+      return effectiveBaseHp(slot) + (slot._permHpMods || []).reduce((s, m) => s + (m.value || 0) * (m.layers || 1), 0);
+    }
+
+    /** 计算临时属性总值 */
+    function calcTempAtk(slot) { return (slot._tempAtkMods || []).reduce((s, m) => s + (m.value || 0) * (m.layers || 1), 0); }
+    function calcTempHp(slot) { return (slot._tempHpMods || []).reduce((s, m) => s + (m.value || 0) * (m.layers || 1), 0); }
+
+    /** 计算完整属性 = 永久 + 临时 */
+    function calcFullAtk(slot) { return calcPermAtk(slot) + calcTempAtk(slot); }
+    function calcFullHp(slot) { return calcPermHp(slot) + calcTempHp(slot); }
+
+    /** 重置：清除临时属性+手动差值，设当前=永久值 */
     function resetToPermStats(slot) {
       recordPermBase(slot);
-      const atkInput = slot.querySelector('.card-attack');
-      const hpInput = slot.querySelector('.card-hp');
-      const atkVal = calcPermAtk(slot);
-      const hpVal = calcPermHp(slot);
-      atkInput.value = atkVal !== undefined ? atkVal : '';
-      hpInput.value = hpVal !== undefined ? hpVal : '';
+      slot._tempAtkMods = []; slot._tempHpMods = [];
+      slot.querySelector('.card-attack').value = calcPermAtk(slot) || '';
+      slot.querySelector('.card-hp').value = calcPermHp(slot) || '';
       syncSlotToPeer(slot);
     }
 
-    /** 应用永久属性变化，保留临时改动 */
+    /** 应用永久属性变化，保留临时属性和手动差值 */
     function applyPermStats(slot, oldPermAtk, oldPermHp) {
       recordPermBase(slot);
       if (oldPermAtk === undefined) oldPermAtk = calcPermAtk(slot);
       if (oldPermHp === undefined) oldPermHp = calcPermHp(slot);
       const curAtk = parseInt(slot.querySelector('.card-attack').value, 10) || 0;
       const curHp = parseInt(slot.querySelector('.card-hp').value, 10) || 0;
-      const tempAtk = curAtk - oldPermAtk;
-      const tempHp = curHp - oldPermHp;
-      const newAtk = calcPermAtk(slot) + tempAtk;
-      const newHp = calcPermHp(slot) + tempHp;
-      slot.querySelector('.card-attack').value = newAtk !== undefined ? newAtk : '';
-      slot.querySelector('.card-hp').value = newHp !== undefined ? newHp : '';
+      const oldFullAtk = oldPermAtk + calcTempAtk(slot);
+      const oldFullHp = oldPermHp + calcTempHp(slot);
+      const manualAtk = curAtk - oldFullAtk;
+      const manualHp = curHp - oldFullHp;
+      const newFullAtk = calcPermAtk(slot) + calcTempAtk(slot);
+      const newFullHp = calcPermHp(slot) + calcTempHp(slot);
+      slot.querySelector('.card-attack').value = (newFullAtk + manualAtk) || '';
+      slot.querySelector('.card-hp').value = (newFullHp + manualHp) || '';
       updateAwakenedMark(slot);
       syncSlotToPeer(slot);
     }
 
-    /** 检查永久加成来源是否含"觉醒"，控制八角星标记 */
+    /** 应用任意属性变化（保留手动差值），用于临时属性变化 */
+    function applyStatsChange(slot, oldFullAtk, oldFullHp) {
+      const curAtk = parseInt(slot.querySelector('.card-attack').value, 10) || 0;
+      const curHp = parseInt(slot.querySelector('.card-hp').value, 10) || 0;
+      const manualAtk = curAtk - oldFullAtk;
+      const manualHp = curHp - oldFullHp;
+      const newFullAtk = calcFullAtk(slot);
+      const newFullHp = calcFullHp(slot);
+      slot.querySelector('.card-attack').value = (newFullAtk + manualAtk) || '';
+      slot.querySelector('.card-hp').value = (newFullHp + manualHp) || '';
+      syncSlotToPeer(slot);
+    }
     function updateAwakenedMark(slot) {
       const allSources = [
         ...(slot._permAtkMods || []).map(m => m.source),

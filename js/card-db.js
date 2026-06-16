@@ -11,6 +11,7 @@
     // ================================================================
     const CardDB = (() => {
       const _cards = new Map();
+      const _keywords = new Map();
       const STORAGE_KEY = 'bwp_custom_cards';
 
       async function init() {
@@ -22,6 +23,14 @@
           console.log(`[CardDB] ✅ data/cards.js 加载完成，共 ${CARD_DB_DATA.length} 张卡牌`);
         } else {
           console.error('[CardDB] ❌ 未找到 CARD_DB_DATA，请检查 index.html 中是否引用了 data/cards.js');
+        }
+
+        // 加载关键词档案
+        if (typeof KEYWORD_DB_DATA !== 'undefined' && Array.isArray(KEYWORD_DB_DATA)) {
+          for (const kw of KEYWORD_DB_DATA) {
+            _keywords.set(kw.name, kw);
+          }
+          console.log(`[CardDB] ✅ 关键词档案加载完成，共 ${KEYWORD_DB_DATA.length} 条`);
         }
 
         // 加载本地自定义卡牌（最后加载，优先级最高）
@@ -122,6 +131,12 @@
       function size() { return _cards.size; }
       function getAll() { return [..._cards.values()]; }
 
-      return { init, lookup, addCustom, removeCustom, exportCustom, importCustom, isReady, size, getAll };
+      /** 查询关键词档案 */
+      function lookupKeyword(name) {
+        if (!name) return null;
+        return _keywords.get(name) || null;
+      }
+
+      return { init, lookup, addCustom, removeCustom, exportCustom, importCustom, isReady, size, getAll, lookupKeyword };
     })();
 

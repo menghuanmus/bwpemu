@@ -13,10 +13,14 @@
   background: linear-gradient(180deg, #2a2218, #1a1208);
   border: 2px solid rgba(220,180,80,0.5);
   border-radius: 12px;
-  width: 520px; max-width: 97vw; max-height: 88vh;
+  width: 780px; max-width: 97vw; max-height: 88vh;
   overflow-y: auto; color: #f0e0c0; font-size: 14px;
   box-shadow: 0 8px 40px rgba(0,0,0,0.5);
 }
+
+/* 两栏布局 */
+.bonus-columns { display: flex; gap: 14px; }
+.bonus-col { flex: 1; min-width: 0; }
 
 .bonus-dialog__header {
   padding: 14px 20px 10px;
@@ -36,15 +40,14 @@
 
 /* 信息行 */
 .bonus-info {
-  display: flex; gap: 10px; align-items: center;
+  display: flex; gap: 10px; align-items: center; justify-content: center;
   padding: 10px 14px; margin-bottom: 12px;
   background: rgba(220,180,80,0.08);
   border: 1px solid rgba(220,180,80,0.2);
   border-radius: 8px; font-size: 15px;
 }
-.bonus-info__player { color: #c0a060; }
 .bonus-info__name { font-weight: bold; color: #f0d080; font-size: 17px; }
-.bonus-info__stats { margin-left: auto; color: #d0b060; }
+.bonus-info__stats { color: #d0b060; }
 
 /* 分区 */
 .bonus-section { margin-bottom: 16px; }
@@ -138,3 +141,47 @@
 
 /* 确保 tooltip 在加成弹窗之上 */
 #card-tooltip { z-index: 2100; }
+
+/* 形态栏 */
+.bonus-form-active {
+  padding: 8px; background: rgba(220,180,80,0.08);
+  border: 1px solid rgba(220,180,80,0.2); border-radius: 6px;
+}
+.bonus-form-info { font-size: 14px; margin-bottom: 4px; display: flex; align-items: center; gap: 4px; flex-wrap: wrap; }
+.bonus-form-info strong { color: #f0d060; }
+.bonus-form-stat-input {
+  width: 48px; padding: 3px 4px; text-align: center;
+  border: 1px solid rgba(220,180,80,0.35); border-radius: 4px;
+  background: rgba(20,15,5,0.6); color: #f0e0c0; font-size: 13px;
+  font-weight: bold;
+  -moz-appearance: textfield; appearance: textfield;
+}
+.bonus-form-stat-input::-webkit-inner-spin-button,
+.bonus-form-stat-input::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+.bonus-form-stat-input:focus { outline: none; border-color: rgba(240,200,60,0.7); box-shadow: 0 0 4px rgba(240,200,60,0.3); }
+.bonus-form-ability { font-size: 13px; color: #b0a080; margin-bottom: 6px; }
+.bonus-form-empty { }
+.bonus-form-empty .bonus-ability-input { margin-top: 4px; }
+
+/* 快捷关键词按钮 */
+.bonus-btn--keyword {
+  background: rgba(220,180,80,0.12); border: 1px solid rgba(220,180,80,0.3);
+  color: #c0a040; cursor: pointer; font-size: 12px; padding: 2px 8px;
+  border-radius: 4px; margin-left: 8px; font-weight: normal;
+  vertical-align: middle;
+}
+.bonus-btn--keyword:hover { background: rgba(220,180,80,0.25); color: #f0d060; }
+
+/* 关键词下拉面板 */
+.bonus-keyword-picker {
+  display: grid; grid-template-columns: repeat(6, 1fr); gap: 5px;
+  padding: 8px; margin-bottom: 8px;
+  background: rgba(20,15,5,0.8); border: 1px solid rgba(220,180,80,0.3);
+  border-radius: 6px;
+}
+.bonus-keyword-btn {
+  background: rgba(220,180,80,0.1); border: 1px solid rgba(220,180,80,0.25);
+  color: #d0b060; cursor: pointer; font-size: 13px; padding: 6px 4px;
+  border-radius: 4px; white-space: nowrap; text-align: center;
+}
+.bonus-keyword-btn:hover { background: rgba(220,180,80,0.3); color: #f0d060; border-color: rgba(240,200,60,0.5); }

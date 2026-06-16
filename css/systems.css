@@ -317,6 +317,22 @@
       word-break: break-word;
     }
 
+    /* 当前属性总结（浮窗最底部） */
+    .card-tooltip__summary {
+      margin-top: 10px;
+    }
+    .card-tooltip__summary-divider {
+      border: none;
+      border-top: 1px solid rgba(240, 200, 60, 0.5);
+      margin-bottom: 8px;
+    }
+    .card-tooltip__summary-body {
+      font-size: 18px;
+      font-weight: 600;
+      color: #e0d8c0;
+      text-align: center;
+    }
+
     /* ================================================================
        占卜对话框 (Divine Dialog)
        ================================================================ */

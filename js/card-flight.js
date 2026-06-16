@@ -245,14 +245,18 @@ const CardFlight = (() => {
   }
 
   /**
-   * 使用牌的动画：卡牌从手牌飞出放大 → 翻转 → 预展示出现 → 6秒后消失
+   * 使用牌的动画：卡牌从手牌飞出放大 → 翻转 → 预展示出现
+   *   若提供 targetEl，预展示1秒后卡牌飞向目标（缩小+粒子特效）
    * @param {string} playerId
    * @param {Object} handCard - 手牌中的卡牌对象（含 _stack/_maxStack）
+   * @param {Object} [opts]
+   * @param {HTMLElement} [opts.targetEl] - 飞行目标元素（觉醒→式神框、形态→式神框、幻境→条目）
    */
-  function playUseCardAnim(playerId, handCard) {
+  function playUseCardAnim(playerId, handCard, opts = {}) {
     if (typeof gsap === 'undefined') return;
     const cardName = handCard.name;
     const db = (typeof CardDB !== 'undefined') ? CardDB.lookup(cardName) : null;
+    const targetEl = opts.targetEl || null;
 
     const handBtn = getPlayerBtn(playerId, 'hand');
     if (!handBtn) return;
@@ -269,6 +273,7 @@ const CardFlight = (() => {
     const centerX = previewLeft + 100;
     const centerY = previewTop + 140;
     const dst = { x: centerX - 24, y: centerY - 33 };
+    const previewCenter = { x: centerX, y: centerY };
 
     preview.style.left = previewLeft + 'px';
     preview.style.top = isP1 ? previewTop + 'px' : 'auto';
@@ -308,10 +313,19 @@ const CardFlight = (() => {
     });
     _playerPreview[playerId] = master;
 
-    // 联机广播
+    // 联机广播（含目标信息，供远端重建飞行到目标阶段）
+    let targetInfo = null;
+    if (targetEl) {
+      if (targetEl.classList.contains('card-slot')) {
+        targetInfo = { type: 'slot', playerId, slotName: targetEl.querySelector('.card-name')?.value || '' };
+      } else if (targetEl.classList.contains('effect-item')) {
+        targetInfo = { type: 'realm', playerId, realmName: targetEl.querySelector('.effect-name')?.value || '' };
+      }
+    }
     _broadcastAnim({
       action: 'play-card', playerId, cardName,
-      stack: handCard._stack, maxStack: handCard._maxStack
+      stack: handCard._stack, maxStack: handCard._maxStack,
+      target: targetInfo
     });
 
     // 阶段1：飞行 + 放大到预展示大小（~4x）
@@ -334,13 +348,75 @@ const CardFlight = (() => {
         duration: 0.35, ease: 'back.out(1.5)'
       }, 0.8);
 
-    // 阶段3：6秒后预展示消失
-    master.to(preview, {
-      scale: 0.9, opacity: 0,
-      duration: 0.4, ease: 'power2.in'
-    }, 6.8);
+    if (targetEl) {
+      // 阶段3：预展示2秒后，卡牌从预展示飞向目标（保持式神槽大小 + 到达粒子特效）
+      const targetCenter = _centerOf(targetEl);
+      const flightCard = _createCard();
+      _playerCards[playerId].push(flightCard);
+      flightCard.style.transformOrigin = 'center center';
 
-    master.set(overlay, { hidden: true }, 7.2);
+      const flightStart = 2.8;   // 预展示0.8s出现 + 2s
+      const flightDur  = 0.55;
+      const arriveTime = flightStart + flightDur; // 3.35s
+
+      // 飞行：从预览中心飞到目标中心，从预览大缩小到式神槽大小（~1.6x）
+      master.fromTo(flightCard,
+        { x: previewCenter.x - 24, y: previewCenter.y - 33, scale: 3, rotation: 0, opacity: 0 },
+        { x: targetCenter.x - 24, y: targetCenter.y - 33, scale: 1.6, rotation: 0, opacity: 0.9,
+          duration: flightDur, ease: 'power2.in'
+        }, flightStart);
+
+      // 到达后粒子特效 + 消失
+      master.call(() => {
+        _burstParticles(targetEl);
+      }, null, arriveTime);
+
+      master.to(flightCard, {
+        scale: 0.3, opacity: 0,
+        duration: 0.2, ease: 'power2.in'
+      }, arriveTime);
+
+      master.call(() => {
+        flightCard.remove();
+        _playerCards[playerId] = _playerCards[playerId].filter(c => c !== flightCard);
+      }, null, arriveTime + 0.2);
+
+      // 预展示在飞行开始后渐隐
+      master.to(preview, {
+        scale: 0.85, opacity: 0,
+        duration: 0.35, ease: 'power2.in'
+      }, flightStart + 0.2);
+
+      master.set(overlay, { hidden: true }, flightStart + 0.6);
+    } else {
+      // 无目标：6秒后预展示消失
+      master.to(preview, {
+        scale: 0.9, opacity: 0,
+        duration: 0.4, ease: 'power2.in'
+      }, 6.8);
+
+      master.set(overlay, { hidden: true }, 7.2);
+    }
+  }
+
+  /** 粒子爆发特效（到达目标时） */
+  function _burstParticles(targetEl) {
+    if (!targetEl) return;
+    const rect = targetEl.getBoundingClientRect();
+    const cx = rect.left + rect.width / 2;
+    const cy = rect.top + rect.height / 2;
+    const count = 8;
+    for (let i = 0; i < count; i++) {
+      const p = document.createElement('div');
+      p.className = 'card-flight-particle';
+      const angle = (Math.PI * 2 * i) / count + (Math.random() - 0.5) * 0.4;
+      p.style.left = cx + 'px';
+      p.style.top = cy + 'px';
+      p.style.setProperty('--dx', Math.cos(angle) * (25 + Math.random() * 20) + 'px');
+      p.style.setProperty('--dy', Math.sin(angle) * (25 + Math.random() * 20) + 'px');
+      document.body.appendChild(p);
+      p.addEventListener('animationend', () => p.remove());
+    }
   }
 
   /** 填充预展示卡牌内容 */
@@ -461,6 +537,7 @@ const CardFlight = (() => {
         const centerX = previewLeft + 100;
         const centerY = previewTop + 140;
         const dst = { x: centerX - 24, y: centerY - 33 };
+        const previewCenter = { x: centerX, y: centerY };
 
         preview.style.left = previewLeft + 'px';
         preview.style.top = isP1 ? previewTop + 'px' : 'auto';
@@ -499,11 +576,65 @@ const CardFlight = (() => {
         master.to(card, { rotationY: 90, opacity: 0, duration: 0.3, ease: 'power2.in' }, 0.5);
         master.set(overlay, { hidden: false }, 0.8);
         master.fromTo(preview, { scale: 0.8, opacity: 0, rotationY: -90 }, { scale: 1, opacity: 1, rotationY: 0, duration: 0.35, ease: 'back.out(1.5)' }, 0.8);
-        master.to(preview, { scale: 0.9, opacity: 0, duration: 0.4, ease: 'power2.in' }, 6.8);
-        master.set(overlay, { hidden: true }, 7.2);
+
+        // 远端也重建飞行到目标阶段
+        let remoteTarget = null;
+        if (data.target) {
+          remoteTarget = _findRemoteTarget(data.target);
+        }
+        if (remoteTarget) {
+          const targetCenter = _centerOf(remoteTarget);
+          const flightCard = _createCard();
+          _playerCards[data.playerId].push(flightCard);
+          flightCard.style.transformOrigin = 'center center';
+          const flightStart = 2.8;
+          const flightDur  = 0.55;
+          const arriveTime = flightStart + flightDur;
+
+          master.fromTo(flightCard,
+            { x: previewCenter.x - 24, y: previewCenter.y - 33, scale: 3, rotation: 0, opacity: 0 },
+            { x: targetCenter.x - 24, y: targetCenter.y - 33, scale: 1.6, rotation: 0, opacity: 0.9,
+              duration: flightDur, ease: 'power2.in'
+            }, flightStart);
+
+          master.call(() => { _burstParticles(remoteTarget); }, null, arriveTime);
+          master.to(flightCard, { scale: 0.3, opacity: 0, duration: 0.2, ease: 'power2.in' }, arriveTime);
+          master.call(() => {
+            flightCard.remove();
+            _playerCards[data.playerId] = _playerCards[data.playerId].filter(c => c !== flightCard);
+          }, null, arriveTime + 0.2);
+
+          master.to(preview, { scale: 0.85, opacity: 0, duration: 0.35, ease: 'power2.in' }, flightStart + 0.2);
+          master.set(overlay, { hidden: true }, flightStart + 0.6);
+        } else {
+          master.to(preview, { scale: 0.9, opacity: 0, duration: 0.4, ease: 'power2.in' }, 6.8);
+          master.set(overlay, { hidden: true }, 7.2);
+        }
         break;
       }
     }
+  }
+
+  /** 远端根据目标信息找回 DOM 元素 */
+  function _findRemoteTarget(info) {
+    if (!info) return null;
+    const zone = document.querySelector(`.player-zone[data-player="${info.playerId}"]`);
+    if (!zone) return null;
+    if (info.type === 'slot') {
+      const slots = zone.querySelectorAll('.card-slot');
+      for (const slot of slots) {
+        if (slot.querySelector('.card-name')?.value === info.slotName) return slot;
+      }
+      return slots[0] || null;
+    }
+    if (info.type === 'realm') {
+      const items = zone.querySelectorAll('.effect-item');
+      for (const item of items) {
+        if (item.querySelector('.effect-name')?.value === info.realmName) return item;
+      }
+      return items[items.length - 1] || null;
+    }
+    return null;
   }
 
   /** 将动画目标描述解析为元素或坐标 */

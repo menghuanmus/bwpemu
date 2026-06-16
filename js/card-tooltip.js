@@ -261,50 +261,75 @@
         effectEl.textContent = effectText;
         effectEl.style.display = effectText ? '' : 'none';
 
-        // 永久加成记录
-        let permHTML = '';
+        // 形态、永久属性、临时属性、效果记录
+        let extraHTML = '';
         if (currentSlot) {
-          const mods = currentSlot._permAtkMods || [];
-          const hpMods = currentSlot._permHpMods || [];
-          const effects = currentSlot._permEffects || [];
-          const allSources = new Set();
-          mods.forEach(m => { if (m.source) allSources.add(m.source); });
-          hpMods.forEach(m => { if (m.source) allSources.add(m.source); });
+          const parts = [];
+          // 1. 形态
+          if (currentSlot._formName) {
+            parts.push(`<div class="card-tooltip__perm-head">🎴 形态：${escapeHTML(currentSlot._formName)} <span style="color:#ff9070;">⚔ 攻击:${currentSlot._formAtk || 0}</span> <span style="color:#70d070;">❤ 生命:${currentSlot._formHp || 0}</span></div>`);
+            if (currentSlot._formAbility) parts.push(`<div class="card-tooltip__perm-item">${escapeHTML(currentSlot._formAbility)}</div>`);
+          }
+          // 2. 永久属性
           const permAtk = typeof calcPermAtk === 'function' ? calcPermAtk(currentSlot) : 0;
           const permHp = typeof calcPermHp === 'function' ? calcPermHp(currentSlot) : 0;
-          if (allSources.size > 0 || effects.length > 0) {
-            permHTML = '<div class="card-tooltip__perm">';
-            if (allSources.size > 0) {
-              permHTML += `<div class="card-tooltip__perm-head">⚔️ 永久属性（当前：<span style="color:#ff9070;">⚔ 攻击:${permAtk}</span> <span style="color:#70d070;">  ❤ 生命:${permHp}</span>）</div>`;
-              allSources.forEach(src => {
-                const am = mods.find(m => m.source === src);
-                const hm = hpMods.find(m => m.source === src);
-                const layers = (am && am.layers) || (hm && hm.layers) || 1;
-                const layersText = layers > 1 ? ` ×${layers}` : '';
-                const atkVal = am ? (am.value >= 0 ? '+' + am.value : am.value) : '';
-                const hpVal = hm ? (hm.value >= 0 ? '+' + hm.value : hm.value) : '';
-                permHTML += `<div class="card-tooltip__perm-item"><span>${escapeHTML(src)}${layersText}：</span>`;
-                if (atkVal) permHTML += `<span style="color:#ff9070;">攻击${atkVal}</span>`;
-                if (atkVal && hpVal) permHTML += '、';
-                if (hpVal) permHTML += `<span style="color:#70d070;">生命${hpVal}</span>`;
-                permHTML += '</div>';
-              });
-            }
-            // 效果记录
-            if (effects.length > 0) {
-              permHTML += '<div class="card-tooltip__perm-head" style="margin-top:6px;">📋 效果记录</div>';
-              effects.forEach(ef => {
-                const layers = ef.layers || 1;
-                const layersText = layers > 1 ? ` ×${layers}` : '';
-                permHTML += `<div class="card-tooltip__perm-item"><span>${escapeHTML(ef.source)}${layersText}：</span><span style="color:#b0a890;">${escapeHTML(ef.desc)}</span></div>`;
-              });
-            }
-            permHTML += '</div>';
+          const mods = currentSlot._permAtkMods || [];
+          const hpMods = currentSlot._permHpMods || [];
+          const allPermSources = new Set();
+          mods.forEach(m => { if (m.source) allPermSources.add(m.source); });
+          hpMods.forEach(m => { if (m.source) allPermSources.add(m.source); });
+          if (allPermSources.size > 0) {
+            let s = `<div class="card-tooltip__perm-head">⚔️ 永久属性</div>`;
+            allPermSources.forEach(src => {
+              const am = mods.find(m => m.source === src);
+              const hm = hpMods.find(m => m.source === src);
+              const layers = (am && am.layers) || (hm && hm.layers) || 1;
+              const layersText = layers > 1 ? ` ×${layers}` : '';
+              s += `<div class="card-tooltip__perm-item"><span>${escapeHTML(src)}${layersText}：</span>`;
+              if (am && am.value) s += `<span style="color:#ff9070;">攻击${am.value >= 0 ? '+' : ''}${am.value}</span>`;
+              if (am && am.value && hm && hm.value) s += '、';
+              if (hm && hm.value) s += `<span style="color:#70d070;">生命${hm.value >= 0 ? '+' : ''}${hm.value}</span>`;
+              s += '</div>';
+            });
+            parts.push(s);
           }
+          // 3. 临时属性
+          const tempMods = currentSlot._tempAtkMods || [];
+          const tempHpMods = currentSlot._tempHpMods || [];
+          const allTempSources = new Set();
+          tempMods.forEach(m => { if (m.source) allTempSources.add(m.source); });
+          tempHpMods.forEach(m => { if (m.source) allTempSources.add(m.source); });
+          if (allTempSources.size > 0) {
+            let s = '<div class="card-tooltip__perm-head">⏳ 临时属性</div>';
+            allTempSources.forEach(src => {
+              const am = tempMods.find(m => m.source === src);
+              const hm = tempHpMods.find(m => m.source === src);
+              const layers = (am && am.layers) || (hm && hm.layers) || 1;
+              const layersText = layers > 1 ? ` ×${layers}` : '';
+              s += `<div class="card-tooltip__perm-item"><span>${escapeHTML(src)}${layersText}：</span>`;
+              if (am && am.value) s += `<span style="color:#ff9070;">攻击${am.value >= 0 ? '+' : ''}${am.value}</span>`;
+              if (am && am.value && hm && hm.value) s += '、';
+              if (hm && hm.value) s += `<span style="color:#70d070;">生命${hm.value >= 0 ? '+' : ''}${hm.value}</span>`;
+              s += '</div>';
+            });
+            parts.push(s);
+          }
+          // 4. 效果记录
+          const effects = currentSlot._permEffects || [];
+          if (effects.length > 0) {
+            let s = '<div class="card-tooltip__perm-head" style="margin-top:6px;">📋 效果记录</div>';
+            effects.forEach(ef => {
+              const layers = ef.layers || 1;
+              const layersText = layers > 1 ? ` ×${layers}` : '';
+              s += `<div class="card-tooltip__perm-item"><span>${escapeHTML(ef.source)}${layersText}：</span><span style="color:#b0a890;">${escapeHTML(ef.desc)}</span></div>`;
+            });
+            parts.push(s);
+          }
+          if (parts.length > 0) extraHTML = '<div class="card-tooltip__perm">' + parts.join('') + '</div>';
         }
         // 插入或更新永久信息区
         let permEl = el.querySelector('.card-tooltip__perm');
-        if (permHTML) {
+        if (extraHTML) {
           if (!permEl) {
             permEl = document.createElement('div');
             permEl.className = 'card-tooltip__perm';
@@ -315,7 +340,7 @@
               el.appendChild(permEl);
             }
           }
-          permEl.outerHTML = permHTML;
+          permEl.outerHTML = extraHTML;
         } else if (permEl) {
           permEl.remove();
         }
@@ -351,6 +376,27 @@
           cursesEl.outerHTML = cursesHTML;
         } else if (cursesEl) {
           cursesEl.remove();
+        }
+
+        // 当前属性总结（最底部，分割线后大字显示）
+        let summaryHTML = '';
+        if (currentSlot) {
+          const fullAtk = typeof calcFullAtk === 'function' ? calcFullAtk(currentSlot) : (currentSlot._atk || 0);
+          const fullHp = typeof calcFullHp === 'function' ? calcFullHp(currentSlot) : (currentSlot._hp || 0);
+          summaryHTML = `<div class="card-tooltip__summary">
+            <div class="card-tooltip__summary-divider"></div>
+            <div class="card-tooltip__summary-body">当前属性：<span style="color:#ff9070;">⚔ 攻击：${fullAtk}</span> <span style="color:#70d070;">❤ 生命：${fullHp}</span></div>
+          </div>`;
+        }
+        let summaryEl = el.querySelector('.card-tooltip__summary');
+        if (summaryHTML) {
+          if (!summaryEl) {
+            summaryEl = document.createElement('div');
+            el.appendChild(summaryEl);
+          }
+          summaryEl.outerHTML = summaryHTML;
+        } else if (summaryEl) {
+          summaryEl.remove();
         }
       }
 
