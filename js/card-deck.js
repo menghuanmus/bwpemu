@@ -565,8 +565,8 @@
           }
         }
 
-        // 3) 觉醒牌：自动设置觉醒标记和永久属性
-        if (dbCard && dbCard.awakened && (dbCard.type === 'spell' || dbCard.type === '法术')) {
+        // 3) 觉醒牌（含法术型和幻境型）：自动设置觉醒标记和永久属性
+        if (dbCard && dbCard.awakened && (dbCard.type === 'spell' || dbCard.type === '法术' || dbCard.type === 'realm')) {
           const zone = getPlayerZone(playerId);
           if (zone) {
             const slots = zone.querySelectorAll('.card-slot');
@@ -579,9 +579,18 @@
                 const oldHp = typeof calcPermHp === 'function' ? calcPermHp(slot) : 0;
                 if (!slot._permAtkMods) slot._permAtkMods = [];
                 if (!slot._permHpMods) slot._permHpMods = [];
-                slot._permAtkMods.push({ source: dbCard.name, value: dbCard.atkBonus || 0, layers: 1 });
-                slot._permHpMods.push({ source: dbCard.name, value: dbCard.hpBonus || 0, layers: 1 });
+                const awakenSource = dbCard.name.includes('觉醒') ? dbCard.name : `${dbCard.name}（觉醒）`;
+                slot._permAtkMods.push({ source: awakenSource, value: dbCard.atkBonus || 0, layers: 1 });
+                slot._permHpMods.push({ source: awakenSource, value: dbCard.hpBonus || 0, layers: 1 });
                 if (typeof applyPermStats === 'function') applyPermStats(slot, oldAtk, oldHp);
+                // 提取觉醒后的能力描述（"觉醒："之后的全部文本）
+                const rawEffect = dbCard.effect || '';
+                const awakenIdx = rawEffect.indexOf('觉醒：');
+                if (awakenIdx >= 0) {
+                  slot._permAbility = rawEffect.slice(awakenIdx + 3).trim();
+                } else {
+                  slot._permAbility = rawEffect;
+                }
                 syncSlotToPeer(slot);
                 broadcastSystemMsg(`【系统】${getPlayerName(playerId)}为「${slotName}」使用了觉醒「${dbCard.name}」`);
                 if (!animTarget) animTarget = slot;

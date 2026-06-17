@@ -258,7 +258,8 @@
         } else {
           effectText = card.effect || card.ability || '';
         }
-        effectEl.textContent = effectText;
+        const safeText = escapeHTML(effectText).replace(/\n/g, '<br>');
+        effectEl.innerHTML = safeText;
         effectEl.style.display = effectText ? '' : 'none';
 
         // 形态、永久属性、临时属性、效果记录
@@ -286,9 +287,9 @@
               const layers = (am && am.layers) || (hm && hm.layers) || 1;
               const layersText = layers > 1 ? ` ×${layers}` : '';
               s += `<div class="card-tooltip__perm-item"><span>${escapeHTML(src)}${layersText}：</span>`;
-              if (am && am.value) s += `<span style="color:#ff9070;">攻击${am.value >= 0 ? '+' : ''}${am.value}</span>`;
-              if (am && am.value && hm && hm.value) s += '、';
-              if (hm && hm.value) s += `<span style="color:#70d070;">生命${hm.value >= 0 ? '+' : ''}${hm.value}</span>`;
+              if (am) s += `<span style="color:#ff9070;">攻击${(am.value || 0) >= 0 ? '+' : ''}${am.value || 0}</span>`;
+              if (am && hm) s += '、';
+              if (hm) s += `<span style="color:#70d070;">生命${(hm.value || 0) >= 0 ? '+' : ''}${hm.value || 0}</span>`;
               s += '</div>';
             });
             parts.push(s);
@@ -307,9 +308,9 @@
               const layers = (am && am.layers) || (hm && hm.layers) || 1;
               const layersText = layers > 1 ? ` ×${layers}` : '';
               s += `<div class="card-tooltip__perm-item"><span>${escapeHTML(src)}${layersText}：</span>`;
-              if (am && am.value) s += `<span style="color:#ff9070;">攻击${am.value >= 0 ? '+' : ''}${am.value}</span>`;
-              if (am && am.value && hm && hm.value) s += '、';
-              if (hm && hm.value) s += `<span style="color:#70d070;">生命${hm.value >= 0 ? '+' : ''}${hm.value}</span>`;
+              if (am) s += `<span style="color:#ff9070;">攻击${(am.value || 0) >= 0 ? '+' : ''}${am.value || 0}</span>`;
+              if (am && hm) s += '、';
+              if (hm) s += `<span style="color:#70d070;">生命${(hm.value || 0) >= 0 ? '+' : ''}${hm.value || 0}</span>`;
               s += '</div>';
             });
             parts.push(s);
@@ -378,9 +379,15 @@
           cursesEl.remove();
         }
 
-        // 当前属性总结（最底部，分割线后大字显示）
+        // 当前属性总结（最底部，分割线后大字显示）—— 仅当有加成变动时显示
         let summaryHTML = '';
-        if (currentSlot) {
+        if (currentSlot && (
+            currentSlot._formName ||
+            (currentSlot._permAtkMods && currentSlot._permAtkMods.length) ||
+            (currentSlot._permHpMods && currentSlot._permHpMods.length) ||
+            (currentSlot._tempAtkMods && currentSlot._tempAtkMods.length) ||
+            (currentSlot._tempHpMods && currentSlot._tempHpMods.length)
+        )) {
           const fullAtk = typeof calcFullAtk === 'function' ? calcFullAtk(currentSlot) : (currentSlot._atk || 0);
           const fullHp = typeof calcFullHp === 'function' ? calcFullHp(currentSlot) : (currentSlot._hp || 0);
           summaryHTML = `<div class="card-tooltip__summary">

@@ -63,6 +63,7 @@
 //    ability       式神/召唤物基础能力描述文本
 //    effect        卡牌效果描述文本（非式神）
 //    awakened      是否为觉醒牌（true/false）
+//    rarity        稀有度：R / SR / SSR（式神、召唤物、灵咒不需要）
 //    atkBonus      攻击加成
 //    atkPenalty    攻击减成
 //    hpBonus       生命加成
@@ -328,7 +329,33 @@ var CARD_DB_DATA = [
   },
 
   // ── 辉夜姬 ──
-  { "name":"龙首之玉", "type":"realm", "owner":"辉夜姬", "level":2, "durability":5, "effect":"每个回合结束时，投射：造成1点伤害。若此牌耐久≥10，额外对敌方所有准备区式神造成1点伤害。" },
+  { "name":"龙首之玉", "type":"realm", "owner":"辉夜姬", "level":2, "durability":5, "rarity":"SR", "effect":"每个回合结束时，投射：造成1点伤害。若此牌耐久≥10，额外对敌方所有准备区式神造成1点伤害。" },
+
+  // ── 神无月 ──
+  { "name":"神无月", "type":"shikigami", "faction":"青岚", "attack":2, "hp":5,
+    "ability":`你使用己方幻境后，它自毁。
+神无月会被视为你的上个离场幻境，且她的生命被视为耐久。` },
+  { "name":"泡影", "type":"realm", "owner":"神无月", "level":1, "durability":1, "rarity":"R",
+    "effect":"离场时，占卜2并获得一点鬼火。" },
+  { "name":"于无月之地", "type":"realm", "owner":"神无月", "level":1, "durability":1, "rarity":"SR",
+    "effect":"己方回合开始时，探寻一张你本局游戏离场过的其他己方非觉醒幻境牌。" },
+  { "name":"月隐梦归", "type":"realm", "owner":"神无月", "level":2, "durability":1, "rarity":"SR", "awakened":true,
+    "effect":`神无月具有帷幕。
+觉醒：你使用己方幻境后，召唤一个复制并自毁。神无月会被视为你上个离场幻境，且她的生命被视为耐久。` },
+  { "name":"入星河", "type":"realm", "owner":"神无月", "level":2, "durability":1, "rarity":"R",
+    "effect":`气绝时可用，复活神无月。
+入场和每个回合结束时，使己方生命值最低的已受伤角色回复3点生命。` },
+  { "name":"独行于梦乡", "type":"realm", "owner":"神无月", "level":2, "durability":1, "rarity":"R",
+    "effect":"入场，己方回合开始与你使用其他式神的幻境时，随机对两个敌方式神造成1点伤害。" },
+  { "name":"月自长梦升", "type":"realm", "owner":"神无月", "level":3, "durability":1, "rarity":"SR",
+    "effect":`不消耗鬼火
+离场和己方回合开始时，双方牌手在自身下个回合开始时额外抽一张牌。` },
+  { "name":"坠梦回廊", "type":"realm", "owner":"神无月", "level":3, "durability":1, "rarity":"R",
+    "effect":`你使用牌时，循环触发以下效果：回复你1点生命，投射：造成1点伤害，鼓舞：+1+1。
+每回合一次，此牌完成一次循环后，获得一点鬼火。` },
+  { "name":"坠明落尘", "type":"realm", "owner":"神无月", "level":3, "durability":1, "rarity":"SSR",
+    "effect":`唯一。
+此牌在坟场存在，其他己方幻境离场时，若神无月等级为3，自动入场并获得其效果。并在回合结束时失去1耐久` },
 
   // ══════════════════════════════════════════════════════════════
   //                               中立

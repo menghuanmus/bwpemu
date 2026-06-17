@@ -167,7 +167,7 @@ const BonusPanel = (() => {
     const src = document.getElementById('bonus-mod-source').value.trim();
     const atk = parseInt(document.getElementById('bonus-mod-atk').value, 10) || 0;
     const hp = parseInt(document.getElementById('bonus-mod-hp').value, 10) || 0;
-    if (!src || (atk === 0 && hp === 0)) return;
+    if (!src) return;
     const oldAtk = typeof calcPermAtk === 'function' ? calcPermAtk(ctx.slot) : 0;
     const oldHp = typeof calcPermHp === 'function' ? calcPermHp(ctx.slot) : 0;
     let idx = ctx.permAtkMods.findIndex(m => m.source === src);
@@ -376,7 +376,7 @@ const BonusPanel = (() => {
       const layers = am.layers || hm.layers || 1;
       const layersText = layers > 1 ? ` ×${layers}` : '';
       mods.push(`<div class="bonus-list-item">
-        <span class="bonus-list-item__source">${escapeHTML(src)}${layersText}：</span>
+        <span class="bonus-list-item__source">${escapeHTML(src)}${layersText}</span>
         <span class="bonus-list-item__val">攻击${am.value >= 0 ? '+' : ''}${am.value}</span>
         <span class="bonus-list-item__val">生命${hm.value >= 0 ? '+' : ''}${hm.value}</span>
         <span class="bonus-list-item__pm-group">
@@ -402,7 +402,7 @@ const BonusPanel = (() => {
       const atkBase = am.value || 0;
       const hpBase = hm.value || 0;
       mods.push(`<div class="bonus-list-item">
-        <span class="bonus-list-item__source">${escapeHTML(src)}${layersText}：</span>
+        <span class="bonus-list-item__source">${escapeHTML(src)}${layersText}</span>
         <span class="bonus-list-item__val">攻击${atkBase >= 0 ? '+' : ''}${atkBase}</span>
         <span class="bonus-list-item__val">生命${hpBase >= 0 ? '+' : ''}${hpBase}</span>
         <span class="bonus-list-item__pm-group">
@@ -455,7 +455,7 @@ const BonusPanel = (() => {
     const src = document.getElementById('bonus-temp-source').value.trim();
     const atk = parseInt(document.getElementById('bonus-temp-atk').value, 10) || 0;
     const hp = parseInt(document.getElementById('bonus-temp-hp').value, 10) || 0;
-    if (!src || (atk === 0 && hp === 0)) return;
+    if (!src) return;
     const oldFullAtk = typeof calcFullAtk === 'function' ? calcFullAtk(ctx.slot) : 0;
     const oldFullHp = typeof calcFullHp === 'function' ? calcFullHp(ctx.slot) : 0;
     let idx = ctx.tempAtkMods.findIndex(m => m.source === src);
