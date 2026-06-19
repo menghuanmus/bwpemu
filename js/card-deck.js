@@ -128,7 +128,7 @@
       updateDeckButtons('2');
     }
 
-    function openCardTextDialog({ title, placeholder, multiline, onConfirm }) {
+    function openCardTextDialog({ title, placeholder, multiline, onConfirm, hideQuantity }) {
       cardTextContext = { onConfirm };
       cardTextTitle.textContent = title;
       cardTextInput.value = '';
@@ -136,6 +136,9 @@
       cardTextInput.rows = multiline ? 6 : 2;
       cardTextOverlay.hidden = false;
       document.getElementById('card-text-dialog-quantity').value = '1';
+      // 隐藏/显示置入数量行
+      const qtyRow = document.querySelector('.card-text-quantity-row');
+      if (qtyRow) qtyRow.style.display = hideQuantity ? 'none' : '';
       cardTextInput.focus();
     }
 
@@ -143,6 +146,9 @@
       cardTextOverlay.hidden = true;
       cardTextContext = null;
       cardTextInput.value = '';
+      // 恢复置入数量行可见性
+      const qtyRow = document.querySelector('.card-text-quantity-row');
+      if (qtyRow) qtyRow.style.display = '';
     }
 
     function confirmCardTextDialog() {
@@ -231,6 +237,20 @@
         useBtn.className = 'btn-card-action btn-card-use';
         useBtn.textContent = '使用';
         useBtn.addEventListener('click', () => removeFromHand(playerId, card.id, 'use'));
+        const chargeBtn = document.createElement('button');
+        chargeBtn.type = 'button';
+        chargeBtn.className = 'btn-card-action btn-card-charge';
+        chargeBtn.textContent = '蓄力';
+        chargeBtn.title = '蓄力使用：将牌暂存在式神身上，稍后完成使用';
+        chargeBtn.hidden = true; // 默认隐藏，由左下角「蓄力使用」按钮切换
+        chargeBtn.dataset.chargeBtn = 'true';
+        chargeBtn.addEventListener('click', () => {
+          if (typeof Charge !== 'undefined') {
+            Charge.startFromHand(playerId, card);
+          } else {
+            broadcastSystemMsg('【系统】蓄力模块未加载');
+          }
+        });
         const renyinBtn = document.createElement('button');
         renyinBtn.type = 'button';
         renyinBtn.className = 'btn-card-action btn-card-renyin';
@@ -251,6 +271,7 @@
         discardBtn.textContent = '弃置';
         discardBtn.addEventListener('click', () => removeFromHand(playerId, card.id, 'discard'));
         actions.appendChild(useBtn);
+        actions.appendChild(chargeBtn);
         actions.appendChild(renyinBtn);
         actions.appendChild(discardBtn);
         // 置入牌库按钮
@@ -419,8 +440,17 @@
 
     function openCardListDialog({ title, playerId, type }) {
       cardListContext = { playerId, type };
-      // 重置连引按钮状态
+      // 重置连引/蓄力按钮状态
       renyinBtnsVisible = false;
+      chargeBtnsVisible = false;
+      const chargeToggleBtn = document.getElementById('card-list-charge-toggle');
+      if (chargeToggleBtn) {
+        chargeToggleBtn.hidden = (type !== 'hand' || !isViewingOwnCards(playerId));
+        chargeToggleBtn.textContent = '🔋 蓄力使用';
+        chargeToggleBtn.style.background = 'linear-gradient(180deg,#3a2a10,#2a1a08)';
+        chargeToggleBtn.style.color = '#c0a060';
+        chargeToggleBtn.style.borderColor = 'rgba(200,160,60,0.4)';
+      }
       const toggleBtn = document.getElementById('card-list-renyin-toggle');
       if (toggleBtn) {
         toggleBtn.hidden = (type !== 'hand' || !isViewingOwnCards(playerId));
@@ -504,7 +534,7 @@
       updateDeckButtons(playerId);
       refreshOpenListDialog(playerId);
       syncDeckState(playerId);
-      const verb = action === 'use' ? '使用了' : '弃置了';
+      const verb = action === 'use' ? (window._chargeCompleting ? '完成了蓄力，使用了' : '使用了') : '弃置了';
 
       // 使用幻境牌时，自动添加到幻境/效果面板
       if (action === 'use') {
@@ -1222,6 +1252,7 @@
             title: `${playerName} 导入卡组`,
             placeholder: '每行一张牌，例如：\nXXX\nAAA\nCCC\nSSS',
             multiline: true,
+            hideQuantity: true,
             onConfirm: (text) => importDeck(playerId, text),
           });
           break;
@@ -1258,6 +1289,46 @@
     document.getElementById('card-text-dialog-cancel').addEventListener('click', closeCardTextDialog);
     document.getElementById('card-text-dialog-confirm').addEventListener('click', confirmCardTextDialog);
     document.getElementById('card-list-dialog-close').addEventListener('click', closeCardListDialog);
+
+    // 蓄力使用切换按钮
+    const chargeToggleBtn = document.getElementById('card-list-charge-toggle');
+    let chargeBtnsVisible = false;
+    window.resetChargeToggle = function() {
+      chargeBtnsVisible = false;
+      document.querySelectorAll('[data-charge-btn]').forEach(btn => { btn.hidden = true; });
+      if (chargeToggleBtn) {
+        chargeToggleBtn.textContent = '🔋 蓄力使用';
+        chargeToggleBtn.style.background = 'linear-gradient(180deg,#3a2a10,#2a1a08)';
+        chargeToggleBtn.style.color = '#c0a060';
+        chargeToggleBtn.style.borderColor = 'rgba(200,160,60,0.4)';
+      }
+    };
+    window.reapplyChargeToggle = function() {
+      if (chargeBtnsVisible) {
+        document.querySelectorAll('[data-charge-btn]').forEach(btn => { btn.hidden = false; });
+      }
+    };
+    if (chargeToggleBtn) {
+      chargeToggleBtn.style.background = 'linear-gradient(180deg,#3a2a10,#2a1a08)';
+      chargeToggleBtn.style.color = '#c0a060';
+      chargeToggleBtn.style.borderColor = 'rgba(200,160,60,0.4)';
+      chargeToggleBtn.addEventListener('click', () => {
+        chargeBtnsVisible = !chargeBtnsVisible;
+        document.querySelectorAll('[data-charge-btn]').forEach(btn => {
+          btn.hidden = !chargeBtnsVisible;
+        });
+        chargeToggleBtn.textContent = chargeBtnsVisible ? '🔋 蓄力使用 ✓' : '🔋 蓄力使用';
+        if (chargeBtnsVisible) {
+          chargeToggleBtn.style.background = 'linear-gradient(180deg,#5a3a18,#3a1a08)';
+          chargeToggleBtn.style.color = '#f0c840';
+          chargeToggleBtn.style.borderColor = 'rgba(240,192,64,0.7)';
+        } else {
+          chargeToggleBtn.style.background = 'linear-gradient(180deg,#3a2a10,#2a1a08)';
+          chargeToggleBtn.style.color = '#c0a060';
+          chargeToggleBtn.style.borderColor = 'rgba(200,160,60,0.4)';
+        }
+      });
+    }
 
     // 连引使用切换按钮
     const renyinToggleBtn = document.getElementById('card-list-renyin-toggle');

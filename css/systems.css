@@ -8,7 +8,7 @@
        ================================================================ */
     .card-tooltip {
       position: fixed;
-      z-index: 500; /* tooltip */
+      z-index: 2200; /* tooltip — 高于所有弹窗遮罩 */
       min-width: 280px;
       max-width: 420px;
       padding: 16px 18px;

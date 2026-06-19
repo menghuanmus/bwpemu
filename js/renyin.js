@@ -542,6 +542,8 @@ const Renyin = (() => {
     if (selectedResult.id === usedCard.id) {
       moveToGrave(playerId, usedCard);
       broadcastSystemMsg(`【系统】${playerName}连引使用了「${usedCard.name}」${curseSuffix(usedCard)}`);
+      // 连引使用：处理幻境/形态/觉醒
+      _applyUsedCardEffect(playerId, usedCard);
       const returnedNames = foundCards.map(c => c.name);
       for (const fc of foundCards) state.deck.push(fc);
       returnCount = foundCards.length;
@@ -556,6 +558,8 @@ const Renyin = (() => {
       if (sel >= 0) foundCards.splice(sel, 1);
       moveToGrave(playerId, selectedResult);
       broadcastSystemMsg(`【系统】${playerName}连引使用了「${selectedResult.name}」${curseSuffix(selectedResult)}`);
+      // 连引使用：处理幻境/形态/觉醒
+      _applyUsedCardEffect(playerId, selectedResult);
       const returned = [usedCard, ...foundCards];
       const returnedNames = returned.map(c => c.name);
       for (const c of returned) state.deck.push(c);
@@ -591,6 +595,69 @@ const Renyin = (() => {
     const state = getPlayerCardState(playerId);
     if (!state.grave) state.grave = [];
     state.grave.push(card);
+  }
+
+  /** 连引使用牌后应用效果（幻境/形态/觉醒） */
+  function _applyUsedCardEffect(playerId, card) {
+    const dbCard = CardDB.lookup(card.name);
+    if (!dbCard) return;
+    const playerName = getPlayerName(playerId);
+
+    // 幻境牌：添加到效果区
+    if (dbCard.type === 'realm') {
+      const zone = document.querySelector(`.player-zone[data-player="${playerId}"]`);
+      if (zone && typeof createEffectItem === 'function') {
+        const panel = zone.querySelector('.effects-panel');
+        if (panel) {
+          const item = createEffectItem();
+          item.querySelector('.effect-name').value = dbCard.name;
+          item.querySelector('.effect-value').value = String(dbCard.durability || 1);
+          panel.appendChild(item);
+          if (typeof syncEffectsState === 'function') syncEffectsState(playerId);
+          broadcastSystemMsg(`${playerName}展开了幻境「${dbCard.name}」（耐久${dbCard.durability || 1}）`);
+        }
+      }
+    }
+
+    // 形态牌：结附到所属式神
+    if (dbCard.type === 'form' && dbCard.owner) {
+      const zone = document.querySelector(`.player-zone[data-player="${playerId}"]`);
+      if (zone) {
+        const slots = zone.querySelectorAll('.card-slot');
+        for (const slot of slots) {
+          if ((slot.querySelector('.card-name') || {}).value === dbCard.owner) {
+            slot._formName = dbCard.name;
+            slot._formAtk = dbCard.attack || 0;
+            slot._formHp = dbCard.hp || 0;
+            slot._formAbility = dbCard.effect || '';
+            if (typeof syncSlotToPeer === 'function') syncSlotToPeer(slot);
+            if (typeof autoUpdateSlotImage === 'function') autoUpdateSlotImage(slot);
+            broadcastSystemMsg(`${playerName}为「${dbCard.owner}」结附了形态「${dbCard.name}」`);
+            break;
+          }
+        }
+      }
+    }
+
+    // 觉醒牌：设置觉醒标记和永久属性
+    if (dbCard.awakened && dbCard.owner) {
+      const zone = document.querySelector(`.player-zone[data-player="${playerId}"]`);
+      if (zone) {
+        const slots = zone.querySelectorAll('.card-slot');
+        for (const slot of slots) {
+          if ((slot.querySelector('.card-name') || {}).value === dbCard.owner) {
+            slot.classList.add('awakened');
+            if (!slot._permAtkMods) slot._permAtkMods = [];
+            if (!slot._permHpMods) slot._permHpMods = [];
+            slot._permAtkMods.push({ source: dbCard.name, value: dbCard.atkBonus || 0, layers: 1 });
+            slot._permHpMods.push({ source: dbCard.name, value: dbCard.hpBonus || 0, layers: 1 });
+            if (typeof syncSlotToPeer === 'function') syncSlotToPeer(slot);
+            if (typeof autoUpdateSlotImage === 'function') autoUpdateSlotImage(slot);
+            break;
+          }
+        }
+      }
+    }
   }
 
   if (document.readyState === 'loading') { document.addEventListener('DOMContentLoaded', init); }

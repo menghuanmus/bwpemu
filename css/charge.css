@@ -1,0 +1,327 @@
+/* ================================================================
+   css/charge.css — 蓄力机制样式
+   包含：流光特效、蓄力指示器、管理面板、准心模式
+   ================================================================ */
+
+/* ================================================================
+   一、蓄力流光特效（金色光点环绕 + 边框辉光）
+   ================================================================ */
+.card-slot.charging {
+  position: relative;
+  overflow: visible;
+}
+
+/* 边框金色辉光脉冲 */
+.card-slot.charging .card-art {
+  box-shadow:
+    0 0 12px rgba(240, 192, 64, 0.35),
+    0 0 30px rgba(240, 192, 64, 0.15),
+    inset 0 0 8px rgba(240, 192, 64, 0.1);
+  animation: charge-frame-glow 2s ease-in-out infinite alternate;
+}
+
+@keyframes charge-frame-glow {
+  from {
+    box-shadow:
+      0 0 8px rgba(240, 192, 64, 0.25),
+      0 0 20px rgba(240, 192, 64, 0.1);
+  }
+  to {
+    box-shadow:
+      0 0 18px rgba(255, 220, 80, 0.5),
+      0 0 40px rgba(240, 192, 64, 0.25);
+  }
+}
+
+/* 环绕光点 */
+.charge-dot {
+  position: absolute;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(255, 240, 120, 1) 0%, rgba(240, 180, 40, 0.8) 40%, transparent 70%);
+  box-shadow:
+    0 0 8px rgba(255, 220, 60, 0.9),
+    0 0 20px rgba(240, 180, 40, 0.5),
+    0 0 36px rgba(240, 160, 30, 0.25);
+  pointer-events: none;
+  z-index: 6;
+  /* 每个光点默认在左上角，动画让它们沿边框顺时针环绕 */
+  top: -5px;
+  left: -5px;
+  animation: charge-dot-orbit 4s linear infinite;
+}
+
+/* 光点环绕矩形路径（百分比适配任意尺寸卡槽） */
+@keyframes charge-dot-orbit {
+  0%   { top: -5px; left: 0%; }
+  25%  { top: -5px; left: calc(100% - 5px); }
+  50%  { top: calc(100% - 5px); left: calc(100% - 5px); }
+  75%  { top: calc(100% - 5px); left: -5px; }
+  100% { top: -5px; left: -5px; }
+}
+
+/* ================================================================
+   二、蓄力指示器（卡槽上的 ⚡蓄力中 标签）
+   ================================================================ */
+.charge-indicator {
+  position: absolute;
+  top: 21px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 10;
+  background: linear-gradient(180deg, #3a2a10, #2a1a08);
+  border: 1.5px solid rgba(240, 192, 64, 0.7);
+  border-radius: 10px;
+  padding: 2px 10px;
+  font-size: 12px;
+  font-weight: bold;
+  color: #f0c840;
+  cursor: pointer;
+  white-space: nowrap;
+  box-shadow: 0 0 10px rgba(240, 192, 64, 0.3);
+  user-select: none;
+  transition: all 0.15s;
+  font-family: inherit;
+  line-height: 1.4;
+}
+.charge-indicator:hover {
+  background: linear-gradient(180deg, #5a3a18, #3a1a08);
+  border-color: rgba(255, 210, 80, 0.9);
+  box-shadow: 0 0 16px rgba(240, 192, 64, 0.5);
+  color: #ffe080;
+}
+
+/* ================================================================
+   三、蓄力管理面板
+   ================================================================ */
+.charge-overlay {
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(0,0,0,0.65);
+  z-index: 2100;
+  display: none;
+  align-items: center;
+  justify-content: center;
+}
+.charge-overlay[hidden] { display: none; }
+
+.charge-dialog {
+  background: linear-gradient(180deg, #2a1e18, #1a0e08);
+  border: 2px solid rgba(240, 192, 64, 0.5);
+  border-radius: 12px;
+  min-width: 220px;
+  max-width: 680px;
+  width: auto;
+  max-height: 85vh;
+  overflow-y: auto;
+  color: #f0e0c0;
+  box-shadow: 0 8px 40px rgba(0,0,0,0.5);
+}
+
+.charge-dialog__header {
+  padding: 14px 20px 10px;
+  border-bottom: 1px solid rgba(240, 192, 64, 0.25);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-width: 220px;
+}
+.charge-dialog__title {
+  font-size: 18px;
+  font-weight: bold;
+  color: #f0c840;
+  white-space: nowrap;
+}
+.charge-dialog__close {
+  background: none;
+  border: 1px solid rgba(240, 192, 64, 0.3);
+  color: #d0b060;
+  font-size: 18px;
+  cursor: pointer;
+  width: 30px; height: 30px;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.charge-dialog__close:hover {
+  background: rgba(240, 192, 64, 0.15);
+}
+
+.charge-dialog__body {
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: row;
+  gap: 12px;
+  overflow-x: auto;
+  overflow-y: visible;
+  min-height: 280px;
+  align-items: flex-start;
+  /* 滚动条美化 */
+  scrollbar-width: thin;
+  scrollbar-color: rgba(240, 192, 64, 0.3) transparent;
+}
+.charge-dialog__body::-webkit-scrollbar {
+  height: 6px;
+}
+.charge-dialog__body::-webkit-scrollbar-track {
+  background: transparent;
+}
+.charge-dialog__body::-webkit-scrollbar-thumb {
+  background: rgba(240, 192, 64, 0.3);
+  border-radius: 3px;
+}
+
+/* ---- 单张蓄力牌条目（竖状矩形卡牌样式，水平排列） ---- */
+.charge-card-entry {
+  background: linear-gradient(180deg, #1e2a3a, #162030);
+  border: 1.5px solid rgba(200, 160, 60, 0.35);
+  border-radius: 8px;
+  padding: 10px 10px 12px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0;
+  flex-shrink: 0;
+  width: 200px;
+  min-height: 300px;
+  justify-content: space-between;
+}
+
+/* 上半：卡牌名区域（占大部分空间，垂直水平居中） */
+.charge-card-name-area {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  min-height: 120px;
+}
+
+/* 下半：操作区（三个按钮纵向排列，居下） */
+.charge-card-actions-area {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: auto;
+  padding-top: 8px;
+  border-top: 1px solid rgba(200, 160, 60, 0.2);
+}
+
+/* 上半：卡牌名 */
+.charge-card-name {
+  font-size: 18px;
+  font-weight: bold;
+  color: #ffd700;
+  text-align: center;
+  cursor: help;
+  line-height: 1.4;
+  word-break: break-all;
+}
+.charge-card-name:hover {
+  color: #ffe880;
+  text-shadow: 0 0 8px rgba(255, 215, 0, 0.4);
+}
+
+/* 对手/观众视角：牌名「未知」 */
+.charge-card-name--unknown {
+  color: #888;
+  cursor: default;
+}
+.charge-card-name--unknown:hover {
+  color: #888;
+  text-shadow: none;
+}
+
+/* 下半：按钮行 */
+.charge-card-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+}
+
+.charge-btn {
+  display: block;
+  width: 100%;
+  padding: 8px 0;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: bold;
+  cursor: pointer;
+  border: 1px solid;
+  transition: all 0.15s;
+  text-align: center;
+}
+
+.charge-btn--complete {
+  background: linear-gradient(180deg, #5a3a18, #3a1a08);
+  border-color: rgba(240, 192, 64, 0.6);
+  color: #f0c840;
+}
+.charge-btn--complete:hover {
+  background: linear-gradient(180deg, #7a4a20, #5a2a10);
+  border-color: rgba(255, 210, 80, 0.9);
+  color: #ffe080;
+  box-shadow: 0 0 10px rgba(240, 192, 64, 0.3);
+}
+
+.charge-btn--cancel {
+  background: linear-gradient(180deg, #4a2a2a, #3a1a1a);
+  border-color: rgba(200, 120, 100, 0.5);
+  color: #e0a090;
+}
+.charge-btn--cancel:hover {
+  background: linear-gradient(180deg, #6a3a3a, #5a2a2a);
+  border-color: rgba(220, 140, 120, 0.8);
+  color: #ffc0b0;
+}
+
+.charge-btn--return {
+  background: linear-gradient(180deg, #2a3a2a, #1a2a1a);
+  border-color: rgba(100, 180, 100, 0.5);
+  color: #a0d0a0;
+}
+.charge-btn--return:hover {
+  background: linear-gradient(180deg, #3a5a3a, #2a4a2a);
+  border-color: rgba(120, 200, 120, 0.8);
+  color: #c0f0c0;
+}
+
+/* ---- 空状态 ---- */
+.charge-empty {
+  text-align: center;
+  color: #908060;
+  font-size: 14px;
+  padding: 40px 0;
+  width: 100%;
+}
+
+/* ================================================================
+   五、手牌中的蓄力按钮样式
+   ================================================================ */
+.btn-card-charge {
+  font-size: 11px;
+  padding: 4px 10px;
+  border-radius: 4px;
+  border: 1px solid rgba(240, 192, 64, 0.4);
+  background: linear-gradient(180deg, #3a2a10, #2a1a08);
+  color: #e0c060;
+  cursor: pointer;
+  font-weight: bold;
+  transition: all 0.15s;
+}
+.btn-card-charge:hover {
+  background: linear-gradient(180deg, #5a3a18, #3a1a08);
+  border-color: rgba(240, 192, 64, 0.7);
+  color: #ffe080;
+}
+
+/* ================================================================
+   六、手牌列表左下角蓄力切换按钮
+   ================================================================ */
+#card-list-charge-toggle {
+  margin-right: 8px;
+}

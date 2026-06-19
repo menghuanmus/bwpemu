@@ -39,7 +39,7 @@
     const damageLineSvg = document.getElementById('damage-line-svg');
     const damageLine = document.getElementById('damage-line');
     let isTargeting = false;
-    let targetingMode = 'damage'; // 'damage' | 'heal' | 'countdown' | 'energy' | 'ko' | 'curse' | 'divine' | 'cook' | 'nightfall' | 'bounty' | 'oracle' | 'fate' | 'reset-stats'
+    let targetingMode = 'damage'; // 'damage' | 'heal' | 'countdown' | 'energy' | 'ko' | 'curse' | 'divine' | 'cook' | 'nightfall' | 'bounty' | 'oracle' | 'fate' | 'reset-stats' | 'charge'
     let targetingOrigin = { x: 0, y: 0 };
 
     // ---- 伤害/恢复来源 ----
@@ -58,6 +58,7 @@
       oracle:    { btn: () => btnMechanicToggle, activeText: '✨ 选择牌手…(Esc取消)', idleText: '🔧 机制 ▾' },
       fate:      { btn: () => btnMechanicToggle, activeText: '🔀 选择牌手…(Esc取消)', idleText: '🔧 机制 ▾' },
       'reset-stats': { btn: () => btnMechanicToggle, activeText: '🔄 选择式神…(Esc取消)', idleText: '🔧 机制 ▾' },
+      charge:    { btn: () => btnMechanicToggle, activeText: '⚡ 选择式神…(Esc取消)', idleText: '🔧 机制 ▾' },
       ko:        { btn: () => btnKo,             activeText: '💀 选择式神…(Esc取消)', idleText: '💀 气绝/复活' },
       curse:     { btn: () => btnCurse,          activeText: '⛓️ 选择式神…(Esc取消)', idleText: '⛓️ 灵咒' },
     };
@@ -278,6 +279,16 @@
         dropdownMechanicMenu.hidden = true;
         if (isTargeting) { exitTargetingMode(); return; }
         enterTargetingMode('fate');
+      });
+    }
+
+    // ---- 蓄力 ----
+    const btnCharge = document.getElementById('btn-charge');
+    if (btnCharge) {
+      btnCharge.addEventListener('click', () => {
+        dropdownMechanicMenu.hidden = true;
+        if (isTargeting) { exitTargetingMode(); return; }
+        enterTargetingMode('charge');
       });
     }
 
@@ -509,8 +520,8 @@
         return;
       }
 
-      // 倒计时 / 能量 / 气绝 / 灵咒 / 重置属性 模式
-      if (targetingMode === 'countdown' || targetingMode === 'energy' || targetingMode === 'ko' || targetingMode === 'curse' || targetingMode === 'reset-stats') {
+      // 倒计时 / 能量 / 气绝 / 灵咒 / 重置属性 / 蓄力 模式
+      if (targetingMode === 'countdown' || targetingMode === 'energy' || targetingMode === 'ko' || targetingMode === 'curse' || targetingMode === 'reset-stats' || targetingMode === 'charge') {
         const slot = e.target.closest('.card-slot');
         if (slot) {
           if (targetingMode === 'curse') {
@@ -544,6 +555,37 @@
               const userName = localPlayerId ? getPlayerName(localPlayerId) : '玩家';
               broadcastSystemMsg(`【系统】${userName}重置了「${cardName}」的属性（${oldAtk}/${oldHp} → ${newAtk}/${newHp}）`);
             }
+          } else if (targetingMode === 'charge') {
+            const playerId = localPlayerId || '1';
+            const shikigamiName = slot.querySelector('.card-name').value.trim();
+            if (!shikigamiName) {
+              exitTargetingMode();
+              e.preventDefault();
+              e.stopPropagation();
+              return;
+            }
+            // 先退出瞄准，再弹窗输入卡牌名
+            exitTargetingMode();
+            const savedSlot = slot;
+            const savedPlayerId = playerId;
+            if (typeof openCardTextDialog === 'function') {
+              openCardTextDialog({
+                title: '蓄力 — 输入卡牌名',
+                placeholder: '输入要蓄力的卡牌名',
+                multiline: false,
+                hideQuantity: true,
+                onConfirm: (text, qty) => {
+                  const cardName = text.trim();
+                  if (!cardName) return;
+                  if (typeof Charge !== 'undefined' && Charge.chargeByName) {
+                    Charge.chargeByName(savedSlot, savedPlayerId, cardName);
+                  }
+                }
+              });
+            }
+            e.preventDefault();
+            e.stopPropagation();
+            return;
           } else {
             applyToggleBadge(slot, targetingMode);
           }

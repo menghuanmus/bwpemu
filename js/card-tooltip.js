@@ -50,6 +50,8 @@
         }
         if (target.classList.contains('chat-card-name')) return target.textContent;
         if (target.classList.contains('effect-name')) return target.value;
+        // 蓄力管理面板中的卡牌名
+        if (target.classList.contains('charge-card-name')) return target.dataset.cardName || target.textContent;
         // 手牌/牌库灵咒标签
         if (target.classList.contains('card-list-curse-tag')) {
           return target.dataset.curseName || '';

@@ -182,7 +182,7 @@
 .bonus-btn--close:hover { background: rgba(60,45,20,0.6); }
 
 /* 确保 tooltip 在加成弹窗之上 */
-#card-tooltip { z-index: 2100; }
+#card-tooltip { z-index: 2200; }
 
 /* 形态栏 */
 .bonus-form-active {

@@ -332,6 +332,7 @@
         tempHpMods: slot._tempHpMods || [],
         slotType: slot.dataset.slotType || 'shikigami',
         slotFaction: slot.dataset.slotFaction || '',
+        chargedCount: (slot._chargedCards || []).length,
       };
     }
 
@@ -364,6 +365,17 @@
       // 类型 / 派系
       if (state.slotType) slot.dataset.slotType = state.slotType;
       if (state.slotFaction) slot.dataset.slotFaction = state.slotFaction;
+      // 蓄力数量：智能合并真实卡牌（cardId≠-1）和 placeholder
+      if (typeof state.chargedCount === 'number') {
+        if (!slot._chargedCards) slot._chargedCards = [];
+        const realCards = slot._chargedCards.filter(c => c.cardId !== -1);
+        const targetPlaceholders = Math.max(0, state.chargedCount - realCards.length);
+        const placeholders = Array.from({ length: targetPlaceholders }, () => ({
+          cardId: -1, cardName: '?', cardData: {}, chargedBy: '?'
+        }));
+        slot._chargedCards = realCards.concat(placeholders);
+        if (typeof Charge !== 'undefined' && Charge.updateIndicator) Charge.updateIndicator(slot);
+      }
       // 同步派系图标
       const factionIcon = slot.querySelector('.card-faction-icon');
       if (factionIcon) {
@@ -440,9 +452,18 @@
     function swapSlotContents(a, b) {
       const stateA = getSlotState(a);
       const stateB = getSlotState(b);
+      // 交换蓄力数据，确保蓄力状态跟式神走
+      const chargedA = a._chargedCards;
+      const chargedB = b._chargedCards;
       slotSyncSuppress = true;
       setSlotState(a, stateB);
       setSlotState(b, stateA);
+      a._chargedCards = chargedB;
+      b._chargedCards = chargedA;
+      if (typeof Charge !== 'undefined' && Charge.updateIndicator) {
+        Charge.updateIndicator(a);
+        Charge.updateIndicator(b);
+      }
       slotSyncSuppress = false;
       syncSlotToPeer(a);
       syncSlotToPeer(b);
@@ -681,7 +702,7 @@
     }
 
     function isInteractiveTarget(el) {
-      return el.closest('.card-badge, input, label, button');
+      return el.closest('.card-badge, input, label, button, .charge-indicator');
     }
 
     function getSlotUnderPoint(x, y) {
