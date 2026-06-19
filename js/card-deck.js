@@ -541,6 +541,7 @@
                 if (slot.querySelector('.card-attack')) slot.querySelector('.card-attack').value = newFullAtk || '';
                 if (slot.querySelector('.card-hp')) slot.querySelector('.card-hp').value = newFullHp || '';
                 syncSlotToPeer(slot);
+                if (typeof autoUpdateSlotImage === 'function') autoUpdateSlotImage(slot);
                 const replaceMsg = oldForm ? `（替换了原有形态「${oldForm}」）` : '';
                 broadcastSystemMsg(`【系统】${getPlayerName(playerId)}为「${dbCard.owner}」结附了形态「${dbCard.name}」${replaceMsg}`);
                 animTarget = slot;
@@ -592,6 +593,7 @@
                   slot._permAbility = rawEffect;
                 }
                 syncSlotToPeer(slot);
+                if (typeof autoUpdateSlotImage === 'function') autoUpdateSlotImage(slot);
                 broadcastSystemMsg(`【系统】${getPlayerName(playerId)}为「${slotName}」使用了觉醒「${dbCard.name}」`);
                 if (!animTarget) animTarget = slot;
                 break;

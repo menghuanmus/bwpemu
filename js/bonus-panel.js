@@ -7,6 +7,10 @@
 const BonusPanel = (() => {
   let overlay, dialog, ctx;
 
+  // 属性图标
+  const ATK_ICON = '<img src="images/属性/攻击.png" class="bonus-stat-icon" alt="攻">';
+  const HP_ICON = '<img src="images/属性/生命.png" class="bonus-stat-icon" alt="命">';
+
   // 快捷关键词列表（按用户指定顺序）
   const QUICK_KEYWORDS = [
     '眩晕','庇佑','屏障','昂扬','迅捷','不屈','远程',
@@ -22,7 +26,7 @@ const BonusPanel = (() => {
     overlay.innerHTML = `
       <div class="bonus-dialog">
         <div class="bonus-dialog__header">
-          <span class="bonus-dialog__title">💠 加成弹窗</span>
+          <span class="bonus-dialog__title">💠 式神管理</span>
           <button type="button" class="bonus-dialog__close" title="关闭">✕</button>
         </div>
         <div class="bonus-dialog__body" id="bonus-body"></div>
@@ -63,16 +67,41 @@ const BonusPanel = (() => {
     if (e.target.id === 'bonus-equip-form') { handleEquipForm(); return; }
     if (e.target.id === 'bonus-lose-form') { handleLoseForm(); return; }
     if (e.target.id === 'bonus-close-btn') close();
+    if (e.target.id === 'bonus-delete-slot') { handleDeleteSlot(); return; }
     if (e.target.id === 'bonus-quick-keyword') { toggleKeywordPicker(); return; }
     if (e.target.classList.contains('bonus-keyword-btn')) { handleQuickKeyword(e.target.textContent); return; }
   }
 
   function handleBodyChange(e) {
     if (!ctx) return;
+    if (typeof isSpectator !== 'undefined' && isSpectator) return;
     if (e.target.id === 'bonus-ability') {
       ctx.permAbility = e.target.value;
       ctx.slot._permAbility = ctx.permAbility;
       if (ctx.permAbility) ctx.slot.classList.add('awakened');
+      syncSlotToPeer(ctx.slot);
+    }
+    if (e.target.id === 'bonus-faction') {
+      const raw = e.target.value.trim();
+      const valid = ['苍叶','红莲','青岚','紫岩','无相'];
+      ctx.faction = valid.includes(raw) ? raw : (raw || '无相');
+      ctx.slot.dataset.slotFaction = ctx.faction;
+      // 同步派系图标
+      const factionIcon = ctx.slot.querySelector('.card-faction-icon');
+      if (factionIcon) {
+        if (ctx.faction && ctx.faction !== '无相') {
+          factionIcon.src = 'images/派系/' + ctx.faction + '.png';
+          factionIcon.style.display = '';
+        } else {
+          factionIcon.style.display = 'none';
+        }
+      }
+      syncSlotToPeer(ctx.slot);
+    }
+    if (e.target.id === 'bonus-is-summon') {
+      ctx.slot.dataset.slotType = e.target.checked ? 'summon' : 'shikigami';
+      const levelBadge = ctx.slot.querySelector('.card-badge--level');
+      if (levelBadge) levelBadge.style.display = e.target.checked ? 'none' : '';
       syncSlotToPeer(ctx.slot);
     }
     if (e.target.id === 'bonus-form-atk-active' || e.target.id === 'bonus-form-hp-active') {
@@ -89,6 +118,7 @@ const BonusPanel = (() => {
       ctx.slot.querySelector('.card-attack').value = newFullAtk || '';
       ctx.slot.querySelector('.card-hp').value = newFullHp || '';
       syncSlotToPeer(ctx.slot);
+      if (typeof autoUpdateSlotImage === 'function') autoUpdateSlotImage(ctx.slot);
       broadcastBonusMsg('修改了形态属性', `${ctx.formName}（攻击${newAtk}，生命${newHp}）`);
     }
   }
@@ -253,6 +283,7 @@ const BonusPanel = (() => {
 
     ctx = {
       slot, playerId, cardName, playerName, dbCard,
+      faction: slot.dataset.slotFaction || (dbCard && dbCard.faction) || '无相',
       permAtkMods: slot._permAtkMods || [], permHpMods: slot._permHpMods || [],
       permAbility: slot._permAbility || '', permEffects: slot._permEffects || [],
       tempAtkMods: slot._tempAtkMods || [], tempHpMods: slot._tempHpMods || [],
@@ -280,17 +311,33 @@ const BonusPanel = (() => {
     body.innerHTML = `
       <div class="bonus-info">
         <span class="bonus-info__name">「${escapeHTML(ctx.cardName)}」</span>
-        <span class="bonus-info__stats"><span style="color:#ff9070;">⚔ 攻击:${ctx.permAtk}</span> <span style="color:#70d070;">❤ 生命:${ctx.permHp}</span></span>
+        <span class="bonus-info__stats"><span>${ATK_ICON} ${ctx.permAtk}</span> <span>${HP_ICON} ${ctx.permHp}</span></span>
       </div>
 
       <div class="bonus-columns">
         <!-- 左栏 -->
         <div class="bonus-col">
-          <!-- 觉醒能力 -->
+          <!-- 式神派系 + 召唤物勾选 -->
           <div class="bonus-section">
-            <div class="bonus-section__label">📝 觉醒能力</div>
+            <div class="bonus-section__label">🎌 式神派系</div>
+            <div class="bonus-faction-row">
+              <input type="text" id="bonus-faction" class="bonus-faction-input" value="${escapeHTML(ctx.faction)}" placeholder="苍叶/红莲/青岚/紫岩/无相" maxlength="10">
+              <label class="bonus-summon-label"><input type="checkbox" id="bonus-is-summon" ${ctx.slot.dataset.slotType === 'summon' ? 'checked' : ''}> 召唤物</label>
+            </div>
+          </div>
+          <!-- 基础/觉醒能力 -->
+          <div class="bonus-section">
+            <div class="bonus-section__label">📝 基础/觉醒能力 <span class="bonus-help-icon" title="无内容时默认为基础能力">?</span></div>
             <textarea id="bonus-ability" class="bonus-ability-input" placeholder="${escapeHTML(ability)}" rows="3">${escapeHTML(ctx.permAbility)}</textarea>
           </div>
+          <!-- 形态 -->
+          <div class="bonus-section">
+            <div class="bonus-section__label">🎴 形态</div>
+            ${renderFormSection()}
+          </div>
+        </div>
+        <!-- 右栏 -->
+        <div class="bonus-col">
           <!-- 永久属性 -->
           <div class="bonus-section">
             <div class="bonus-section__label">⚔️ 永久属性</div>
@@ -300,28 +347,9 @@ const BonusPanel = (() => {
               <input type="number" id="bonus-mod-atk" value="0" min="-99" max="99">
               <label class="bonus-inline-label">生命</label>
               <input type="number" id="bonus-mod-hp" value="0" min="-99" max="99">
-              <button type="button" class="bonus-btn bonus-btn--add" id="bonus-add-mod">确定</button>
+              <button type="button" class="bonus-btn bonus-btn--add" id="bonus-add-mod">添加</button>
             </div>
             <div class="bonus-list" id="bonus-mod-list">${renderModList()}</div>
-          </div>
-          <!-- 效果记录 -->
-          <div class="bonus-section">
-            <div class="bonus-section__label">📋 效果记录 <button type="button" id="bonus-quick-keyword" class="bonus-btn--keyword">+快捷关键词</button></div>
-            <div id="bonus-keyword-picker" class="bonus-keyword-picker" style="display:none;"></div>
-            <div class="bonus-add-row">
-              <input type="text" id="bonus-effect-source" placeholder="来源" maxlength="30" class="flex-06">
-              <input type="text" id="bonus-effect-desc" placeholder="效果描述" maxlength="100" class="flex-14">
-              <button type="button" class="bonus-btn bonus-btn--add" id="bonus-add-effect">确定</button>
-            </div>
-            <div class="bonus-list" id="bonus-effect-list">${renderEffectList()}</div>
-          </div>
-        </div>
-        <!-- 右栏 -->
-        <div class="bonus-col">
-          <!-- 形态 -->
-          <div class="bonus-section">
-            <div class="bonus-section__label">🎴 形态</div>
-            ${renderFormSection()}
           </div>
           <!-- 临时属性 -->
           <div class="bonus-section">
@@ -332,14 +360,26 @@ const BonusPanel = (() => {
               <input type="number" id="bonus-temp-atk" value="0" min="-99" max="99">
               <label class="bonus-inline-label">生命</label>
               <input type="number" id="bonus-temp-hp" value="0" min="-99" max="99">
-              <button type="button" class="bonus-btn bonus-btn--add" id="bonus-add-temp">确定</button>
+              <button type="button" class="bonus-btn bonus-btn--add" id="bonus-add-temp">添加</button>
             </div>
             <div class="bonus-list" id="bonus-temp-list">${renderTempList()}</div>
+          </div>
+          <!-- 效果记录 -->
+          <div class="bonus-section">
+            <div class="bonus-section__label">📋 效果记录 <button type="button" id="bonus-quick-keyword" class="bonus-btn--keyword">+快捷关键词</button></div>
+            <div id="bonus-keyword-picker" class="bonus-keyword-picker" style="display:none;"></div>
+            <div class="bonus-add-row">
+              <input type="text" id="bonus-effect-source" placeholder="来源" maxlength="30" class="flex-06">
+              <input type="text" id="bonus-effect-desc" placeholder="效果描述" maxlength="100" class="flex-14">
+              <button type="button" class="bonus-btn bonus-btn--add" id="bonus-add-effect">添加</button>
+            </div>
+            <div class="bonus-list" id="bonus-effect-list">${renderEffectList()}</div>
           </div>
         </div>
       </div>
 
       <div class="bonus-actions">
+        <button type="button" class="bonus-btn bonus-btn--delete" id="bonus-delete-slot">🗑 删除式神</button>
         <button type="button" class="bonus-btn bonus-btn--close" id="bonus-close-btn">关闭</button>
       </div>
     `;
@@ -348,7 +388,7 @@ const BonusPanel = (() => {
   function renderFormSection() {
     if (ctx.formName) {
       return `<div class="bonus-form-active">
-        <div class="bonus-form-info"><strong>${escapeHTML(ctx.formName)}</strong> <span style="color:#ff9070;">⚔ 攻击:</span><input type="number" id="bonus-form-atk-active" value="${ctx.formAtk}" min="0" max="99" class="bonus-form-stat-input"> <span style="color:#70d070;">❤ 生命:</span><input type="number" id="bonus-form-hp-active" value="${ctx.formHp}" min="0" max="99" class="bonus-form-stat-input"></div>
+        <div class="bonus-form-info"><strong>${escapeHTML(ctx.formName)}</strong> <span>${ATK_ICON}</span><input type="number" id="bonus-form-atk-active" value="${ctx.formAtk}" min="0" max="99" class="bonus-form-stat-input"> <span>${HP_ICON}</span><input type="number" id="bonus-form-hp-active" value="${ctx.formHp}" min="0" max="99" class="bonus-form-stat-input"></div>
         <div class="bonus-form-ability">${escapeHTML(ctx.formAbility) || '无效果描述'}</div>
         <button type="button" class="bonus-btn bonus-btn--add" id="bonus-lose-form">失去形态</button>
       </div>`;
@@ -496,6 +536,7 @@ const BonusPanel = (() => {
     ctx.slot.querySelector('.card-attack').value = newFullAtk || '';
     ctx.slot.querySelector('.card-hp').value = newFullHp || '';
     syncSlotToPeer(ctx.slot);
+    if (typeof autoUpdateSlotImage === 'function') autoUpdateSlotImage(ctx.slot);
     broadcastBonusMsg('结附了形态', `${name}（攻击${atk}，生命${hp}）`);
     refresh();
   }
@@ -512,8 +553,38 @@ const BonusPanel = (() => {
     ctx.slot.querySelector('.card-attack').value = newFullAtk || '';
     ctx.slot.querySelector('.card-hp').value = newFullHp || '';
     syncSlotToPeer(ctx.slot);
+    if (typeof autoUpdateSlotImage === 'function') autoUpdateSlotImage(ctx.slot);
     broadcastBonusMsg('失去了形态', '');
     refresh();
+  }
+
+  function handleDeleteSlot() {
+    if (!ctx || !ctx.slot) return;
+    if (typeof isSpectator !== 'undefined' && isSpectator) return;
+    const name = ctx.cardName || '未命名';
+    if (!confirm(`确定要从战场上删除「${name}」吗？\n将清空该式神的所有数据（属性、形态、加成、灵咒等）。`)) return;
+    const slot = ctx.slot;
+    // 清空卡槽
+    slot.querySelector('.card-name').value = '';
+    slot.querySelector('.card-attack').value = '';
+    slot.querySelector('.card-hp').value = '';
+    slot.querySelector('.card-level').value = '';
+    if (typeof clearSlotImage === 'function') clearSlotImage(slot);
+    slot.classList.remove('awakened', 'has-image');
+    // 清空运行时数据
+    slot._permAtkMods = []; slot._permHpMods = [];
+    slot._permAbility = ''; slot._permEffects = [];
+    slot._formName = ''; slot._formAtk = 0; slot._formHp = 0; slot._formAbility = '';
+    slot._tempAtkMods = []; slot._tempHpMods = [];
+    if (typeof setSlotCurses === 'function') setSlotCurses(slot, []);
+    if (typeof updateSlotCountdownBadge === 'function') updateSlotCountdownBadge(slot, '');
+    if (typeof updateSlotEnergyBadge === 'function') updateSlotEnergyBadge(slot, '');
+    if (typeof updateKoOverlay === 'function') updateKoOverlay(slot, '');
+    if (typeof syncSlotToPeer === 'function') syncSlotToPeer(slot);
+    if (typeof broadcastSystemMsg === 'function') {
+      broadcastSystemMsg(`【系统】${ctx.playerName}从战场上移除了「${name}」`);
+    }
+    close();
   }
 
   if (document.readyState === 'loading') {

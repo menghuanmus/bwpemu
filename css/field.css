@@ -140,15 +140,8 @@
       align-items: center;
       justify-content: center;
       cursor: text;
-    }
-
-    .player-id-area .player-heart svg {
-      position: absolute;
-      inset: 0;
-      width: 100%;
-      height: 100%;
-      pointer-events: none;
-      filter: drop-shadow(0 2px 6px rgba(0, 0, 0, 0.35));
+      background: url('../images/属性/生命.png') center/contain no-repeat;
+      filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.35));
     }
 
     .player-id-area .player-heart input {
@@ -162,8 +155,9 @@
       font-weight: 700;
       text-align: center;
       outline: none;
-      padding: 0;
+      padding: 3px 0 0 7px;
       margin-top: 5px;
+      text-shadow: 0 0 4px rgba(0,0,0,0.8);
     }
 
     .player-id-area .player-heart input::placeholder {
@@ -650,32 +644,47 @@
       border-color: rgba(240, 200, 60, 0.9);
     }
 
-    /* 左下 / 右下：圆形（攻击 / 生命） */
+    /* 左下 / 右下：攻击 / 生命（图标） */
     .card-badge--attack,
     .card-badge--hp {
-      bottom: 0;
-      width: 36px;
-      height: 36px;
-      border-radius: 50%;
+      bottom: 5px;
+      border-radius: 0;
+      border: none;
+      z-index: 101;
     }
 
     .card-badge--attack {
-      left: 0;
-      transform: translate(-50%, 50%);
-      background: linear-gradient(145deg, #1a7a6a, #0d4d40);
-      border-color: rgba(100, 220, 200, 0.85);
+      left: -15px;
+      width: 42px;
+      height: 42px;
+      transform: translate(0, 56%);
+      background: url('../images/属性/攻击.png') center/contain no-repeat;
     }
 
     .card-badge--hp {
-      right: 0;
-      transform: translate(50%, 50%);
-      background: linear-gradient(145deg, #8b1a1a, #5c1010);
-      border-color: rgba(255, 120, 110, 0.85);
+      right: -15px;
+      width: 48px;
+      height: 48px;
+      transform: translate(0, 56%);
+      background: url('../images/属性/生命.png') center/contain no-repeat;
     }
 
     .card-badge--attack input,
     .card-badge--hp input {
-      font-size: 18px;
+      font-size: 22px;
+      color: #fff;
+      text-shadow: 0 0 4px rgba(0,0,0,0.9), 0 1px 2px rgba(0,0,0,0.8);
+      text-align: center;
+      width: 100%;
+    }
+
+    .card-badge--hp input {
+      padding-left: 8px;
+      padding-top: 5px;
+    }
+
+    .card-badge--attack input {
+      padding-top: 5px;
     }
 
     /* 下方：长方形（名称） */
@@ -694,6 +703,24 @@
     .card-badge--name input {
       font-size: 16px;
       font-weight: 600;
+    }
+
+    /* 派系图标（名字上方） */
+    .card-faction-icon {
+      position: absolute;
+      bottom: 10px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 28px;
+      height: 28px;
+      z-index: 5;
+      pointer-events: none;
+      image-rendering: auto;
+      filter: drop-shadow(0 1px 2px rgba(0,0,0,0.6));
+    }
+
+    .card-slot:not(.has-image) .card-faction-icon {
+      display: none !important;
     }
 
     #image-input {

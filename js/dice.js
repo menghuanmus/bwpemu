@@ -664,6 +664,46 @@
     }
 
     function applyKoToCard(slot) {
+      // 召唤物：先播放气绝动画，再清除卡槽
+      if (slot.dataset.slotType === 'summon') {
+        const cardName = slot.querySelector('.card-name').value || '未命名召唤物';
+        // 检查临时预设中是否有同名预设，没有则自动保存
+        if (typeof Presets !== 'undefined' && typeof Presets._hasTempPreset === 'function') {
+          if (!Presets._hasTempPreset(cardName)) {
+            Presets.saveFromSlot(slot);
+          }
+        }
+        // 播放气绝动画（延迟等动画结束再清槽，避免卡图提前消失）
+        if (typeof DamageEffects !== 'undefined' && DamageEffects.playKoEffect) {
+          setTimeout(() => DamageEffects.playKoEffect(slot), 50);
+        }
+        // 联机同步气绝动画
+        if (typeof sendToPeer === 'function' && peerConn && peerConn.open) {
+          sendToPeer({ type: 'fx-ko', playerId: slot.dataset.slotPlayer, slotIndex: parseInt(slot.dataset.slotIndex, 10) });
+        }
+        broadcastSystemMsg(`【系统】召唤物「${cardName}」被消灭了`);
+        // 延迟清除卡槽，等气绝动画播完
+        setTimeout(() => {
+          slot.querySelector('.card-name').value = '';
+          slot.querySelector('.card-attack').value = '';
+          slot.querySelector('.card-hp').value = '';
+          slot.querySelector('.card-level').value = '';
+          if (typeof clearSlotImage === 'function') clearSlotImage(slot);
+          slot.classList.remove('awakened', 'has-image');
+          slot._permAtkMods = []; slot._permHpMods = [];
+          slot._permAbility = ''; slot._permEffects = [];
+          slot._formName = ''; slot._formAtk = 0; slot._formHp = 0; slot._formAbility = '';
+          slot._tempAtkMods = []; slot._tempHpMods = [];
+          if (typeof setSlotCurses === 'function') setSlotCurses(slot, []);
+          if (typeof updateSlotCountdownBadge === 'function') updateSlotCountdownBadge(slot, '');
+          if (typeof updateSlotEnergyBadge === 'function') updateSlotEnergyBadge(slot, '');
+          if (typeof updateKoOverlay === 'function') updateKoOverlay(slot, '');
+          delete slot.dataset.slotType;
+          syncSlotToPeer(slot);
+        }, 800);
+        return;
+      }
+
       const hadKo = !!slot.querySelector('.ko-overlay');
       if (hadKo) {
         // 先摘除气绝遮罩（避免同步残留），保留引用播动画

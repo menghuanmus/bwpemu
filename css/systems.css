@@ -90,13 +90,16 @@
       gap: 3px;
       white-space: nowrap;
     }
-    .card-tooltip__stats .stat--atk  { color: #ff9070; }
-    .card-tooltip__stats .stat--hp   { color: #70d070; }
     .card-tooltip__stats .stat--shield { color: #70b0ff; }
     .card-tooltip__stats .stat--durability { color: #d0a0f0; }
     .card-tooltip__stats .stat--faction { color: #c0b080; }
     .card-tooltip__stats .stat--penalty { color: #ff7060; }
     .card-tooltip__stats .stat--owner { color: #e0c090; }
+
+    .tip-stat-icon {
+      width: 14px; height: 14px; vertical-align: middle; object-fit: contain;
+      image-rendering: auto;
+    }
 
     .card-tooltip__effect {
       font-size: 18px;
@@ -656,12 +659,14 @@
        式神录 (Shikigami Book)
        ================================================================ */
     .shikigami-book-dialog {
-      width: min(720px, 95vw);
-      max-height: 85vh;
+      width: min(920px, 95vw);
+      height: 640px;
       display: flex;
       flex-direction: column;
       overflow: hidden;
       padding: 16px 20px;
+      background: linear-gradient(180deg, rgba(18,24,38,0.98), rgba(12,18,30,0.98));
+      border: 1px solid rgba(150,180,220,0.25);
     }
 
     .shikigami-book__header {
@@ -669,18 +674,54 @@
       align-items: center;
       justify-content: space-between;
       flex-shrink: 0;
-      margin-bottom: 12px;
+      margin-bottom: 10px;
+      gap: 12px;
     }
 
     .shikigami-book__header h3 {
       margin: 0;
-      font-size: 17px;
-      color: rgba(255, 215, 0, 0.95);
+      font-size: 26px;
+      color: #80b8e0;
+      flex-shrink: 0;
     }
 
-    .shikigami-book__header .btn-dialog-confirm {
-      font-size: 12px;
-      padding: 4px 14px;
+    .shikigami-book__header .btn-dialog-cancel {
+      font-size: 18px;
+      padding: 6px 18px;
+      flex-shrink: 0;
+    }
+
+    /* 派系筛选按钮 */
+    .shikigami-book__factions {
+      display: flex;
+      gap: 4px;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+
+    .book-faction-btn {
+      padding: 4px 10px;
+      border-radius: 4px;
+      border: 1px solid rgba(150,180,220,0.2);
+      background: rgba(15,25,42,0.5);
+      color: #6880a8;
+      font-size: 17px;
+      cursor: pointer;
+      transition: all 0.15s;
+      font-family: inherit;
+      white-space: nowrap;
+    }
+
+    .book-faction-btn:hover {
+      border-color: rgba(150,180,220,0.4);
+      color: #8098c0;
+      background: rgba(150,180,220,0.08);
+    }
+
+    .book-faction-btn--active {
+      border-color: rgba(180,200,240,0.45);
+      color: #80b8e0;
+      background: rgba(150,180,220,0.12);
     }
 
     .shikigami-book__body {
@@ -692,34 +733,80 @@
 
     /* 左侧：式神列表 */
     .shikigami-book__left {
-      width: 180px;
+      width: 230px;
       flex-shrink: 0;
       display: flex;
       flex-direction: column;
-      gap: 8px;
+      gap: 6px;
+    }
+
+    /* 官方/DIY 页签 */
+    .shikigami-book__tabs {
+      display: flex;
+      gap: 4px;
+      flex-shrink: 0;
+    }
+
+    .book-tab {
+      flex: 1;
+      padding: 8px 0;
+      border-radius: 5px;
+      border: 1px solid rgba(150,180,220,0.15);
+      background: rgba(15,25,42,0.4);
+      color: #6880a8;
+      font-size: 20px;
+      cursor: pointer;
+      transition: all 0.15s;
+      font-family: inherit;
+      text-align: center;
+      font-weight: 600;
+    }
+
+    .book-tab:hover {
+      border-color: rgba(150,180,220,0.35);
+      color: #8098c0;
+      background: rgba(150,180,220,0.06);
+    }
+
+    .book-tab--active {
+      border-color: rgba(180,200,240,0.5);
+      color: #80b8e0;
+      background: rgba(150,180,220,0.12);
     }
 
     .shikigami-book__search {
       width: 100%;
-      padding: 7px 10px;
-      border-radius: 6px;
-      border: 1px solid rgba(150, 180, 220, 0.45);
-      background: rgba(20, 30, 50, 0.85);
-      color: #e8e8e8;
-      font-size: 13px;
+      padding: 8px 12px;
+      border-radius: 5px;
+      border: 1px solid rgba(150,180,220,0.25);
+      background: rgba(15,25,42,0.85);
+      color: #c8d0e0;
+      font-size: 20px;
       font-family: inherit;
       flex-shrink: 0;
+      box-sizing: border-box;
     }
 
     .shikigami-book__search:focus {
       outline: none;
-      border-color: rgba(255, 215, 0, 0.6);
-      box-shadow: 0 0 6px rgba(255, 215, 0, 0.15);
+      border-color: rgba(180,200,240,0.5);
+      box-shadow: 0 0 6px rgba(180,200,240,0.12);
     }
 
     .shikigami-book__search::placeholder {
-      color: rgba(160, 180, 200, 0.5);
+      color: rgba(140,160,200,0.4);
     }
+
+    /* 自定义滚动条 */
+    .shikigami-book__list::-webkit-scrollbar { width: 6px; }
+    .shikigami-book__list::-webkit-scrollbar-track { background: transparent; }
+    .shikigami-book__list::-webkit-scrollbar-thumb { background: rgba(150,180,220,0.15); border-radius: 3px; }
+    .shikigami-book__list::-webkit-scrollbar-thumb:hover { background: rgba(150,180,220,0.3); }
+
+    .shikigami-book__right::-webkit-scrollbar { width: 6px; }
+    .shikigami-book__right::-webkit-scrollbar-track { background: transparent; }
+    .shikigami-book__right::-webkit-scrollbar-thumb { background: rgba(150,180,220,0.15); border-radius: 3px; }
+    .shikigami-book__right::-webkit-scrollbar-thumb:hover { background: rgba(150,180,220,0.3); }
 
     .shikigami-book__list {
       flex: 1 1 auto;
@@ -727,35 +814,50 @@
       overflow-y: auto;
       display: flex;
       flex-direction: column;
-      gap: 2px;
+      gap: 1px;
     }
 
     .shikigami-book__item {
-      padding: 7px 10px;
-      border-radius: 5px;
+      padding: 10px 12px;
+      border-radius: 4px;
       cursor: pointer;
-      font-size: 13px;
-      color: #c0c8d8;
+      font-size: 20px;
+      color: #a0b0c8;
       transition: background 0.12s, color 0.12s;
       white-space: nowrap;
-      overflow: hidden;
+      overflow-x: hidden;
+      overflow-y: visible;
       text-overflow: ellipsis;
+      line-height: 1.5;
+      flex-shrink: 0;
     }
 
     .shikigami-book__item:hover {
-      background: rgba(60, 90, 140, 0.35);
-      color: #e8e8e8;
+      background: rgba(150,180,220,0.1);
+      color: #c8d0e0;
     }
 
     .shikigami-book__item--active {
-      background: rgba(80, 120, 180, 0.45) !important;
-      color: #ffd700 !important;
+      background: rgba(150,180,220,0.18) !important;
+      color: #80b8e0 !important;
       font-weight: 600;
     }
 
-    .shikigami-book__item--orphan {
-      color: rgba(160, 180, 200, 0.55);
-      font-style: italic;
+    /* 中立/商店分类标题 */
+    .shikigami-book__section-header {
+      padding: 10px 12px 4px;
+      font-size: 15px;
+      font-weight: 600;
+      color: rgba(150,180,220,0.4);
+      letter-spacing: 1px;
+      flex-shrink: 0;
+      border-top: 1px solid rgba(150,180,220,0.1);
+      margin-top: 6px;
+    }
+
+    .shikigami-book__section-header:first-of-type {
+      border-top: none;
+      margin-top: 0;
     }
 
     /* 右侧：卡牌详情 */
@@ -766,9 +868,9 @@
       overflow-y: auto;
       display: flex;
       flex-direction: column;
-      gap: 10px;
+      gap: 8px;
       padding-left: 8px;
-      border-left: 1px solid rgba(150, 180, 220, 0.2);
+      border-left: 1px solid rgba(150,180,220,0.15);
     }
 
     .shikigami-book__placeholder {
@@ -777,64 +879,173 @@
       justify-content: center;
       height: 100%;
       min-height: 200px;
-      color: rgba(160, 180, 210, 0.4);
-      font-size: 14px;
+      color: rgba(150,180,220,0.35);
+      font-size: 21px;
       text-align: center;
     }
 
-    .shikigami-book__shikigami-name {
-      font-size: 18px;
-      font-weight: 700;
-      color: #ffd700;
-      padding-bottom: 6px;
-      border-bottom: 1px solid rgba(150, 180, 220, 0.2);
-    }
-
-    .shikigami-book__card-entry {
+    /* 式神名片 —— 卡图为矩形（宽:高 ≈ 5:7） */
+    .shikigami-book__profile {
+      display: flex;
+      gap: 12px;
       padding: 10px 12px;
       border-radius: 8px;
-      background: rgba(20, 32, 52, 0.6);
-      border: 1px solid rgba(150, 180, 220, 0.15);
+      background: rgba(15,25,42,0.5);
+      border: 1px solid rgba(150,180,220,0.12);
+      flex-shrink: 0;
+    }
+
+    .shikigami-book__profile-img {
+      width: 128px;
+      height: 180px;
+      border-radius: 6px;
+      object-fit: cover;
+      flex-shrink: 0;
+      background: rgba(15,25,42,0.6);
+      border: 1px solid rgba(150,180,220,0.15);
+    }
+
+    .shikigami-book__profile-img--placeholder {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 20px;
+      color: rgba(150,180,220,0.3);
+      width: 128px;
+      height: 180px;
+      border-radius: 6px;
+      flex-shrink: 0;
+      background: rgba(15,25,42,0.4);
+      border: 1px dashed rgba(150,180,220,0.12);
+    }
+
+    .shikigami-book__profile-info {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .shikigami-book__profile-name {
+      font-size: 24px;
+      font-weight: 700;
+      color: #80b8e0;
+      margin-bottom: 2px;
+    }
+
+    .shikigami-book__profile-meta {
+      font-size: 17px;
+      color: #8898b0;
+      margin-bottom: 4px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      align-items: center;
+    }
+
+    .shikigami-book__profile-author {
+      font-size: 15px;
+      color: #8098c0;
+    }
+
+    .shikigami-book__profile-ability {
+      font-size: 18px;
+      color: #98a0b8;
+      line-height: 1.5;
+    }
+
+    /* 等级筛选标签 */
+    .shikigami-book__level-filters {
+      display: flex;
+      gap: 4px;
+      flex-shrink: 0;
+    }
+
+    .book-level-btn {
+      padding: 4px 12px;
+      border-radius: 4px;
+      border: 1px solid rgba(150,180,220,0.2);
+      background: rgba(15,25,42,0.4);
+      color: #6880a8;
+      font-size: 17px;
+      cursor: pointer;
+      transition: all 0.15s;
+      font-family: inherit;
+    }
+
+    .book-level-btn:hover {
+      border-color: rgba(150,180,220,0.4);
+      color: #8098c0;
+      background: rgba(150,180,220,0.06);
+    }
+
+    .book-level-btn--active {
+      border-color: rgba(180,200,240,0.45);
+      color: #80b8e0;
+      background: rgba(150,180,220,0.12);
+    }
+
+    /* 卡牌条目 */
+    .shikigami-book__card-entry {
+      padding: 8px 12px;
+      border-radius: 8px;
+      background: rgba(15,25,42,0.4);
+      border: 1px solid rgba(150,180,220,0.1);
     }
 
     .shikigami-book__card-head {
       display: flex;
       align-items: center;
-      gap: 8px;
-      margin-bottom: 4px;
+      gap: 6px;
+      margin-bottom: 3px;
+      flex-wrap: wrap;
     }
 
     .shikigami-book__card-name {
-      font-size: 14px;
+      font-size: 20px;
       font-weight: 600;
-      color: #e0d8c8;
+      color: #c0c8e0;
+    }
+
+    .shikigami-book__card-name--awakened::before {
+      content: '✨ ';
     }
 
     .shikigami-book__card-type {
-      font-size: 10px;
-      padding: 1px 6px;
+      font-size: 15px;
+      padding: 1px 5px;
       border-radius: 3px;
       font-weight: 600;
-      text-transform: uppercase;
       flex-shrink: 0;
     }
 
-    .sbt--shikigami { background: rgba(100, 160, 220, 0.3); color: #80c0f0; border: 1px solid rgba(100, 160, 220, 0.4); }
-    .sbt--spell    { background: rgba(180, 140, 220, 0.3); color: #c0a0f0; border: 1px solid rgba(180, 140, 220, 0.4); }
-    .sbt--battle   { background: rgba(220, 120, 100, 0.3); color: #f09080; border: 1px solid rgba(220, 120, 100, 0.4); }
-    .sbt--form     { background: rgba(100, 200, 140, 0.3); color: #80d8a0; border: 1px solid rgba(100, 200, 140, 0.4); }
-    .sbt--summon   { background: rgba(200, 180, 100, 0.3); color: #e0c860; border: 1px solid rgba(200, 180, 100, 0.4); }
-    .sbt--realm    { background: rgba(140, 200, 200, 0.3); color: #90d8d8; border: 1px solid rgba(140, 200, 200, 0.4); }
-    .sbt--curse    { background: rgba(200, 100, 160, 0.3); color: #e090c0; border: 1px solid rgba(200, 100, 160, 0.4); }
-    .sbt--bond  { background: rgba(200, 140, 60, 0.3); color: #f0c080; border: 1px solid rgba(200, 140, 60, 0.4); }
+    .sbt--shikigami { background: rgba(100,160,220,0.25); color: #80c0f0; border:1px solid rgba(100,160,220,0.35); }
+    .sbt--spell    { background: rgba(180,140,220,0.25); color: #c0a0f0; border:1px solid rgba(180,140,220,0.35); }
+    .sbt--battle   { background: rgba(220,120,100,0.25); color: #f09080; border:1px solid rgba(220,120,100,0.35); }
+    .sbt--form     { background: rgba(100,200,140,0.25); color: #80d8a0; border:1px solid rgba(100,200,140,0.35); }
+    .sbt--summon   { background: rgba(200,180,100,0.25); color: #e0c860; border:1px solid rgba(200,180,100,0.35); }
+    .sbt--realm    { background: rgba(140,200,200,0.25); color: #90d8d8; border:1px solid rgba(140,200,200,0.35); }
+    .sbt--curse    { background: rgba(200,100,160,0.25); color: #e090c0; border:1px solid rgba(200,100,160,0.35); }
+    .sbt--bond     { background: rgba(200,140,60,0.25); color: #f0c080; border:1px solid rgba(200,140,60,0.35); }
+
+    /* 稀有度标签 */
+    .shikigami-book__rarity {
+      font-size: 15px;
+      padding: 1px 4px;
+      border-radius: 3px;
+      font-weight: 700;
+      flex-shrink: 0;
+    }
+
+    .sbr--R   { background: rgba(80,140,220,0.2); color: #60a0f0; border:1px solid rgba(80,140,220,0.3); }
+    .sbr--SR  { background: rgba(160,100,200,0.2); color: #c080e0; border:1px solid rgba(160,100,200,0.3); }
+    .sbr--SSR { background: rgba(220,180,40,0.2); color: #f0c840; border:1px solid rgba(220,180,40,0.3); }
 
     .shikigami-book__card-stats {
-      font-size: 11px;
-      color: #90a0b8;
-      margin-bottom: 4px;
+      font-size: 17px;
+      color: #7890a8;
+      margin-bottom: 3px;
       display: flex;
       flex-wrap: wrap;
-      gap: 8px;
+      gap: 6px;
     }
 
     .shikigami-book__card-stats span {
@@ -842,26 +1053,52 @@
     }
 
     .shikigami-book__card-effect {
-      font-size: 12px;
-      color: #b0a890;
+      font-size: 18px;
+      color: #98a0b8;
       line-height: 1.5;
     }
 
     .shikigami-book__card-tags {
       display: flex;
-      gap: 4px;
+      gap: 3px;
       flex-shrink: 0;
     }
 
     .shikigami-book__tag {
-      font-size: 9px;
+      font-size: 14px;
       padding: 1px 5px;
       border-radius: 3px;
       font-weight: 600;
     }
 
-    .sbtag--awakened { background: rgba(255, 180, 50, 0.25); color: #ffb830; border: 1px solid rgba(255, 180, 50, 0.4); }
-    .sbtag--derivative { background: rgba(160, 140, 200, 0.25); color: #b0a0d0; border: 1px solid rgba(160, 140, 200, 0.4); }
+    .sbtag--awakened   { background: rgba(255,180,50,0.2); color: #ffb830; border:1px solid rgba(255,180,50,0.35); }
+    .sbtag--derivative { background: rgba(160,140,200,0.2); color: #b0a0d0; border:1px solid rgba(160,140,200,0.35); }
+    .sbtag--diy        { background: rgba(200,160,60,0.2); color: #e0c060; border:1px solid rgba(200,160,60,0.3); }
+
+    /* 衍生物分隔 */
+    .shikigami-book__derivative-sep {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 15px;
+      color: rgba(150,180,220,0.4);
+      padding: 4px 0;
+    }
+
+    .shikigami-book__derivative-sep::before,
+    .shikigami-book__derivative-sep::after {
+      content: '';
+      flex: 1;
+      height: 1px;
+      background: rgba(150,180,220,0.12);
+    }
+
+    /* 卡牌计数 */
+    .shikigami-book__item-count {
+      font-size: 15px;
+      color: #607090;
+      margin-left: 4px;
+    }
 
     /* ================================================================
        效果编辑器 (Effect Builder)

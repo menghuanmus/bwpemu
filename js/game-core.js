@@ -27,6 +27,7 @@
       <label class="card-badge card-badge--hp" title="生命">
         <input type="text" class="card-hp" placeholder="命" aria-label="生命">
       </label>
+      <img class="card-faction-icon" src="" alt="" style="display:none;">
       <label class="card-badge card-badge--name" title="卡牌名称">
         <input type="text" class="card-name" placeholder="名称" maxlength="12" aria-label="卡牌名称">
       </label>
@@ -242,7 +243,19 @@
         art.appendChild(img);
       }
       img.src = src;
+      // 加载失败回退到无图
+      img.onerror = function() {
+        if (this.src !== _noImagePath()) {
+          this.src = _noImagePath();
+          this.onerror = null; // 防止无限循环
+        }
+      };
       slot.classList.add('has-image');
+    }
+
+    function _noImagePath() {
+      // 相对于 images/ 目录，与式神文件夹同级
+      return 'images/无图.png';
     }
 
     function clearSlotImage(slot) {
@@ -254,6 +267,43 @@
     function getSlotImageSrc(slot) {
       const img = getCardArt(slot).querySelector('img');
       return img ? img.src : null;
+    }
+
+    /** 自动切换卡图：形态优先 → 觉醒 → 默认（仅当图片存在时切换，否则保持原图） */
+    function autoUpdateSlotImage(slot) {
+      const baseName = slot.querySelector('.card-name')?.value?.trim();
+      if (!baseName) return;
+
+      const paths = [];
+      // 1) 形态
+      if (slot._formName) paths.push(`images/${baseName}/${slot._formName}.png`);
+      // 2) 觉醒
+      const mods = slot._permAtkMods || [];
+      for (let i = mods.length - 1; i >= 0; i--) {
+        const src = mods[i].source || '';
+        if (src.includes('觉醒')) {
+          const awakenCard = src.endsWith('（觉醒）') ? src.slice(0, -4) : src;
+          paths.push(`images/${baseName}/${awakenCard}.png`);
+          break;
+        }
+      }
+      // 3) 默认
+      paths.push(`images/${baseName}/${baseName}.png`);
+
+      // 依次尝试加载，第一个成功的就用它，都不成功则不动
+      _trySetImage(slot, paths, 0);
+    }
+
+    function _trySetImage(slot, paths, idx) {
+      if (idx >= paths.length) return; // 都不存在，保持原图
+      const testImg = new Image();
+      testImg.onload = () => {
+        setSlotImage(slot, paths[idx]);
+        // 图片更新后同步给联机对方
+        if (!slotSyncSuppress && typeof syncSlotToPeer === 'function') syncSlotToPeer(slot);
+      };
+      testImg.onerror = () => _trySetImage(slot, paths, idx + 1);
+      testImg.src = paths[idx];
     }
 
     function getSlotState(slot) {
@@ -280,6 +330,8 @@
         formAbility: slot._formAbility || '',
         tempAtkMods: slot._tempAtkMods || [],
         tempHpMods: slot._tempHpMods || [],
+        slotType: slot.dataset.slotType || 'shikigami',
+        slotFaction: slot.dataset.slotFaction || '',
       };
     }
 
@@ -309,7 +361,26 @@
       // 临时属性
       slot._tempAtkMods = state.tempAtkMods || [];
       slot._tempHpMods = state.tempHpMods || [];
+      // 类型 / 派系
+      if (state.slotType) slot.dataset.slotType = state.slotType;
+      if (state.slotFaction) slot.dataset.slotFaction = state.slotFaction;
+      // 同步派系图标
+      const factionIcon = slot.querySelector('.card-faction-icon');
+      if (factionIcon) {
+        const fac = slot.dataset.slotFaction;
+        if (fac && fac !== '无相') {
+          factionIcon.src = 'images/派系/' + fac + '.png';
+          factionIcon.style.display = '';
+        } else {
+          factionIcon.style.display = 'none';
+        }
+      }
+      // 召唤物隐藏等级徽章
+      const levelBadge = slot.querySelector('.card-badge--level');
+      if (levelBadge) levelBadge.style.display = (slot.dataset.slotType === 'summon') ? 'none' : '';
       if (!slotSyncSuppress) updateAwakenedMark(slot);
+      // 自动切换卡图：形态 > 觉醒 > 默认（仅当没有显式设置 imageSrc 时）
+      if (!state.imageSrc) autoUpdateSlotImage(slot);
       if (!slotSyncSuppress) syncSlotToPeer(slot);
     }
 

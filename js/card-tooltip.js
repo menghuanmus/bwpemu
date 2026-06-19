@@ -211,26 +211,26 @@
         switch (card.type) {
           case 'shikigami':
           case 'summon':
-            if (card.faction) statsHTML += `<span class="stat stat--faction">🎌 ${card.faction}</span>`;
-            statsHTML += `<span class="stat stat--atk">⚔ 攻击:${card.attack}</span>`;
-            statsHTML += `<span class="stat stat--hp">❤ 生命:${card.hp}</span>`;
+            if (card.faction) statsHTML += `<span class="stat stat--faction"><img src="images/派系/${card.faction}.png" style="width:20px;height:20px;vertical-align:middle;image-rendering:auto;" alt="${card.faction}"> ${card.faction}</span>`;
+            statsHTML += `<span class="stat stat--atk"><img src="images/属性/攻击.png" class="tip-stat-icon" alt="攻"> ${card.attack}</span>`;
+            statsHTML += `<span class="stat stat--hp"><img src="images/属性/生命.png" class="tip-stat-icon" alt="命"> ${card.hp}</span>`;
             break;
           case 'spell':
             statsHTML += `<span class="stat">⭐ Lv.${card.level}</span>`;
-            if (card.atkBonus > 0) statsHTML += `<span class="stat stat--atk">⚔ +${card.atkBonus}攻击</span>`;
-            if (card.hpBonus > 0) statsHTML += `<span class="stat stat--hp">❤ +${card.hpBonus}生命</span>`;
+            if (card.atkBonus > 0) statsHTML += `<span class="stat stat--atk"><img src="images/属性/攻击.png" class="tip-stat-icon" alt="攻"> +${card.atkBonus}</span>`;
+            if (card.hpBonus > 0) statsHTML += `<span class="stat stat--hp"><img src="images/属性/生命.png" class="tip-stat-icon" alt="命"> +${card.hpBonus}</span>`;
             break;
           case 'battle':
             statsHTML += `<span class="stat">⭐ Lv.${card.level}</span>`;
-            if (card.atkBonus > 0) statsHTML += `<span class="stat stat--atk">⚔ +${card.atkBonus}攻击</span>`;
-            if (card.atkPenalty > 0) statsHTML += `<span class="stat stat--penalty">⚔ -${card.atkPenalty}攻击</span>`;
+            if (card.atkBonus > 0) statsHTML += `<span class="stat stat--atk"><img src="images/属性/攻击.png" class="tip-stat-icon" alt="攻"> +${card.atkBonus}</span>`;
+            if (card.atkPenalty > 0) statsHTML += `<span class="stat stat--penalty"><img src="images/属性/攻击.png" class="tip-stat-icon" alt="攻"> -${card.atkPenalty}</span>`;
             if (card.shieldBonus > 0) statsHTML += `<span class="stat stat--shield">🛡 +${card.shieldBonus}护盾</span>`;
             if (card.shieldPenalty > 0) statsHTML += `<span class="stat stat--penalty">🛡 -${card.shieldPenalty}护盾</span>`;
             break;
           case 'form':
             statsHTML += `<span class="stat">⭐ Lv.${card.level}</span>`;
-            statsHTML += `<span class="stat stat--atk">⚔ 攻击:${card.attack}</span>`;
-            statsHTML += `<span class="stat stat--hp">❤ 生命:${card.hp}</span>`;
+            statsHTML += `<span class="stat stat--atk"><img src="images/属性/攻击.png" class="tip-stat-icon" alt="攻"> ${card.attack}</span>`;
+            statsHTML += `<span class="stat stat--hp"><img src="images/属性/生命.png" class="tip-stat-icon" alt="命"> ${card.hp}</span>`;
             break;
           case 'realm':
             statsHTML += `<span class="stat">⭐ Lv.${card.level}</span>`;
@@ -241,8 +241,8 @@
             break;
           case 'bond':
             statsHTML += `<span class="stat">⭐ Lv.${card.level}</span>`;
-            if (card.atkBonus > 0) statsHTML += `<span class="stat stat--atk">⚔ +${card.atkBonus}攻击</span>`;
-            if (card.atkPenalty > 0) statsHTML += `<span class="stat stat--penalty">⚔ -${card.atkPenalty}攻击</span>`;
+            if (card.atkBonus > 0) statsHTML += `<span class="stat stat--atk"><img src="images/属性/攻击.png" class="tip-stat-icon" alt="攻"> +${card.atkBonus}</span>`;
+            if (card.atkPenalty > 0) statsHTML += `<span class="stat stat--penalty"><img src="images/属性/攻击.png" class="tip-stat-icon" alt="攻"> -${card.atkPenalty}</span>`;
             if (card.shieldBonus > 0) statsHTML += `<span class="stat stat--shield">🛡 +${card.shieldBonus}护盾</span>`;
             if (card.shieldPenalty > 0) statsHTML += `<span class="stat stat--penalty">🛡 -${card.shieldPenalty}护盾</span>`;
             break;
@@ -268,7 +268,7 @@
           const parts = [];
           // 1. 形态
           if (currentSlot._formName) {
-            parts.push(`<div class="card-tooltip__perm-head">🎴 形态：${escapeHTML(currentSlot._formName)} <span style="color:#ff9070;">⚔ 攻击:${currentSlot._formAtk || 0}</span> <span style="color:#70d070;">❤ 生命:${currentSlot._formHp || 0}</span></div>`);
+            parts.push(`<div class="card-tooltip__perm-head">🎴 形态：${escapeHTML(currentSlot._formName)} <span><img src="images/属性/攻击.png" class="tip-stat-icon" alt="攻"> ${currentSlot._formAtk || 0}</span> <span><img src="images/属性/生命.png" class="tip-stat-icon" alt="命"> ${currentSlot._formHp || 0}</span></div>`);
             if (currentSlot._formAbility) parts.push(`<div class="card-tooltip__perm-item">${escapeHTML(currentSlot._formAbility)}</div>`);
           }
           // 2. 永久属性
@@ -287,9 +287,9 @@
               const layers = (am && am.layers) || (hm && hm.layers) || 1;
               const layersText = layers > 1 ? ` ×${layers}` : '';
               s += `<div class="card-tooltip__perm-item"><span>${escapeHTML(src)}${layersText}：</span>`;
-              if (am) s += `<span style="color:#ff9070;">攻击${(am.value || 0) >= 0 ? '+' : ''}${am.value || 0}</span>`;
+              if (am) s += `<span style="color:#48c0e0;">攻击${(am.value || 0) >= 0 ? '+' : ''}${am.value || 0}</span>`;
               if (am && hm) s += '、';
-              if (hm) s += `<span style="color:#70d070;">生命${(hm.value || 0) >= 0 ? '+' : ''}${hm.value || 0}</span>`;
+              if (hm) s += `<span style="color:#e04848;">生命${(hm.value || 0) >= 0 ? '+' : ''}${hm.value || 0}</span>`;
               s += '</div>';
             });
             parts.push(s);
@@ -308,9 +308,9 @@
               const layers = (am && am.layers) || (hm && hm.layers) || 1;
               const layersText = layers > 1 ? ` ×${layers}` : '';
               s += `<div class="card-tooltip__perm-item"><span>${escapeHTML(src)}${layersText}：</span>`;
-              if (am) s += `<span style="color:#ff9070;">攻击${(am.value || 0) >= 0 ? '+' : ''}${am.value || 0}</span>`;
+              if (am) s += `<span style="color:#48c0e0;">攻击${(am.value || 0) >= 0 ? '+' : ''}${am.value || 0}</span>`;
               if (am && hm) s += '、';
-              if (hm) s += `<span style="color:#70d070;">生命${(hm.value || 0) >= 0 ? '+' : ''}${hm.value || 0}</span>`;
+              if (hm) s += `<span style="color:#e04848;">生命${(hm.value || 0) >= 0 ? '+' : ''}${hm.value || 0}</span>`;
               s += '</div>';
             });
             parts.push(s);
@@ -392,7 +392,7 @@
           const fullHp = typeof calcFullHp === 'function' ? calcFullHp(currentSlot) : (currentSlot._hp || 0);
           summaryHTML = `<div class="card-tooltip__summary">
             <div class="card-tooltip__summary-divider"></div>
-            <div class="card-tooltip__summary-body">当前属性：<span style="color:#ff9070;">⚔ 攻击：${fullAtk}</span> <span style="color:#70d070;">❤ 生命：${fullHp}</span></div>
+            <div class="card-tooltip__summary-body">当前属性：<span><img src="images/属性/攻击.png" class="tip-stat-icon" alt="攻"> ${fullAtk}</span> <span><img src="images/属性/生命.png" class="tip-stat-icon" alt="命"> ${fullHp}</span></div>
           </div>`;
         }
         let summaryEl = el.querySelector('.card-tooltip__summary');

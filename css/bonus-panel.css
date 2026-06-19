@@ -49,11 +49,26 @@
 .bonus-info__name { font-weight: bold; color: #f0d080; font-size: 17px; }
 .bonus-info__stats { color: #d0b060; }
 
+.bonus-stat-icon {
+  width: 14px; height: 14px; vertical-align: middle; object-fit: contain;
+  image-rendering: auto;
+}
+
 /* 分区 */
 .bonus-section { margin-bottom: 16px; }
 .bonus-section__label {
   display: block; font-size: 14px; color: #c0a060; margin-bottom: 6px; font-weight: bold;
 }
+
+/* 帮助图标 */
+.bonus-help-icon {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 18px; height: 18px; border-radius: 50%;
+  background: rgba(220,180,80,0.2); border: 1px solid rgba(220,180,80,0.4);
+  color: #c0a060; font-size: 11px; font-weight: bold; cursor: help;
+  vertical-align: middle; margin-left: 4px;
+}
+.bonus-help-icon:hover { background: rgba(220,180,80,0.35); color: #f0d060; }
 
 /* 能力输入 */
 .bonus-ability-input {
@@ -63,6 +78,23 @@
 }
 .bonus-ability-input:focus { outline: none; border-color: rgba(240,200,60,0.7); }
 .bonus-ability-input::placeholder { color: #706040; }
+
+/* 派系输入 */
+.bonus-faction-row {
+  display: flex; gap: 10px; align-items: center;
+}
+.bonus-faction-input {
+  flex: 1; padding: 8px 10px; border: 1px solid rgba(220,180,80,0.3);
+  border-radius: 6px; background: rgba(20,15,5,0.6); color: #f0e0c0;
+  font-size: 14px; box-sizing: border-box;
+}
+.bonus-faction-input:focus { outline: none; border-color: rgba(240,200,60,0.7); }
+.bonus-faction-input::placeholder { color: #706040; }
+.bonus-summon-label {
+  font-size: 14px; color: #c0a060; white-space: nowrap; cursor: pointer;
+  display: flex; align-items: center; gap: 4px;
+}
+.bonus-summon-label input[type="checkbox"] { cursor: pointer; accent-color: #c0a060; }
 
 /* 添加行 */
 .bonus-add-row {
@@ -127,7 +159,17 @@
 .bonus-list-item__pm--minus:disabled:hover { background: rgba(210,130,130,0.05); color: #806060; }
 
 /* 按钮 */
-.bonus-actions { display: flex; justify-content: flex-end; margin-top: 8px; padding-top: 10px; border-top: 1px solid rgba(220,180,80,0.2); }
+.bonus-actions { display: flex; justify-content: space-between; margin-top: 8px; padding-top: 10px; border-top: 1px solid rgba(220,180,80,0.2); }
+.bonus-btn--delete {
+  background: linear-gradient(180deg, #6a2a2a, #4a1818);
+  color: #f0a0a0;
+}
+.bonus-btn--delete:hover { background: linear-gradient(180deg, #8a3a3a, #6a2828); color: #f0b0b0; }
+.bonus-btn--save {
+  background: linear-gradient(180deg, #4a6a3a, #2a4a18);
+  color: #b0d080; margin-right: auto;
+}
+.bonus-btn--save:hover { background: linear-gradient(180deg, #5a8a4a, #3a6a28); color: #c0f090; }
 .bonus-btn { padding: 7px 16px; border-radius: 6px; font-size: 14px; cursor: pointer; border: 1px solid rgba(220,180,80,0.3); font-weight: bold; }
 .bonus-btn--add {
   background: linear-gradient(180deg, #6a5a2a, #4a3a18);
