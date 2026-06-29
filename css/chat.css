@@ -627,3 +627,31 @@
       display: none;
     }
 
+
+/* ── 游戏工具栏 ── */
+.game-toolbar {
+  flex-shrink: 0;
+  padding: 4px 2px;
+}
+.game-toolbar-btn {
+  width: 100%; padding: 6px 0;
+  background: rgba(251,113,133,0.1);
+  border: 1px solid rgba(251,113,133,0.2);
+  border-radius: 8px; color: #FB7185;
+  font-size: 0.75rem; cursor: pointer;
+  transition: all 0.2s; font-family: inherit;
+
+/* ── 骰子抛物线动画 ── */
+@keyframes dice-roll {
+  0% { opacity: 1; transform: translate(0, 0) rotate(0deg) scale(1); }
+  100% { opacity: 1; transform: translate(0, -180px) rotate(720deg) scale(2.2); }
+}
+.dice-fly {
+  position: fixed; pointer-events: none; z-index: 999;
+  font-size: 2.5rem; animation: dice-roll 1s ease-out forwards;
+  display: flex; align-items: center; justify-content: center;
+}
+.dice-fly-num {
+  font-size: 1rem; font-weight: 700; color: #fff;
+  text-shadow: 0 0 6px rgba(0,0,0,0.9);
+}

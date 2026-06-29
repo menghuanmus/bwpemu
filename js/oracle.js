@@ -385,7 +385,7 @@
 
     /** 同步启悟状态到对手 */
     function syncOracleToPeer(playerId) {
-      if (!peerConn || !peerConn.open || typeof sendToPeer !== 'function') return;
+      if (!window._gameSocket || !window._gameSocket.connected || typeof sendToPeer !== 'function') return;
       sendToPeer({
         type: 'oracle-update',
         playerId: playerId,

@@ -58,7 +58,7 @@
 
     /* 同步单个卡牌槽状态到对方 */
     function syncSlotToPeer(slot) {
-      if (slotSyncSuppress || !peerConn || !peerConn.open) return;
+      if (slotSyncSuppress || !window._gameSocket || !window._gameSocket.connected) return;
       const playerId = slot.dataset.slotPlayer;
       const slotIndex = parseInt(slot.dataset.slotIndex, 10);
       const state = getSlotState(slot);
@@ -84,14 +84,14 @@
 
     /* 发送牌库/手牌计数给对方（仅己方） */
     function syncDeckState(playerId) {
-      if (!peerConn || !peerConn.open) return;
+      if (!window._gameSocket || !window._gameSocket.connected) return;
       if (!isMyZone(playerId)) return;
       _sendDeckUpdate(playerId);
     }
 
     /* 强制同步牌库/手牌（跨玩家操作如烹饪也需同步） */
     function syncDeckStateForce(playerId) {
-      if (!peerConn || !peerConn.open) return;
+      if (!window._gameSocket || !window._gameSocket.connected) return;
       _sendDeckUpdate(playerId);
     }
 
@@ -115,12 +115,9 @@
     function applyRemoteDeckState(playerId, deckCount, handCount, deckData, handData) {
       try {
         const state = getPlayerCardState(playerId);
-        if (Array.isArray(deckData) && deckData.length) {
-          state.deck = deckData.filter(c => c && typeof c === 'object');
-        }
-        if (Array.isArray(handData) && handData.length) {
-          state.hand = handData.filter(c => c && typeof c === 'object');
-        }
+        state.deck = Array.isArray(deckData) ? deckData.filter(c => c && typeof c === 'object') : [];
+        state.hand = Array.isArray(handData) ? handData.filter(c => c && typeof c === 'object') : [];
+        if (typeof updateCardIdCounter === 'function') updateCardIdCounter();
         updateDeckButtons(playerId);
       } catch(e) {
         console.error('[RemoteDeck] 更新失败:', e);
@@ -140,7 +137,7 @@
     }
 
     function syncEffectsState(playerId) {
-      if (!peerConn || !peerConn.open) return;
+      if (!window._gameSocket || !window._gameSocket.connected) return;
       sendToPeer({
         type: 'effects-update',
         playerId,
@@ -175,7 +172,7 @@
     }
 
     function syncPlayerInfo(playerId) {
-      if (!peerConn || !peerConn.open) return;
+      if (!window._gameSocket || !window._gameSocket.connected) return;
       const info = getPlayerInfo(playerId);
       sendToPeer({
         type: 'player-info',
@@ -299,8 +296,7 @@
       const testImg = new Image();
       testImg.onload = () => {
         setSlotImage(slot, paths[idx]);
-        // 图片更新后同步给联机对方
-        if (!slotSyncSuppress && typeof syncSlotToPeer === 'function') syncSlotToPeer(slot);
+        // 图片已不同步(auth.js 会剔除 imageSrc)，避免异步回调在 slotSyncSuppress 释放后触发无意义同步
       };
       testImg.onerror = () => _trySetImage(slot, paths, idx + 1);
       testImg.src = paths[idx];
@@ -404,8 +400,20 @@
       if (!file || !slot) return;
       const reader = new FileReader();
       reader.onload = (ev) => {
-        setSlotImage(slot, ev.target.result);
-        syncSlotToPeer(slot);
+        // 压缩卡图：限制宽400px，JPEG质量0.8，减少体积
+        const img = new Image();
+        img.onload = function() {
+          var w = img.width, h = img.height;
+          var maxW = 400;
+          if (w > maxW) { h = Math.round(h * maxW / w); w = maxW; }
+          var c = document.createElement('canvas');
+          c.width = w; c.height = h;
+          c.getContext('2d').drawImage(img, 0, 0, w, h);
+          var dataUrl = c.toDataURL('image/jpeg', 0.8);
+          setSlotImage(slot, dataUrl);
+          syncSlotToPeer(slot);
+        };
+        img.src = ev.target.result;
       };
       reader.readAsDataURL(file);
     });
@@ -420,7 +428,7 @@
       const reader = new FileReader();
       reader.onload = (ev) => {
         setAvatarImage(playerId, ev.target.result);
-        if (peerConn && peerConn.open) {
+        if (isConnected()) {
           sendToPeer({ type: 'avatar-update', playerId, imageSrc: ev.target.result });
         }
       };
@@ -442,6 +450,7 @@
 
     document.querySelectorAll('.player-avatar').forEach(av => {
       av.addEventListener('click', () => {
+        if (typeof isTargeting !== 'undefined' && isTargeting) return;
         if (!isMyElement(av)) return;
         activeAvatarPlayer = av.dataset.avatarPlayer;
         avatarInput.click();
@@ -502,6 +511,26 @@
           existing.querySelector('input').value = value;
         } else {
           slot.appendChild(createCountdownBadge(value));
+        }
+      } else {
+        if (existing) existing.remove();
+      }
+    }
+
+    function updateKoOverlay(slot, value) {
+      var existing = slot.querySelector('.ko-overlay');
+      if (value) {
+        if (!existing) {
+          var overlay = document.createElement('div');
+          overlay.className = 'ko-overlay';
+          overlay.innerHTML = '<div class="ko-circle"><input type="text" value="' + value + '" aria-label="气绝倒计时"></div>';
+          overlay.querySelector('input').addEventListener('change', function() {
+            syncSlotToPeer(slot);
+          });
+          slot.appendChild(overlay);
+        } else {
+          var inp = existing.querySelector('input');
+          if (inp) inp.value = value;
         }
       } else {
         if (existing) existing.remove();

@@ -19,6 +19,11 @@
       const rollerName = localPlayerId ? getPlayerName(localPlayerId) : '玩家';
       const msg = `【系统】${rollerName}骰了随机数${result}（${low}~${high}）`;
       broadcastSystemMsg(msg);
+      // 联机同步骰子动画
+      sendToPeer({ type: 'dice', rollerName: rollerName, result: result, low: low, high: high });
+      // 骰子动画
+      var btn = document.getElementById('btn-dice-roll');
+      if (btn && typeof playDiceAnim === 'function') playDiceAnim(result, btn);
     }
 
     document.getElementById('btn-dice-roll').addEventListener('click', rollDice);
@@ -393,7 +398,7 @@
     }
 
     function syncNightfallToPeer(playerId) {
-      if (!peerConn || !peerConn.open || typeof sendToPeer !== 'function') return;
+      if (typeof isConnected !== "function" || !isConnected() || typeof sendToPeer !== 'function') return;
       const container = document.querySelector(`.player-zone[data-player="${playerId}"] .nightfall-indicator`);
       if (!container) return;
       const input = container.querySelector('.nightfall-input');
@@ -476,7 +481,7 @@
           if (targetingMode === 'nightfall') {
             nightfallActive[playerId] = !nightfallActive[playerId];
             _toggleNightfall(playerId, nightfallActive[playerId]);
-            if (peerConn && peerConn.open && typeof sendToPeer === 'function') {
+            if (isConnected() && typeof sendToPeer === 'function') {
               sendToPeer({ type: 'nightfall-toggle', playerId, active: nightfallActive[playerId] });
             }
             const verb = nightfallActive[playerId] ? '开启了' : '关闭了';
@@ -485,7 +490,7 @@
           } else if (targetingMode === 'bounty') {
             bountyActive[playerId] = !bountyActive[playerId];
             _toggleBounty(playerId, bountyActive[playerId]);
-            if (peerConn && peerConn.open && typeof sendToPeer === 'function') {
+            if (isConnected() && typeof sendToPeer === 'function') {
               sendToPeer({ type: 'bounty-toggle', playerId, active: bountyActive[playerId] });
             }
             const verb = bountyActive[playerId] ? '开启了' : '关闭了';
@@ -720,7 +725,7 @@
           setTimeout(() => DamageEffects.playKoEffect(slot), 50);
         }
         // 联机同步气绝动画
-        if (typeof sendToPeer === 'function' && peerConn && peerConn.open) {
+        if (typeof sendToPeer === 'function' && isConnected()) {
           sendToPeer({ type: 'fx-ko', playerId: slot.dataset.slotPlayer, slotIndex: parseInt(slot.dataset.slotIndex, 10) });
         }
         broadcastSystemMsg(`【系统】召唤物「${cardName}」被消灭了`);
@@ -755,7 +760,7 @@
           DamageEffects.playReviveEffect(slot, koOverlay);
         }
         // 【联机同步】通知对方播放复活动画
-        if (typeof sendToPeer === 'function' && peerConn && peerConn.open) {
+        if (typeof sendToPeer === 'function' && isConnected()) {
           sendToPeer({ type: 'fx-revive', playerId: slot.dataset.slotPlayer, slotIndex: parseInt(slot.dataset.slotIndex, 10) });
         }
       } else {
@@ -768,7 +773,7 @@
           setTimeout(() => DamageEffects.playKoEffect(slot), 50);
         }
         // 【联机同步】通知对方播放气绝动画
-        if (typeof sendToPeer === 'function' && peerConn && peerConn.open) {
+        if (typeof sendToPeer === 'function' && isConnected()) {
           sendToPeer({ type: 'fx-ko', playerId: slot.dataset.slotPlayer, slotIndex: parseInt(slot.dataset.slotIndex, 10) });
         }
       }
@@ -813,7 +818,7 @@
       syncPlayerInfo(playerId);
       broadcastSystemMsg(`【系统】${getDamageSourceLabel()}对${getPlayerName(playerId)}造成了${dmg}点伤害`);
       // 【联机】始终通知对方播放伤害动画
-      if (peerConn && peerConn.open && typeof sendToPeer === 'function') {
+      if (isConnected() && typeof sendToPeer === 'function') {
         sendToPeer({ type: 'player-damage', playerId, dmg });
       }
       // 通知效果引擎
@@ -842,7 +847,7 @@
       syncPlayerInfo(playerId);
       broadcastSystemMsg(`【系统】${getDamageSourceLabel()}为${getPlayerName(playerId)}恢复了${amount}点生命`);
       // 【联机】始终通知对方播放治疗动画
-      if (peerConn && peerConn.open && typeof sendToPeer === 'function') {
+      if (isConnected() && typeof sendToPeer === 'function') {
         sendToPeer({ type: 'player-heal', playerId, amount });
       }
     }
@@ -860,7 +865,7 @@
       broadcastSystemMsg(`【系统】${getDamageSourceLabel()}对「${cardName}」造成了${dmg}点伤害`);
       // 【联机】同步状态 + 播放伤害动画
       syncSlotToPeer(slot);
-      if (peerConn && peerConn.open && typeof sendToPeer === 'function') {
+      if (isConnected() && typeof sendToPeer === 'function') {
         sendToPeer({ type: 'card-damage', playerId: slot.dataset.slotPlayer, slotIndex: parseInt(slot.dataset.slotIndex, 10), dmg });
       }
       // 通知效果引擎
@@ -895,7 +900,7 @@
       broadcastSystemMsg(`【系统】${getDamageSourceLabel()}为「${cardName}」恢复了${amount}点生命`);
       // 【联机】同步状态 + 播放治疗动画
       syncSlotToPeer(slot);
-      if (peerConn && peerConn.open && typeof sendToPeer === 'function') {
+      if (isConnected() && typeof sendToPeer === 'function') {
         sendToPeer({ type: 'card-heal', playerId: slot.dataset.slotPlayer, slotIndex: parseInt(slot.dataset.slotIndex, 10), amount });
       }
       // 通知效果引擎

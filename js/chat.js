@@ -68,14 +68,14 @@
       if (group.subMsgs.length === 0) {
         addSystemChatMessage(group.mainMsg);
         // 无子消息也需同步给对方
-        if (!isSoloMode && peerConn && peerConn.open && typeof sendToPeer === 'function') {
+        if (!isSoloMode && isConnected() && typeof sendToPeer === 'function') {
           sendToPeer({ type: 'sysmsg', text: group.mainMsg });
         }
         return;
       }
       _renderGroupedMessage(group);
       // 联机同步：将分组消息发给对方
-      if (!isSoloMode && peerConn && peerConn.open && typeof sendToPeer === 'function') {
+      if (!isSoloMode && isConnected() && typeof sendToPeer === 'function') {
         sendToPeer({ type: 'sysmsg-group', mainMsg: group.mainMsg, subMsgs: group.subMsgs });
       }
     }
@@ -137,7 +137,7 @@
         return;
       }
       // 联机：同步给对方
-      if (!isSoloMode && peerConn && peerConn.open && typeof sendToPeer === 'function') {
+      if (!isSoloMode && isConnected() && typeof sendToPeer === 'function') {
         sendToPeer({ type: 'sysmsg', text: msg });
       }
       addSystemChatMessage(msg);
@@ -163,7 +163,7 @@
       if (!text) { closeSpeakDialog(); return; }
       addChatMessage(activeSpeakPlayer, text);
       // 联机同步发言
-      if (peerConn && peerConn.open) {
+      if (isConnected()) {
         sendToPeer({
           type: 'chat',
           playerId: activeSpeakPlayer,
@@ -190,7 +190,7 @@
       specNameInput.addEventListener('change', () => {
         const name = specNameInput.value.trim();
         spectatorCustomName = name;
-        if (peerConn && peerConn.open && isSpectator) {
+        if (isConnected() && isSpectator) {
           sendToPeer({ type: 'spec-name', name });
         }
       });

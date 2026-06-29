@@ -17,10 +17,190 @@
   <link rel="stylesheet" href="css/charge.css">
   <link rel="stylesheet" href="css/bonus-panel.css">
   <link rel="stylesheet" href="css/presets.css">
-  <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+  <link rel="stylesheet" href="css/auth.css">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+  <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
 </head>
 <body>
+
+  <!-- ════════════════════════════════════════════
+       登录 / 注册 视图
+       ════════════════════════════════════════════ -->
+  <div id="auth-view" class="active">
+    <div class="auth-bg"></div>
+    <div class="cursor-aura" id="auth-cursor-aura"></div>
+    <!-- 登录面板 -->
+    <div class="auth-card" id="login-panel" data-tilt>
+      <h2><em>百闻牌</em> 模拟器</h2>
+      <div class="auth-field">
+        <label>用户名</label>
+        <input type="text" id="login-username" placeholder="请输入用户名" autocomplete="username">
+      </div>
+      <div class="auth-field">
+        <label>密码</label>
+        <input type="password" id="login-password" placeholder="请输入密码" autocomplete="current-password">
+      </div>
+      <button class="auth-btn" id="login-btn">
+        <span class="btn-spinner"></span><span class="btn-text">登 录</span>
+      </button>
+      <div class="auth-link">没有账号？<a id="show-register-link">创建账号</a></div>
+      <div class="auth-error" id="login-error"></div>
+    </div>
+
+    <!-- 注册面板 -->
+    <div class="auth-card" id="register-panel" hidden data-tilt>
+      <h2><em>创建</em> 账号</h2>
+      <div class="auth-field">
+        <label>用户名</label>
+        <input type="text" id="reg-username" placeholder="用于登录，创建后不可修改" autocomplete="off">
+      </div>
+      <div class="auth-field">
+        <label>昵称</label>
+        <input type="text" id="reg-nickname" placeholder="显示名称，可留空同用户名">
+      </div>
+      <div class="auth-field">
+        <label>密码</label>
+        <input type="password" id="reg-password" placeholder="至少 4 位" autocomplete="new-password">
+      </div>
+      <button class="auth-btn" id="reg-btn">
+        <span class="btn-spinner"></span><span class="btn-text">注 册</span>
+      </button>
+      <div class="auth-link">已有账号？<a id="show-login-link">返回登录</a></div>
+      <div class="auth-error" id="reg-error"></div>
+    </div>
+  </div>
+
+  <!-- ════════════════════════════════════════════
+       加载遮罩
+       ════════════════════════════════════════════ -->
+  <div class="auth-loading" id="auth-loading">
+    <div class="spinner-ring"></div>
+    <div class="spinner-text" id="auth-loading-text">正在连接…</div>
+  </div>
+
+  <!-- ════════════════════════════════════════════
+       大厅 视图
+       ════════════════════════════════════════════ -->
+  <div id="lobby-view">
+    <div class="auth-bg"></div>
+    <div class="cursor-aura" id="lobby-cursor-aura"></div>
+
+    <div class="lobby-shell">
+      <!-- 左侧栏 -->
+      <div class="lobby-sidebar">
+        <div class="lobby-sidebar-user">
+          <div class="lobby-sidebar-avatar" id="lobby-avatar">—</div>
+          <div class="lobby-sidebar-name" id="lobby-nickname">—</div>
+          <div class="lobby-sidebar-username" id="lobby-username">—</div>
+        </div>
+
+        <div class="lobby-nav">
+          <div class="lobby-nav-item active" data-tab="hall">
+            <span class="lobby-nav-icon">🎴</span> 大厅
+          </div>
+          <div class="lobby-nav-item" data-tab="history">
+            <span class="lobby-nav-icon">📜</span> 战绩
+          </div>
+          <div class="lobby-nav-item" data-tab="profile">
+            <span class="lobby-nav-icon">⚙</span> 我的
+          </div>
+        </div>
+
+        <div class="lobby-sidebar-footer">
+          <span class="lobby-sidebar-logout" id="lobby-logout-btn">退出登录</span>
+        </div>
+      </div>
+
+      <!-- 右侧内容 -->
+      <div class="lobby-main">
+        <!-- 大厅 -->
+        <div class="lobby-panel active" id="panel-hall">
+          <div class="lobby-panel-header">
+            <div style="display:flex;align-items:center;justify-content:space-between;">
+              <div><h3>对战大厅</h3><p>选择一个房间加入，或创建新对局</p></div>
+              <button class="lobby-join-btn" id="lobby-refresh-btn" style="font-size:0.75rem;padding:6px 12px;">🔄 刷新</button>
+            </div>
+          </div>
+          <div class="lobby-room-list" id="room-list">
+            <div class="lobby-empty" id="room-list-empty">
+              <div class="lobby-empty-icon">🎴</div>
+              <div class="lobby-empty-text">暂无可用房间</div>
+            </div>
+          </div>
+          <div class="lobby-quick-actions">
+            <button class="lobby-create-btn" id="lobby-solo-btn" style="background:linear-gradient(135deg,#6366F1,#8B5CF6);margin-bottom:8px;">
+              <span class="btn-spinner"></span><span class="btn-text">单人模式</span>
+            </button>
+            <input type="text" id="lobby-join-input" placeholder="输入房间号加入" maxlength="6" autocomplete="off">
+            <button class="lobby-join-btn" id="lobby-join-btn">
+              <span class="btn-spinner"></span><span class="btn-text">加入</span>
+            </button>
+            <button class="lobby-create-btn" id="lobby-create-btn">
+              <span class="btn-spinner"></span><span class="btn-text">创建房间</span>
+            </button>
+          </div>
+          <div class="lobby-error-msg" id="lobby-error"></div>
+        </div>
+
+        <!-- 战绩 -->
+        <div class="lobby-panel" id="panel-history">
+          <div class="lobby-panel-header">
+            <h3>对局战绩</h3>
+            <p>查看历史对局记录</p>
+          </div>
+          <div class="lobby-empty">
+            <div class="lobby-empty-icon">📜</div>
+            <div class="lobby-empty-text">暂无对局记录</div>
+          </div>
+        </div>
+
+        <!-- 我的 -->
+        <div class="lobby-panel" id="panel-profile">
+          <div class="lobby-panel-header">
+            <h3>个人中心</h3>
+            <p>管理头像、昵称和密码</p>
+          </div>
+          <div class="profile-grid">
+            <div>
+              <div class="profile-group-title">头像</div>
+              <div class="profile-avatar-row">
+                <div class="profile-avatar" id="profile-avatar" title="点击更换头像">—</div>
+                <span class="profile-avatar-hint">点击更换头像</span>
+              </div>
+              <input type="file" id="profile-avatar-input" accept="image/*" hidden>
+            </div>
+            <div>
+              <div class="profile-group-title">昵称</div>
+              <div class="profile-field">
+                <input type="text" id="profile-nickname" placeholder="输入新昵称">
+              </div>
+              <button class="profile-save-btn" id="profile-save-nickname">保存</button>
+              <div class="profile-msg" id="profile-nickname-msg"></div>
+            </div>
+            <div>
+              <div class="profile-group-title">修改密码</div>
+              <div class="profile-field">
+                <label>当前密码</label>
+                <input type="password" id="profile-old-pw" placeholder="输入当前密码">
+              </div>
+              <div class="profile-field">
+                <label>新密码</label>
+                <input type="password" id="profile-new-pw" placeholder="至少 4 位">
+              </div>
+              <button class="profile-save-btn" id="profile-save-password">修改密码</button>
+              <div class="profile-msg" id="profile-pw-msg"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ════════════════════════════════════════════
+       游戏视图 (包裹原有游戏内容)
+       ════════════════════════════════════════════ -->
+  <div id="game-view">
+
   <!-- ================================================================
        HTML：房间连接覆盖层（创建/加入房间）
        ================================================================ -->
@@ -279,6 +459,9 @@
 
     <!-- 右侧聊天栏 -->
     <aside class="chat-sidebar" aria-label="聊天区域">
+      <div class="game-toolbar">
+        <button class="game-toolbar-btn" id="game-btn-exit" title="退出房间">🚪 退出</button>
+      </div>
       <div class="chat-section chat-section--system">
         <div class="chat-section-title" id="sys-chat-title">📢 系统信息</div>
         <div class="chat-section-body" id="chat-system-log"></div>
@@ -589,5 +772,9 @@
   <script src="js/charge.js"></script>
   <script src="js/bonus-panel.js"></script>
   <script src="js/presets.js"></script>
+  <script src="js/auth.js"></script>
+
+  </div><!-- /#game-view -->
+
 </body>
 </html>

@@ -243,7 +243,7 @@
     }
 
     function syncBountyToPeer(playerId) {
-      if (!peerConn || !peerConn.open || typeof sendToPeer !== 'function') return;
+      if (!window._gameSocket || !window._gameSocket.connected || typeof sendToPeer !== 'function') return;
       sendToPeer({ type: 'bounty-update', playerId, amount: playerBounty[playerId] || 0 });
       updateBountyInput(playerId);
     }
@@ -432,7 +432,7 @@
       const isMyOp = (typeof isMyZone === 'function') ? isMyZone(playerId) : true;
       if (isMyOp) {
         addSystemChatMessage(detailBuy);
-        if (!isSoloMode && peerConn && peerConn.open && typeof sendToPeer === 'function') {
+        if (!isSoloMode && isConnected() && typeof sendToPeer === 'function') {
           sendToPeer({ type: 'sysmsg', text: summaryBuy });
         }
       } else {
@@ -471,7 +471,7 @@
       const isMyOp2 = (typeof isMyZone === 'function') ? isMyZone(playerId) : true;
       if (isMyOp2) {
         addSystemChatMessage(detailRefresh);
-        if (!isSoloMode && peerConn && peerConn.open && typeof sendToPeer === 'function') {
+        if (!isSoloMode && isConnected() && typeof sendToPeer === 'function') {
           sendToPeer({ type: 'sysmsg', text: detailRefresh });
         }
       } else {
@@ -484,7 +484,7 @@
     }
 
     function syncShopToPeer(playerId) {
-      if (!peerConn || !peerConn.open || typeof sendToPeer !== 'function') return;
+      if (!window._gameSocket || !window._gameSocket.connected || typeof sendToPeer !== 'function') return;
       const shop = getShop(playerId);
       const stocks = {};
       if (playerCardStocks[playerId]) {

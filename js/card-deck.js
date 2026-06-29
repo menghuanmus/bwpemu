@@ -853,7 +853,7 @@
       if (!playerRevealedCards[viewerId]) playerRevealedCards[viewerId] = new Set();
       divineCards.forEach(c => playerRevealedCards[viewerId].add(c.id));
       // 静默同步给对方（用于存档完整性）
-      if (!isSoloMode && peerConn && peerConn.open && typeof sendToPeer === 'function') {
+      if (!isSoloMode && isConnected() && typeof sendToPeer === 'function') {
         sendToPeer({ type: 'revealed-cards', playerId: viewerId, cardIds: [...playerRevealedCards[viewerId]] });
       }
       divineContext = {
@@ -1085,7 +1085,7 @@
       addSystemChatMessage(`${prefix} —— 牌库顶：[${topNames}]，牌库底：[${bottomNames}]`);
 
       // 其他人（对手/观众）看到摘要信息（只有数量，不知道牌名）
-      if (!isSoloMode && peerConn && peerConn.open && typeof sendToPeer === 'function') {
+      if (!isSoloMode && isConnected() && typeof sendToPeer === 'function') {
         const topWord = topCount > 0 ? `${topCount}张` : '0张';
         const bottomWord = bottomCount > 0 ? `${bottomCount}张` : '0张';
         const summaryPrefix = isHelp ? `【系统】${opName}完成了对${playerName}的占卜${xVal}` : `【系统】${playerName}完成了占卜${xVal}`;
@@ -1629,7 +1629,7 @@
         DamageEffects.playCookEffect(slot);
       }
       // 同步烹饪动画到对手/观众
-      if (!isSoloMode && peerConn && peerConn.open && typeof sendToPeer === 'function') {
+      if (!isSoloMode && isConnected() && typeof sendToPeer === 'function') {
         sendToPeer({ type: 'cook-effect', playerId: slot.dataset.slotPlayer, slotIndex: slot.dataset.slotIndex });
       }
 
@@ -1655,7 +1655,7 @@
       if (isMyOp) {
         // 我为自己烹饪：我看到详细，对手看到摘要
         addSystemChatMessage(detailMsg);
-        if (!isSoloMode && peerConn && peerConn.open && typeof sendToPeer === 'function') {
+        if (!isSoloMode && isConnected() && typeof sendToPeer === 'function') {
           sendToPeer({ type: 'sysmsg', text: summaryMsg });
         }
       } else {
@@ -1697,12 +1697,12 @@
             };
             CardDB.addCustom(feastDef);
             // 同步佳肴定义给对方，使对方也能悬浮查看正确效果
-            if (!isSoloMode && peerConn && peerConn.open && typeof sendToPeer === 'function') {
+            if (!isSoloMode && isConnected() && typeof sendToPeer === 'function') {
               sendToPeer({ type: 'food-card-register', card: feastDef });
             }
           }
           addSystemChatMessage(detailFeast);
-          if (!isSoloMode && peerConn && peerConn.open && typeof sendToPeer === 'function') {
+          if (!isSoloMode && isConnected() && typeof sendToPeer === 'function') {
             sendToPeer({ type: 'sysmsg', text: summaryFeast });
           }
         } else {
@@ -2256,7 +2256,7 @@
       addSystemChatMessage(detailMsg);
 
       // 发送给对手：仅摘要
-      if (!isSoloMode && peerConn && peerConn.open && typeof sendToPeer === 'function') {
+      if (!isSoloMode && isConnected() && typeof sendToPeer === 'function') {
         sendToPeer({ type: 'sysmsg', text: summaryMsg });
       }
 

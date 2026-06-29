@@ -384,56 +384,43 @@
       }
       slotSyncSuppress = false;
 
-      // 联机状态下，将恢复的全部状态同步给对方和观众
-      if (peerConn && peerConn.open) {
-        // 先同步揭示卡牌数据（静默存储）
-        ['1', '2'].forEach(pid => {
-          if (playerRevealedCards[pid] && playerRevealedCards[pid].size) {
-            sendToPeer({ type: 'revealed-cards', playerId: pid, cardIds: [...playerRevealedCards[pid]] });
-          }
-        });
-        ['1', '2'].forEach(pid => {
-          // 玩家信息
-          const info = getPlayerInfo(pid);
-          sendToPeer({ type: 'player-info', playerId: pid, name: info.name, hp: info.hp });
-          // 效果面板
-          sendToPeer({ type: 'effects-update', playerId: pid, effects: getEffectsState(pid) });
-          // 牌库/手牌（完整数据）
-          const cards = getPlayerCardState(pid);
-          sendToPeer({ type: 'deck-update', playerId: pid, deckCount: cards.deck.length, handCount: cards.hand.length, deckData: cards.deck, handData: cards.hand });
-          // 鬼火
-          sendToPeer({ type: 'fire-update', playerId: pid, count: playerFire[pid] });
-          // 赏金
-          if ((playerBounty[pid] || 0) > 0) {
-            sendToPeer({ type: 'bounty-update', playerId: pid, amount: playerBounty[pid] });
-          }
-          // 赏金图标
-          const bzone = document.querySelector(`.player-zone[data-player="${pid}"]`);
-          if (bzone && bzone.querySelector('.bounty-indicator')) {
-            sendToPeer({ type: 'bounty-toggle', playerId: pid, active: true });
-          }
-          // 入夜图标
-          if (typeof nightfallActive !== 'undefined' && nightfallActive[pid]) {
-            const nval = bzone ? (bzone.querySelector('.nightfall-input')?.value || '0') : '0';
-            sendToPeer({ type: 'nightfall-toggle', playerId: pid, active: true, value: nval });
-          }
-          // 启悟状态
-          if (typeof oracleActive !== 'undefined' && oracleActive[pid]) {
-            const oh = (typeof oracleHands !== 'undefined' && oracleHands[pid]) ? oracleHands[pid] : [];
-            sendToPeer({ type: 'oracle-update', playerId: pid, active: true, cards: oh.map(c => ({ id: c.id, name: c.name, curses: c.curses || [] })) });
-          }
-          // 商店状态
-          if (typeof syncShopToPeer === 'function') {
-            syncShopToPeer(pid);
-          }
-          // 卡牌槽（逐个同步）
-          document.querySelectorAll(`.player-zone[data-player="${pid}"] .card-slot`).forEach(slot => {
-            syncSlotToPeer(slot);
+      // 联机状态下，将完整状态通过 import-state 发送给服务端
+      // （服务端接受任意玩家导入的完整对局状态，不进行所有权校验）
+      if (typeof isConnected === 'function' && isConnected()) {
+        var fullState = {
+          slots: { '1': [], '2': [] },
+          playerCards: { '1': { deck: [], hand: [], grave: [] }, '2': { deck: [], hand: [], grave: [] } },
+          playerInfo: { '1': {}, '2': {} },
+          playerFire: { '1': 0, '2': 0 },
+          effects: { '1': [], '2': [] },
+          bounty: { '1': { active: false, amount: 0 }, '2': { active: false, amount: 0 } },
+          nightfall: { '1': { active: false, value: '0' }, '2': { active: false, value: '0' } },
+          oracle: { '1': { active: false, cards: [] }, '2': { active: false, cards: [] } },
+          shop: { '1': null, '2': null },
+          avatars: { '1': '', '2': '' },
+          revealedCards: { '1': [], '2': [] },
+        };
+        ['1', '2'].forEach(function(pid) {
+          // 卡牌槽
+          document.querySelectorAll('.player-zone[data-player="' + pid + '"] .card-slot').forEach(function(slot, i) {
+            fullState.slots[pid][i] = getSlotState(slot);
           });
+          // 牌库手牌
+          var cards = getPlayerCardState(pid);
+          fullState.playerCards[pid] = { deck: cards.deck, hand: cards.hand, grave: cards.grave || [] };
+          // 玩家信息
+          fullState.playerInfo[pid] = getPlayerInfo(pid);
+          // 鬼火
+          fullState.playerFire[pid] = playerFire[pid] || 0;
+          // 效果
+          fullState.effects[pid] = getEffectsState(pid);
           // 头像
-          const avatarSrc = _getAvatarSrc(pid);
-          if (avatarSrc) sendToPeer({ type: 'avatar-update', playerId: pid, imageSrc: avatarSrc });
+          fullState.avatars[pid] = _getAvatarSrc(pid);
         });
+        // 通过 Socket.IO 直接发送（不经过 sendToPeer，避免所有权校验）
+        if (window._gameSocket && window._gameSocket.connected) {
+          window._gameSocket.emit('import-state', fullState);
+        }
       }
     }
 

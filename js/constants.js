@@ -12,6 +12,9 @@
     /** 调试模式：0=关闭 1=开启（显示隐藏的编辑器按钮） */
     const DEBUG_MODE = 0;
 
+    /** 联机服务器配置 */
+    // PEER_SERVER 已废弃，联机改用 Socket.IO
+
     document.title = `${APP_TITLE} ${APP_VERSION}`;
     const roomTitleEl = document.getElementById('room-title');
     if (roomTitleEl) roomTitleEl.textContent = `🎴 ${APP_TITLE} ${APP_VERSION}`;

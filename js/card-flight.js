@@ -239,7 +239,7 @@ const CardFlight = (() => {
   /** 联机广播动画消息 */
   function _broadcastAnim(data) {
     if (typeof isSoloMode !== 'undefined' && isSoloMode) return;
-    if (typeof peerConn === 'undefined' || !peerConn || !peerConn.open) return;
+    if (!window._gameSocket || !window._gameSocket.connected) return;
     if (typeof sendToPeer !== 'function') return;
     sendToPeer({ type: 'fx-anim', anim: data });
   }

@@ -1034,7 +1034,7 @@
         }
         syncSlotToPeer(slot);
         // 【联机同步】通知对方播放伤害动画
-        if (typeof sendToPeer === 'function' && peerConn && peerConn.open) {
+        if (typeof sendToPeer === 'function' && isConnected()) {
           sendToPeer({ type: 'card-damage', playerId: slot.dataset.slotPlayer, slotIndex: parseInt(slot.dataset.slotIndex, 10), dmg: amount });
         }
         // 若生命归零且未气绝，触发气绝
@@ -1056,7 +1056,7 @@
           }
         }
         // 【联机同步】通知对方播放伤害动画
-        if (typeof sendToPeer === 'function' && peerConn && peerConn.open) {
+        if (typeof sendToPeer === 'function' && isConnected()) {
           sendToPeer({ type: 'player-damage', playerId, dmg: amount });
         }
       }
@@ -1072,7 +1072,7 @@
         }
         syncSlotToPeer(slot);
         // 【联机同步】通知对方播放治疗动画
-        if (typeof sendToPeer === 'function' && peerConn && peerConn.open) {
+        if (typeof sendToPeer === 'function' && isConnected()) {
           sendToPeer({ type: 'card-heal', playerId: slot.dataset.slotPlayer, slotIndex: parseInt(slot.dataset.slotIndex, 10), amount });
         }
       }
@@ -1090,7 +1090,7 @@
           }
         }
         // 【联机同步】通知对方播放治疗动画
-        if (typeof sendToPeer === 'function' && peerConn && peerConn.open) {
+        if (typeof sendToPeer === 'function' && isConnected()) {
           sendToPeer({ type: 'player-heal', playerId, amount });
         }
       }
