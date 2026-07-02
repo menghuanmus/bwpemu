@@ -394,7 +394,7 @@ const Presets = (() => {
 
       h += `<div class="preset-item" draggable="true" data-preset-id="${p.id}">
         <div class="preset-item__img" style="${p.imageSrc ? `background-image:url(${_escapeHTML(p.imageSrc)})` : ''}">
-          ${p.imageSrc ? `<img src="${_escapeHTML(p.imageSrc)}" style="display:none;" onerror="this.parentElement.style.backgroundImage='url(images/无图.png)'">` : ''}
+          ${p.imageSrc ? `<img src="${_escapeHTML(p.imageSrc)}" style="display:none;" onerror="this.parentElement.style.backgroundImage='url('+(window._IMAGE_BASE||'')+'/images/无图.png)'">` : ''}
           ${!p.imageSrc ? '<span class="preset-item__placeholder">🃏</span>' : ''}
           ${badge ? `<span class="preset-item__badge">${badge}</span>` : ''}
         </div>

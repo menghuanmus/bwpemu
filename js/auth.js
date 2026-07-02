@@ -155,9 +155,10 @@
       html += '<div class="room-list-item" data-room="' + r.room + '">' +
         '<span class="room-list-code">' + (r.hasPassword ? '🔒 ' : '') + r.room + '</span>' +
         '<div class="room-list-info"><span class="room-list-status ' + statusCls + '">' + status + '</span>' +
-        '<span class="room-list-players">' + (r.solo ? '1/1' : (online + '/2')) + ' ' + r.players.map(function(p) { return p.nickname + (p.offline ? '（断线）' : ''); }).join('、') + '</span></div>' +
+        '<span class="room-list-players">' + (r.solo ? (online + '/1') : (online + '/2')) + ' ' + r.players.map(function(p) { return p.nickname + (p.offline ? '（断线）' : ''); }).join('、') + '</span></div>' +
         '<div class="room-list-actions">';
-      if (!r.solo) {
+      if (r.solo && myOffline) html += '<button class="room-list-join-btn" data-room="' + r.room + '">重连</button>';
+      else if (!r.solo) {
         if (myOffline) html += '<button class="room-list-join-btn" data-room="' + r.room + '">重连</button>';
         else if (roomStatus !== 'playing' && !full) html += '<button class="room-list-join-btn" data-room="' + r.room + '">加入</button>';
       }
@@ -214,6 +215,11 @@
       if (!res) { $('lobby-error').textContent = '服务端无响应'; return; }
       if (res.error) { $('lobby-error').textContent = res.error; return; }
       if (asSpec && res.spectating) { enterGame(res); return; }
+      if (res.solo) {
+        if (res.state && typeof applyFullState === 'function') applyFullState(res.state);
+        enterGame(res);
+        return;
+      }
       if (res.roomStatus === 'waiting' || res.roomStatus === 'ready') {
         showReadyRoom(res);
       } else if (res.joined) {
@@ -642,8 +648,9 @@
       lastRoomCode = res.solo;
       ROOM_ID_CODE.textContent = res.solo;
       ROOM_OVERLAY.hidden = true; $('room-joining').hidden = true; ROOM_HOME.hidden = true; ROOM_WAITING.hidden = true;
-      updateSysChatTitle(); resetPermissionLock(); setConnStatus(true, '单人模式');
-      addSystemChatMessage('【系统】单人模式 —— 所有区域均可操作');
+      updateSysChatTitle(); resetPermissionLock();
+      if (res.rejoined) { setConnStatus(true, '已重连'); addSystemChatMessage('【系统】已重连，单人模式'); }
+      else { setConnStatus(true, '单人模式'); addSystemChatMessage('【系统】单人模式 —— 所有区域均可操作'); }
     } else if (res.joined) {
       isHost = false; isSpectator = false; localPlayerId = res.slot || '2'; isSoloMode = false;
       lastRoomCode = res.joined;

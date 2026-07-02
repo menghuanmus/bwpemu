@@ -272,22 +272,20 @@
     function autoUpdateSlotImage(slot) {
       const baseName = slot.querySelector('.card-name')?.value?.trim();
       if (!baseName) return;
+      const baseUrl = (typeof IMAGE_BASE !== 'undefined') ? IMAGE_BASE + '/' : '';
 
       const paths = [];
-      // 1) 形态
-      if (slot._formName) paths.push(`images/${baseName}/${slot._formName}.png`);
-      // 2) 觉醒
+      if (slot._formName) paths.push(baseUrl + 'images/' + baseName + '/' + slot._formName + '.png');
       const mods = slot._permAtkMods || [];
       for (let i = mods.length - 1; i >= 0; i--) {
         const src = mods[i].source || '';
         if (src.includes('觉醒')) {
           const awakenCard = src.endsWith('（觉醒）') ? src.slice(0, -4) : src;
-          paths.push(`images/${baseName}/${awakenCard}.png`);
+          paths.push(baseUrl + 'images/' + baseName + '/' + awakenCard + '.png');
           break;
         }
       }
-      // 3) 默认
-      paths.push(`images/${baseName}/${baseName}.png`);
+      paths.push(baseUrl + 'images/' + baseName + '/' + baseName + '.png');
 
       // 依次尝试加载，第一个成功的就用它，都不成功则不动
       _trySetImage(slot, paths, 0);

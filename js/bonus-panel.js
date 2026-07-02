@@ -8,8 +8,9 @@ const BonusPanel = (() => {
   let overlay, dialog, ctx;
 
   // 属性图标
-  const ATK_ICON = '<img src="images/属性/攻击.png" class="bonus-stat-icon" alt="攻">';
-  const HP_ICON = '<img src="images/属性/生命.png" class="bonus-stat-icon" alt="命">';
+  const IMG = (typeof IMAGE_BASE!=='undefined'?IMAGE_BASE:'') + '/images';
+  const ATK_ICON = '<img src="' + IMG + '/属性/攻击.png" class="bonus-stat-icon" alt="攻">';
+  const HP_ICON = '<img src="' + IMG + '/属性/生命.png" class="bonus-stat-icon" alt="命">';
 
   // 快捷关键词列表（按用户指定顺序）
   const QUICK_KEYWORDS = [

@@ -14,6 +14,43 @@
 
     /** 联机服务器配置 */
     // PEER_SERVER 已废弃，联机改用 Socket.IO
+    const IMAGE_BASE = 'https://bwpemu.top';
+    window._IMAGE_BASE = IMAGE_BASE;  // 供 inline onerror 使用
+    /** 自动将所有相对 images/ 路径改为服务端URL */
+    (function() {
+      function fixImg(img) {
+        var s = img.getAttribute('src') || '';
+        if (s.startsWith('images/')) { img.src = IMAGE_BASE + '/' + s; return; }
+        if (s.startsWith('../images/')) { img.src = IMAGE_BASE + '/' + s.replace('../',''); return; }
+      }
+      function fixStyle(el) {
+        var bg = el.style.backgroundImage;
+        if (!bg || bg.indexOf(IMAGE_BASE) !== -1) return; // 已修复则跳过，防止死循环
+        el.style.backgroundImage = bg.replace(/(["']?)(\.\.\/)?images\//g, '$1' + IMAGE_BASE + '/images/');
+      }
+      // 监听新元素和属性变化
+      new MutationObserver(function(mutations) {
+        mutations.forEach(function(m) {
+          m.addedNodes.forEach(function(node) {
+            if (node.tagName === 'IMG') fixImg(node);
+            if (node.style && node.style.backgroundImage && node.style.backgroundImage.indexOf('images/') !== -1 && node.style.backgroundImage.indexOf(IMAGE_BASE) === -1) fixStyle(node);
+            if (node.querySelectorAll) {
+              node.querySelectorAll('img').forEach(fixImg);
+              node.querySelectorAll('[style*="images/"]').forEach(fixStyle);
+            }
+          });
+          if (m.type === 'attributes') {
+            if (m.target.tagName === 'IMG' && m.attributeName === 'src') fixImg(m.target);
+            if (m.attributeName === 'style' && m.target.style && m.target.style.backgroundImage && m.target.style.backgroundImage.indexOf('images/') !== -1 && m.target.style.backgroundImage.indexOf(IMAGE_BASE) === -1) fixStyle(m.target);
+          }
+        });
+      }).observe(document.documentElement, { childList: true, subtree: true, attributes: true, attributeFilter: ['src', 'style'] });
+      // 修复已有图片
+      document.addEventListener('DOMContentLoaded', function() {
+        document.querySelectorAll('img').forEach(fixImg);
+      });
+    })();
+    function imgUrl(path) { return IMAGE_BASE + '/' + path; }
 
     document.title = `${APP_TITLE} ${APP_VERSION}`;
     const roomTitleEl = document.getElementById('room-title');
