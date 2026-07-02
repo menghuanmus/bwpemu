@@ -10,6 +10,7 @@
     const diceMaxInput = document.getElementById('dice-max');
 
     function rollDice() {
+      if (typeof isSpectator !== 'undefined' && isSpectator) return;
       const min = parseInt(diceMinInput.value, 10);
       const max = parseInt(diceMaxInput.value, 10);
       if (Number.isNaN(min) || Number.isNaN(max)) return;
@@ -402,7 +403,8 @@
       const container = document.querySelector(`.player-zone[data-player="${playerId}"] .nightfall-indicator`);
       if (!container) return;
       const input = container.querySelector('.nightfall-input');
-      sendToPeer({ type: 'nightfall-value', playerId, value: input ? input.value : '0' });
+      const zone = document.querySelector(`.player-zone[data-player="${playerId}"] .nightfall-indicator`);
+      sendToPeer({ type: 'nightfall-toggle', playerId, active: true, value: input ? input.value : '0' });
     }
 
     function applyRemoteNightfall(playerId, active, value) {

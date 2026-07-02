@@ -416,6 +416,21 @@
           fullState.effects[pid] = getEffectsState(pid);
           // 头像
           fullState.avatars[pid] = _getAvatarSrc(pid);
+          // 赏金
+          if (typeof playerBounty !== 'undefined') {
+            var bountyEl = document.querySelector('.player-zone[data-player="' + pid + '"] .bounty-input');
+            var amount = bountyEl ? parseInt(bountyEl.value, 10) || 0 : (playerBounty[pid] || 0);
+            var active = (typeof bountyActive !== 'undefined') ? !!(bountyActive[pid]) : (amount > 0);
+            fullState.bounty[pid] = { active: active, amount: amount };
+          }
+          // 入夜
+          if (typeof nightfallActive !== 'undefined') {
+            var nfEl = document.querySelector('.player-zone[data-player="' + pid + '"] .nightfall-input');
+            fullState.nightfall[pid] = {
+              active: !!(nightfallActive[pid]),
+              value: nfEl ? nfEl.value : '0'
+            };
+          }
         });
         // 通过 Socket.IO 直接发送（不经过 sendToPeer，避免所有权校验）
         if (window._gameSocket && window._gameSocket.connected) {

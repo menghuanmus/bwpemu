@@ -354,11 +354,7 @@
         document.querySelectorAll('.player-zone[data-player="' + oppId + '"]').forEach(function(zone) {
           zone.classList.add('player-zone--locked');
           zone.setAttribute('data-locked', 'surface');
-          // 模拟器模式：只禁用牌库/手牌按钮，表面UI可自由编辑
-          zone.querySelectorAll('.btn-deck, .btn-deck--oracle').forEach(function(el) {
-            el.disabled = true; el.style.opacity = '0.4'; el.style.cursor = 'not-allowed';
-            el.dataset.locked = 'true';
-          });
+          // 模拟器模式：允许点击对方手牌/牌库查看，但禁用蓄力/连引
           zone.querySelectorAll('[data-charge-btn], [data-renyin-btn]').forEach(function(el) {
             el.disabled = true; el.style.opacity = '0.4'; el.style.cursor = 'not-allowed';
           });
@@ -441,7 +437,7 @@
       if (state.playerInfo) { ['1', '2'].forEach(function(pid) { if (state.playerInfo[pid]) applyRemotePlayerInfo(pid, state.playerInfo[pid].name, state.playerInfo[pid].hp); }); }
       if (state.playerFire) { ['1', '2'].forEach(function(pid) { if (state.playerFire[pid] !== undefined) applyRemoteFireState(pid, state.playerFire[pid]); }); }
       if (state.effects) { ['1', '2'].forEach(function(pid) { if (state.effects[pid]) applyRemoteEffectsState(pid, state.effects[pid]); }); }
-      if (state.bounty) { ['1', '2'].forEach(function(pid) { if (state.bounty[pid]) { if (typeof playerBounty !== 'undefined') playerBounty[pid] = state.bounty[pid].amount || 0; if (state.bounty[pid].active && typeof applyRemoteBountyToggle === 'function') applyRemoteBountyToggle(pid, true); } }); }
+      if (state.bounty) { ['1', '2'].forEach(function(pid) { if (state.bounty[pid]) { if (typeof playerBounty !== 'undefined') playerBounty[pid] = state.bounty[pid].amount || 0; if (typeof updateBountyInput === 'function') updateBountyInput(pid); if (typeof applyRemoteBountyToggle === 'function') applyRemoteBountyToggle(pid, !!state.bounty[pid].active); } }); }
       if (state.nightfall) { ['1', '2'].forEach(function(pid) { if (state.nightfall[pid] && state.nightfall[pid].active && typeof applyRemoteNightfall === 'function') applyRemoteNightfall(pid, true, state.nightfall[pid].value || '0'); }); }
       if (state.oracle && typeof oracleActive !== 'undefined') { ['1', '2'].forEach(function(pid) { var o = state.oracle[pid]; if (!o) return; oracleActive[pid] = !!o.active; if (typeof oracleHands !== 'undefined') oracleHands[pid] = Array.isArray(o.cards) ? o.cards : []; var btn = document.getElementById('btn-oracle-zone-' + pid); if (btn) btn.hidden = !oracleActive[pid]; }); }
       if (state.shop && typeof getShop === 'function') { ['1', '2'].forEach(function(pid) { var s = state.shop[pid]; if (!s) return; var shop = getShop(pid); if (shop) { shop.level = s.level || 1; shop.upgradeProgress = s.upgradeProgress || 0; shop.upgradeNeeded = s.upgradeNeeded || 5; shop.refreshCost = s.refreshCost || 1; if (s.slotCount != null) shop.slotCount = s.slotCount; } }); }

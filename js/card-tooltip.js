@@ -394,7 +394,7 @@
           const fullHp = typeof calcFullHp === 'function' ? calcFullHp(currentSlot) : (currentSlot._hp || 0);
           summaryHTML = `<div class="card-tooltip__summary">
             <div class="card-tooltip__summary-divider"></div>
-            <div class="card-tooltip__summary-body">当前属性：<span><img src="images/属性/攻击.png" class="tip-stat-icon" alt="攻"> ${fullAtk}</span> <span><img src="images/属性/生命.png" class="tip-stat-icon" alt="命"> ${fullHp}</span></div>
+            <div class="card-tooltip__summary-body">计算属性：<span><img src="images/属性/攻击.png" class="tip-stat-icon" alt="攻"> ${fullAtk}</span> <span><img src="images/属性/生命.png" class="tip-stat-icon" alt="命"> ${fullHp}</span></div>
           </div>`;
         }
         let summaryEl = el.querySelector('.card-tooltip__summary');

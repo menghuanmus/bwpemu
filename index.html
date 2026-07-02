@@ -33,40 +33,49 @@
     <div class="auth-card" id="login-panel" data-tilt>
       <h2><em>百闻牌</em> 模拟器</h2>
       <div class="auth-field">
-        <label>用户名</label>
-        <input type="text" id="login-username" placeholder="请输入用户名" autocomplete="username">
+        <label>账号</label>
+        <input type="text" id="login-username" placeholder="请输入账号" autocomplete="username">
       </div>
       <div class="auth-field">
         <label>密码</label>
         <input type="password" id="login-password" placeholder="请输入密码" autocomplete="current-password">
       </div>
+      <label class="auth-checkbox">
+        <input type="checkbox" id="login-remember">
+        <span class="auth-checkbox-mark"></span>
+        <span class="auth-checkbox-label">自动登录</span>
+      </label>
+      <div class="auth-error" id="login-error"></div>
       <button class="auth-btn" id="login-btn">
         <span class="btn-spinner"></span><span class="btn-text">登 录</span>
       </button>
       <div class="auth-link">没有账号？<a id="show-register-link">创建账号</a></div>
-      <div class="auth-error" id="login-error"></div>
+      <div class="auth-footer">
+        <span class="auth-version">v0.38</span>
+        <span class="auth-qq">Q群1078494503</span>
+      </div>
     </div>
 
     <!-- 注册面板 -->
     <div class="auth-card" id="register-panel" hidden data-tilt>
       <h2><em>创建</em> 账号</h2>
       <div class="auth-field">
-        <label>用户名</label>
+        <label>账号</label>
         <input type="text" id="reg-username" placeholder="用于登录，创建后不可修改" autocomplete="off">
       </div>
       <div class="auth-field">
         <label>昵称</label>
-        <input type="text" id="reg-nickname" placeholder="显示名称，可留空同用户名">
+        <input type="text" id="reg-nickname" placeholder="用于显示的昵称">
       </div>
       <div class="auth-field">
         <label>密码</label>
         <input type="password" id="reg-password" placeholder="至少 4 位" autocomplete="new-password">
       </div>
+      <div class="auth-error" id="reg-error"></div>
       <button class="auth-btn" id="reg-btn">
         <span class="btn-spinner"></span><span class="btn-text">注 册</span>
       </button>
       <div class="auth-link">已有账号？<a id="show-login-link">返回登录</a></div>
-      <div class="auth-error" id="reg-error"></div>
     </div>
   </div>
 
@@ -118,7 +127,7 @@
           <div class="lobby-panel-header">
             <div style="display:flex;align-items:center;justify-content:space-between;">
               <div><h3>对战大厅</h3><p>选择一个房间加入，或创建新对局</p></div>
-              <button class="lobby-join-btn" id="lobby-refresh-btn" style="font-size:0.75rem;padding:6px 12px;">🔄 刷新</button>
+              <button class="lobby-join-btn" id="lobby-refresh-btn" style="font-size:1.1rem;padding:10px 18px;">🔄 刷新</button>
             </div>
           </div>
           <div class="lobby-room-list" id="room-list">
@@ -146,11 +155,11 @@
         <div class="lobby-panel" id="panel-history">
           <div class="lobby-panel-header">
             <h3>对局战绩</h3>
-            <p>查看历史对局记录</p>
+            <p>战绩功能正在建设中...</p>
           </div>
           <div class="lobby-empty">
             <div class="lobby-empty-icon">📜</div>
-            <div class="lobby-empty-text">暂无对局记录</div>
+            <div class="lobby-empty-text">战绩功能正在建设中...</div>
           </div>
         </div>
 
@@ -191,8 +200,129 @@
               <div class="profile-msg" id="profile-pw-msg"></div>
             </div>
           </div>
+          <div class="profile-danger">
+            <div class="profile-group-title">危险操作</div>
+            <button class="profile-delete-btn" id="profile-delete-btn">注销账号</button>
+          </div>
         </div>
       </div>
+    </div>
+  </div>
+
+  <!-- ════════════════════════════════════════════
+       注销确认弹窗
+       ════════════════════════════════════════════ -->
+  <div class="modal-overlay" id="delete-modal">
+    <div class="modal-card">
+      <h3>⚠️ 注销账号</h3>
+      <p>此操作不可撤销，所有数据将被永久删除。</p>
+      <div class="auth-field">
+        <label>请输入密码确认</label>
+        <input type="password" id="delete-password" placeholder="输入当前密码" autocomplete="off">
+      </div>
+      <div class="auth-error" id="delete-error"></div>
+      <div class="modal-actions">
+        <button class="modal-btn modal-btn--cancel" id="delete-modal-cancel">取消</button>
+        <button class="modal-btn modal-btn--danger" id="delete-modal-confirm">
+          <span class="btn-spinner"></span><span class="btn-text">确认注销</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ════════════════════════════════════════════
+       游戏设置弹窗
+       ════════════════════════════════════════════ -->
+  <div class="modal-overlay" id="game-settings-modal" onclick="if(event.target===this)this.classList.remove('active')">
+    <div class="modal-card">
+      <h3>⚙ 房间设置</h3>
+      <p style="font-size:1.1rem;color:#B0B6D0;margin-bottom:8px;">当前密码：<span id="game-settings-current-pw" style="color:#d0b040;">无</span></p>
+      <div class="auth-field">
+        <label>修改密码（留空则取消密码）</label>
+        <input type="text" id="game-settings-password" placeholder="输入新密码" maxlength="20" autocomplete="off" onkeydown="if(event.key==='Enter')document.getElementById('game-settings-save').click()">
+      </div>
+      <div class="auth-error" id="game-settings-error"></div>
+      <div class="modal-actions">
+        <button class="modal-btn modal-btn--cancel" onclick="document.getElementById('game-settings-modal').classList.remove('active')">取消</button>
+        <button class="modal-btn modal-btn--save" id="game-settings-save" onclick="window._saveGamePassword()">保存</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ════════════════════════════════════════════
+       房间密码弹窗
+       ════════════════════════════════════════════ -->
+  <div class="modal-overlay" id="room-password-modal" onclick="if(event.target===this)this.classList.remove('active')">
+    <div class="modal-card">
+      <h3>🔒 需要密码</h3>
+      <p style="font-size:1.1rem;color:#5E6278;margin-bottom:16px;">该房间设置了密码，请输入：</p>
+      <div class="auth-field">
+        <input type="text" id="room-password-input" placeholder="输入房间密码" maxlength="20" autocomplete="off" onkeydown="if(event.key==='Enter')document.getElementById('room-password-confirm').click()">
+      </div>
+      <div class="auth-error" id="room-password-error"></div>
+      <div class="modal-actions">
+        <button class="modal-btn modal-btn--cancel" onclick="document.getElementById('room-password-modal').classList.remove('active')">取消</button>
+        <button class="modal-btn modal-btn--save" id="room-password-confirm" onclick="window._confirmRoomPassword()">确认</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ════════════════════════════════════════════
+       房间等待界面
+       ════════════════════════════════════════════ -->
+  <div id="ready-view">
+    <div class="auth-bg"></div>
+    <div class="cursor-aura" id="ready-cursor-aura"></div>
+    <div class="ready-layout">
+      <div class="ready-settings-panel" id="ready-settings-panel">
+        <div class="ready-settings-title">⚙ 房间设置</div>
+        <div class="auth-field">
+          <label>房间密码（留空则无密码）</label>
+          <input type="text" id="ready-password-input" placeholder="设置密码" maxlength="20" autocomplete="off">
+        </div>
+        <button class="auth-btn" id="ready-password-save" style="font-size:1rem;padding:10px;">保存密码</button>
+      </div>
+      <div class="ready-card">
+        <button class="ready-settings-btn" id="ready-settings-btn" title="房间设置" onclick="window._toggleReadySettings()">⚙</button>
+        <button class="ready-close-btn" id="ready-leave-btn" title="退出房间">✕</button>
+      <div class="ready-header">
+        <h2>🎴 房间 <span id="ready-room-code">------</span></h2>
+        <p id="ready-status-text">等待玩家加入…</p>
+      </div>
+
+      <div class="ready-players" id="ready-players">
+        <div class="ready-player" id="ready-player-1">
+          <div class="ready-player-avatar">—</div>
+          <div class="ready-player-name">—</div>
+          <div class="ready-player-badge" id="ready-badge-1">房主</div>
+        </div>
+        <div class="ready-vs">VS</div>
+        <div class="ready-player" id="ready-player-2">
+          <div class="ready-player-avatar">?</div>
+          <div class="ready-player-name">等待中</div>
+          <div class="ready-player-badge" id="ready-badge-2"></div>
+        </div>
+      </div>
+
+      <div class="ready-actions">
+        <button class="auth-btn" id="ready-ready-btn" style="display:none;">
+          <span class="btn-spinner"></span><span class="btn-text">准 备</span>
+        </button>
+        <button class="auth-btn" id="ready-start-btn" style="display:none;">
+          <span class="btn-spinner"></span><span class="btn-text">开始对局</span>
+        </button>
+      </div>
+
+      <div class="ready-chat" id="ready-chat-area">
+        <div class="ready-chat-log" id="ready-chat-log"></div>
+        <div class="ready-chat-input-row">
+          <input type="text" id="ready-chat-input" placeholder="输入聊天内容…" maxlength="200" autocomplete="off">
+          <button class="ready-chat-send" id="ready-chat-send">发送</button>
+        </div>
+      </div>
+
+      <div class="auth-error" id="ready-error"></div>
+    </div>
     </div>
   </div>
 
@@ -460,6 +590,7 @@
     <!-- 右侧聊天栏 -->
     <aside class="chat-sidebar" aria-label="聊天区域">
       <div class="game-toolbar">
+        <button class="game-toolbar-btn game-toolbar-btn--settings" id="game-btn-settings" title="房间设置">⚙ 设置</button>
         <button class="game-toolbar-btn" id="game-btn-exit" title="退出房间">🚪 退出</button>
       </div>
       <div class="chat-section chat-section--system">

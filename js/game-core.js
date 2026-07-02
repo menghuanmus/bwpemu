@@ -9,6 +9,8 @@
     const imageInput = document.getElementById('image-input');
     const avatarInput = document.getElementById('avatar-input');
     let activeSlotForImage = null;
+    // 供外部（BonusPanel）设置当前上传目标
+    window._setActiveSlotForImage = function(slot) { activeSlotForImage = slot; };
     let activeAvatarPlayer = null;
     let draggedSlot = null;
     let pointerOrigin = null;
@@ -292,11 +294,11 @@
     }
 
     function _trySetImage(slot, paths, idx) {
-      if (idx >= paths.length) return; // 都不存在，保持原图
+      if (idx >= paths.length) return;
       const testImg = new Image();
       testImg.onload = () => {
         setSlotImage(slot, paths[idx]);
-        // 图片已不同步(auth.js 会剔除 imageSrc)，避免异步回调在 slotSyncSuppress 释放后触发无意义同步
+        if (typeof syncSlotToPeer === 'function' && !slotSyncSuppress) syncSlotToPeer(slot);
       };
       testImg.onerror = () => _trySetImage(slot, paths, idx + 1);
       testImg.src = paths[idx];
@@ -390,6 +392,23 @@
       // 自动切换卡图：形态 > 觉醒 > 默认（仅当没有显式设置 imageSrc 时）
       if (!state.imageSrc) autoUpdateSlotImage(slot);
       if (!slotSyncSuppress) syncSlotToPeer(slot);
+      renderFormBadge(slot);
+    }
+
+    // 渲染形态标签（卡牌名下方）
+    function renderFormBadge(slot) {
+      var formName = slot._formName || '';
+      var existing = slot.querySelector('.card-form-badge');
+      if (formName) {
+        if (!existing) {
+          existing = document.createElement('div');
+          existing.className = 'card-form-badge';
+          slot.appendChild(existing);
+        }
+        existing.textContent = formName;
+      } else {
+        if (existing) existing.remove();
+      }
     }
 
     imageInput.addEventListener('change', (e) => {
@@ -515,6 +534,7 @@
       } else {
         if (existing) existing.remove();
       }
+      _fixBadgePositions(slot);
     }
 
     function updateKoOverlay(slot, value) {
@@ -547,6 +567,21 @@
         }
       } else {
         if (existing) existing.remove();
+      }
+      _fixBadgePositions(slot);
+    }
+
+    function _fixBadgePositions(slot) {
+      var cd = slot.querySelector('.card-badge--countdown');
+      var en = slot.querySelector('.card-badge--energy');
+      if (cd && en) {
+        // 两者都在：倒计时在右上角，能量在左侧
+        cd.style.right = '0';
+        en.style.right = '48px';
+      } else if (cd) {
+        cd.style.right = '0';
+      } else if (en) {
+        en.style.right = '0';
       }
     }
 
@@ -601,7 +636,7 @@
         setCurses: (curses) => { setSlotCurses(slot, curses); syncSlotToPeer(slot); },
         getLabel: () => slot.querySelector('.card-name').value || '未命名',
         getPlayerId: () => slot.dataset.slotPlayer,
-        isReadOnly: () => !isMyElement(slot),
+        isReadOnly: () => (typeof isSpectator !== 'undefined' && isSpectator),
       };
     }
 
@@ -785,8 +820,14 @@
             }
             draggedSlot = null;
             clearDragHighlights();
+          } else if (e.target.closest('.card-form-badge')) {
+            // 点击形态标签 → 打开式神管理
+            if (typeof BonusPanel !== 'undefined') BonusPanel.open(slot);
           } else if (!isInteractiveTarget(e.target) && !isTargeting && !slot.querySelector('.ko-overlay') && !e.target.closest('.curse-badge')) {
-            if (typeof isSpectator === 'undefined' || !isSpectator) openImagePicker(slot);
+            // 没有卡图时点击上传，有卡图时不响应（通过式神管理面板更换）
+            if ((typeof isSpectator === 'undefined' || !isSpectator) && !slot.classList.contains('has-image')) {
+              openImagePicker(slot);
+            }
           }
 
           pointerOrigin = null;

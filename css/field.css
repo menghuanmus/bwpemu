@@ -705,6 +705,37 @@
       font-weight: 600;
     }
 
+    /* 形态标签（名称下方，尖上角圆下角） */
+    .card-form-badge {
+      position: absolute;
+      bottom: -30px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: calc(var(--card-w) * 0.65);
+      height: 18px;
+      border-radius: 0 0 6px 6px;
+      background: rgba(223, 111, 223, 0.5);
+      border: 1px solid rgba(180, 140, 220, 0.8);
+      font-size: 11px;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 102;
+      cursor: pointer;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      padding: 0 6px;
+      box-shadow: 0 1px 4px rgba(140,100,200,0.3);
+      transition: opacity 0.2s;
+    }
+    .card-form-badge:hover {
+      background: rgba(160, 120, 220, 0.95);
+      box-shadow: 0 2px 8px rgba(140,100,200,0.5);
+    }
+    .card-form-badge:empty { display: none; }
+
     /* 派系图标（名字上方） */
     .card-faction-icon {
       position: absolute;

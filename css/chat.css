@@ -632,14 +632,23 @@
 .game-toolbar {
   flex-shrink: 0;
   padding: 4px 2px;
+  display: flex; gap: 4px;
 }
 .game-toolbar-btn {
-  width: 100%; padding: 6px 0;
+  flex: 1; padding: 10px 0;
   background: rgba(251,113,133,0.1);
   border: 1px solid rgba(251,113,133,0.2);
   border-radius: 8px; color: #FB7185;
-  font-size: 0.75rem; cursor: pointer;
+  font-size: 1.1rem; cursor: pointer;
   transition: all 0.2s; font-family: inherit;
+}
+.game-toolbar-btn:hover { background: rgba(251,113,133,0.2); }
+.game-toolbar-btn--settings {
+  background: rgba(160,160,170,0.1);
+  border-color: rgba(160,160,170,0.2);
+  color: #9098A0;
+}
+.game-toolbar-btn--settings:hover { background: rgba(160,160,170,0.2); }
 
 /* ── 骰子抛物线动画 ── */
 @keyframes dice-roll {

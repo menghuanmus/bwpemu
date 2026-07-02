@@ -68,8 +68,12 @@ const BonusPanel = (() => {
     if (e.target.id === 'bonus-lose-form') { handleLoseForm(); return; }
     if (e.target.id === 'bonus-close-btn') close();
     if (e.target.id === 'bonus-delete-slot') { handleDeleteSlot(); return; }
+    if (e.target.id === 'bonus-change-image') { handleChangeImage(); return; }
     if (e.target.id === 'bonus-quick-keyword') { toggleKeywordPicker(); return; }
     if (e.target.classList.contains('bonus-keyword-btn')) { handleQuickKeyword(e.target.textContent); return; }
+    if (e.target.classList.contains('bonus-faction-btn')) { handleFactionClick(e.target); return; }
+    if (e.target.id === 'bonus-quick-form') { toggleFormPicker(); return; }
+    if (e.target.classList.contains('bonus-form-btn')) { handleQuickForm(e.target.dataset.formName); return; }
   }
 
   function handleBodyChange(e) {
@@ -79,23 +83,6 @@ const BonusPanel = (() => {
       ctx.permAbility = e.target.value;
       ctx.slot._permAbility = ctx.permAbility;
       if (ctx.permAbility) ctx.slot.classList.add('awakened');
-      syncSlotToPeer(ctx.slot);
-    }
-    if (e.target.id === 'bonus-faction') {
-      const raw = e.target.value.trim();
-      const valid = ['苍叶','红莲','青岚','紫岩','无相'];
-      ctx.faction = valid.includes(raw) ? raw : (raw || '无相');
-      ctx.slot.dataset.slotFaction = ctx.faction;
-      // 同步派系图标
-      const factionIcon = ctx.slot.querySelector('.card-faction-icon');
-      if (factionIcon) {
-        if (ctx.faction && ctx.faction !== '无相') {
-          factionIcon.src = 'images/派系/' + ctx.faction + '.png';
-          factionIcon.style.display = '';
-        } else {
-          factionIcon.style.display = 'none';
-        }
-      }
       syncSlotToPeer(ctx.slot);
     }
     if (e.target.id === 'bonus-is-summon') {
@@ -110,15 +97,16 @@ const BonusPanel = (() => {
       ctx.formAtk = newAtk; ctx.formHp = newHp;
       ctx.slot._formAtk = newAtk; ctx.slot._formHp = newHp;
       if (typeof recordPermBase === 'function') recordPermBase(ctx.slot);
-      const curAtk = parseInt(ctx.slot.querySelector('.card-attack').value, 10) || 0;
-      const oldFullAtk = typeof calcFullAtk === 'function' ? calcFullAtk(ctx.slot) : curAtk;
-      const manualAtk = curAtk - oldFullAtk;
-      const newFullAtk = (typeof calcFullAtk === 'function' ? calcFullAtk(ctx.slot) : 0) + manualAtk;
-      const newFullHp = typeof calcFullHp === 'function' ? calcFullHp(ctx.slot) : 0;
-      ctx.slot.querySelector('.card-attack').value = newFullAtk || '';
-      ctx.slot.querySelector('.card-hp').value = newFullHp || '';
+      var curAtk2 = parseInt(ctx.slot.querySelector('.card-attack').value, 10) || 0;
+      var oldFullAtk2 = typeof calcFullAtk === 'function' ? calcFullAtk(ctx.slot) : curAtk2;
+      var manualAtk2 = curAtk2 - oldFullAtk2;
+      var newFullAtk2 = (typeof calcFullAtk === 'function' ? calcFullAtk(ctx.slot) : newAtk) + manualAtk2;
+      var newFullHp2 = typeof calcFullHp === 'function' ? calcFullHp(ctx.slot) : newHp;
+      ctx.slot.querySelector('.card-attack').value = newFullAtk2 || '';
+      ctx.slot.querySelector('.card-hp').value = newFullHp2 || '';
       syncSlotToPeer(ctx.slot);
       if (typeof autoUpdateSlotImage === 'function') autoUpdateSlotImage(ctx.slot);
+      if (typeof renderFormBadge === 'function') renderFormBadge(ctx.slot);
       broadcastBonusMsg('修改了形态属性', `${ctx.formName}（攻击${newAtk}，生命${newHp}）`);
     }
   }
@@ -266,9 +254,96 @@ const BonusPanel = (() => {
     const dbKw = typeof CardDB !== 'undefined' && CardDB.lookupKeyword ? CardDB.lookupKeyword(name) : null;
     const desc = dbKw ? dbKw.effect : name;
     addEffectRecord(name, desc);
-    // 关闭下拉
     const picker = document.getElementById('bonus-keyword-picker');
     if (picker) picker.style.display = 'none';
+  }
+
+  function handleFactionClick(btn) {
+    if (!ctx || (typeof isSpectator !== 'undefined' && isSpectator)) return;
+    const faction = btn.textContent.trim();
+    ctx.faction = faction;
+    ctx.slot.dataset.slotFaction = faction;
+    const factionIcon = ctx.slot.querySelector('.card-faction-icon');
+    if (factionIcon) {
+      if (faction && faction !== '无相') {
+        factionIcon.src = 'images/派系/' + faction + '.png';
+        factionIcon.style.display = '';
+      } else {
+        factionIcon.style.display = 'none';
+      }
+    }
+    syncSlotToPeer(ctx.slot);
+    refresh();
+  }
+
+  // 查找该式神的所有形态
+  function _findShikigamiForms(shikigamiName) {
+    if (typeof CardDB === 'undefined' || !CardDB.isReady()) return [];
+    var all = CardDB.getAll();
+    var forms = [];
+    for (var i = 0; i < all.length; i++) {
+      var card = all[i];
+      if (card.type === 'form' && card.owner === shikigamiName) {
+        forms.push(card);
+      }
+    }
+    return forms;
+  }
+
+  function toggleFormPicker() {
+    var picker = document.getElementById('bonus-form-picker');
+    if (!picker) return;
+    if (picker.style.display === 'none') {
+      var forms = _findShikigamiForms(ctx.cardName);
+      if (forms.length === 0) {
+        picker.innerHTML = '<div class="bonus-list-empty" style="grid-column:1/-1;text-align:center;padding:8px;">该式神暂无形态记录</div>';
+      } else {
+        picker.innerHTML = forms.map(function(f) {
+          var atk = f.attack || 0;
+          var hp = f.hp || 0;
+          var ab = f.effect || '';
+          return '<button type="button" class="bonus-form-btn" data-form-name="' + escapeHTML(f.name) + '" title="' + escapeHTML('攻' + atk + ' 命' + hp + (ab ? ' ' + ab : '')) + '">' + escapeHTML(f.name) + '</button>';
+        }).join('');
+      }
+      picker.style.display = 'grid';
+    } else {
+      picker.style.display = 'none';
+    }
+  }
+
+  function handleQuickForm(formName) {
+    if (!formName || !ctx) return;
+    var forms = _findShikigamiForms(ctx.cardName);
+    var found = null;
+    for (var i = 0; i < forms.length; i++) {
+      if (forms[i].name === formName) { found = forms[i]; break; }
+    }
+    if (!found) return;
+    // 填入形态数据
+    ctx.formName = found.name;
+    ctx.formAtk = found.attack || 0;
+    ctx.formHp = found.hp || 0;
+    ctx.formAbility = found.effect || '';
+    ctx.slot._formName = ctx.formName;
+    ctx.slot._formAtk = ctx.formAtk;
+    ctx.slot._formHp = ctx.formHp;
+    ctx.slot._formAbility = ctx.formAbility;
+    if (typeof recordPermBase === 'function') recordPermBase(ctx.slot);
+    var curAtk = parseInt(ctx.slot.querySelector('.card-attack').value, 10) || 0;
+    var oldFullAtk = typeof calcFullAtk === 'function' ? calcFullAtk(ctx.slot) : curAtk;
+    var manualAtk = curAtk - oldFullAtk;
+    var newFullAtk = (typeof calcFullAtk === 'function' ? calcFullAtk(ctx.slot) : ctx.formAtk) + manualAtk;
+    var newFullHp = typeof calcFullHp === 'function' ? calcFullHp(ctx.slot) : ctx.formHp;
+    ctx.slot.querySelector('.card-attack').value = newFullAtk || '';
+    ctx.slot.querySelector('.card-hp').value = newFullHp || '';
+    syncSlotToPeer(ctx.slot);
+    if (typeof autoUpdateSlotImage === 'function') autoUpdateSlotImage(ctx.slot);
+    syncSlotToPeer(ctx.slot);  // 换图后再同步一次，让对方也看到新卡图
+    if (typeof renderFormBadge === 'function') renderFormBadge(ctx.slot);
+    broadcastBonusMsg('快捷结附了形态', ctx.formName);
+    var picker = document.getElementById('bonus-form-picker');
+    if (picker) picker.style.display = 'none';
+    refresh();
   }
 
   function open(slot) {
@@ -321,7 +396,9 @@ const BonusPanel = (() => {
           <div class="bonus-section">
             <div class="bonus-section__label">🎌 式神派系</div>
             <div class="bonus-faction-row">
-              <input type="text" id="bonus-faction" class="bonus-faction-input" value="${escapeHTML(ctx.faction)}" placeholder="苍叶/红莲/青岚/紫岩/无相" maxlength="10">
+              ${['苍叶','红莲','青岚','紫岩','无相'].map(function(f) {
+                return '<button type="button" class="bonus-faction-btn' + (ctx.faction === f ? ' active' : '') + '">' + f + '</button>';
+              }).join('')}
               <label class="bonus-summon-label"><input type="checkbox" id="bonus-is-summon" ${ctx.slot.dataset.slotType === 'summon' ? 'checked' : ''}> 召唤物</label>
             </div>
           </div>
@@ -332,7 +409,8 @@ const BonusPanel = (() => {
           </div>
           <!-- 形态 -->
           <div class="bonus-section">
-            <div class="bonus-section__label">🎴 形态</div>
+            <div class="bonus-section__label">🎴 形态 <button type="button" id="bonus-quick-form" class="bonus-btn--keyword">+快捷结附形态</button></div>
+            <div id="bonus-form-picker" class="bonus-keyword-picker" style="display:none;"></div>
             ${renderFormSection()}
           </div>
         </div>
@@ -380,6 +458,7 @@ const BonusPanel = (() => {
 
       <div class="bonus-actions">
         <button type="button" class="bonus-btn bonus-btn--delete" id="bonus-delete-slot">🗑 删除式神</button>
+        <button type="button" class="bonus-btn bonus-btn--image" id="bonus-change-image">🖼 更换卡图</button>
         <button type="button" class="bonus-btn bonus-btn--close" id="bonus-close-btn">关闭</button>
       </div>
     `;
@@ -528,15 +607,16 @@ const BonusPanel = (() => {
     ctx.formName = name; ctx.formAtk = atk; ctx.formHp = hp; ctx.formAbility = ability;
     ctx.slot._formName = name; ctx.slot._formAtk = atk; ctx.slot._formHp = hp; ctx.slot._formAbility = ability;
     if (typeof recordPermBase === 'function') recordPermBase(ctx.slot);
-    const curAtk = parseInt(ctx.slot.querySelector('.card-attack').value, 10) || 0;
-    const oldFullAtk = typeof calcFullAtk === 'function' ? calcFullAtk(ctx.slot) : curAtk;
-    const manualAtk = curAtk - oldFullAtk;
-    const newFullAtk = (typeof calcFullAtk === 'function' ? calcFullAtk(ctx.slot) : atk) + manualAtk;
-    const newFullHp = typeof calcFullHp === 'function' ? calcFullHp(ctx.slot) : hp;
+    var curAtk = parseInt(ctx.slot.querySelector('.card-attack').value, 10) || 0;
+    var oldFullAtk = typeof calcFullAtk === 'function' ? calcFullAtk(ctx.slot) : curAtk;
+    var manualAtk = curAtk - oldFullAtk;  // 保留手动攻差值
+    var newFullAtk = (typeof calcFullAtk === 'function' ? calcFullAtk(ctx.slot) : atk) + manualAtk;
+    var newFullHp = typeof calcFullHp === 'function' ? calcFullHp(ctx.slot) : hp;  // 回满血
     ctx.slot.querySelector('.card-attack').value = newFullAtk || '';
     ctx.slot.querySelector('.card-hp').value = newFullHp || '';
     syncSlotToPeer(ctx.slot);
     if (typeof autoUpdateSlotImage === 'function') autoUpdateSlotImage(ctx.slot);
+    if (typeof renderFormBadge === 'function') renderFormBadge(ctx.slot);
     broadcastBonusMsg('结附了形态', `${name}（攻击${atk}，生命${hp}）`);
     refresh();
   }
@@ -545,17 +625,33 @@ const BonusPanel = (() => {
     ctx.formName = ''; ctx.formAtk = 0; ctx.formHp = 0; ctx.formAbility = '';
     ctx.slot._formName = ''; ctx.slot._formAtk = 0; ctx.slot._formHp = 0; ctx.slot._formAbility = '';
     if (typeof recordPermBase === 'function') recordPermBase(ctx.slot);
-    const curAtk = parseInt(ctx.slot.querySelector('.card-attack').value, 10) || 0;
-    const oldFullAtk = typeof calcFullAtk === 'function' ? calcFullAtk(ctx.slot) : curAtk;
-    const manualAtk = curAtk - oldFullAtk;
-    const newFullAtk = (typeof calcFullAtk === 'function' ? calcFullAtk(ctx.slot) : 0) + manualAtk;
-    const newFullHp = typeof calcFullHp === 'function' ? calcFullHp(ctx.slot) : 0;
+    var curAtk = parseInt(ctx.slot.querySelector('.card-attack').value, 10) || 0;
+    var oldFullAtk = typeof calcFullAtk === 'function' ? calcFullAtk(ctx.slot) : curAtk;
+    var manualAtk = curAtk - oldFullAtk;
+    var newFullAtk = (typeof calcFullAtk === 'function' ? calcFullAtk(ctx.slot) : 0) + manualAtk;
+    var newFullHp = typeof calcFullHp === 'function' ? calcFullHp(ctx.slot) : 0;
     ctx.slot.querySelector('.card-attack').value = newFullAtk || '';
     ctx.slot.querySelector('.card-hp').value = newFullHp || '';
     syncSlotToPeer(ctx.slot);
     if (typeof autoUpdateSlotImage === 'function') autoUpdateSlotImage(ctx.slot);
+    if (typeof renderFormBadge === 'function') renderFormBadge(ctx.slot);
     broadcastBonusMsg('失去了形态', '');
     refresh();
+  }
+
+  function handleChangeImage() {
+    if (!ctx || !ctx.slot) return;
+    if (typeof isSpectator !== 'undefined' && isSpectator) return;
+    // 触发隐藏的图片上传 input（在 game-core.js 中定义）
+    var input = document.getElementById('image-input');
+    if (!input) return;
+    // 设置当前卡槽为上传目标
+    if (typeof window._setActiveSlotForImage === 'function') {
+      window._setActiveSlotForImage(ctx.slot);
+    } else if (typeof activeSlotForImage !== 'undefined') {
+      activeSlotForImage = ctx.slot;
+    }
+    input.click();
   }
 
   function handleDeleteSlot() {

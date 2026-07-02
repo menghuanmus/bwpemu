@@ -16,7 +16,7 @@
   // DOM
   var $ = function(id) { return document.getElementById(id); };
   var AUTH_VIEW = $('auth-view'), LOGIN_PANEL = $('login-panel'), REG_PANEL = $('register-panel');
-  var LOBBY_VIEW = $('lobby-view'), GAME_VIEW = $('game-view');
+  var LOBBY_VIEW = $('lobby-view'), GAME_VIEW = $('game-view'), READY_VIEW = $('ready-view');
   var LOADING_EL = $('auth-loading'), LOADING_TXT = $('auth-loading-text');
 
   // ═══ 工具 ═══
@@ -25,7 +25,7 @@
   function setBtn(btn, loading) { btn.disabled = loading; btn.classList.toggle('loading', loading); }
 
   function showView(view) {
-    [AUTH_VIEW, LOBBY_VIEW, GAME_VIEW].forEach(function(v) { v.classList.remove('active'); });
+    [AUTH_VIEW, LOBBY_VIEW, GAME_VIEW, READY_VIEW].forEach(function(v) { v.classList.remove('active'); });
     view.classList.add('active');
   }
 
@@ -38,9 +38,10 @@
 
   // ═══ 鼠标光晕（登录/大厅） ═══
   document.addEventListener('mousemove', function(e) {
-    var av = $('auth-cursor-aura'), lv = $('lobby-cursor-aura');
+    var av = $('auth-cursor-aura'), lv = $('lobby-cursor-aura'), rv = $('ready-cursor-aura');
     if (av && AUTH_VIEW.classList.contains('active')) { av.style.left = e.clientX + 'px'; av.style.top = e.clientY + 'px'; }
     if (lv && LOBBY_VIEW.classList.contains('active')) { lv.style.left = e.clientX + 'px'; lv.style.top = e.clientY + 'px'; }
+    if (rv && READY_VIEW.classList.contains('active')) { rv.style.left = e.clientX + 'px'; rv.style.top = e.clientY + 'px'; }
   });
 
   // ═══ Socket.IO 连接 ═══
@@ -54,14 +55,19 @@
   // ═══ 登录 ═══
   $('login-btn').addEventListener('click', function() {
     var uname = $('login-username').value.trim(), pw = $('login-password').value;
-    if (!uname || !pw) { $('login-error').textContent = '请填写用户名和密码'; return; }
+    if (!uname || !pw) { $('login-error').textContent = '请填写账号和密码'; return; }
     setBtn($('login-btn'), true); showLoading('正在登录…');
     connect();
     socket.emit('login', { username: uname, password: pw }, function(res) {
       hideLoading(); setBtn($('login-btn'), false);
       if (res.error) { $('login-error').textContent = res.error; return; }
-      localStorage.setItem(TK_KEY, res.token); localStorage.setItem(UN_KEY, res.username); localStorage.setItem(NN_KEY, res.nickname);
+      if ($('login-remember').checked) {
+        localStorage.setItem(TK_KEY, res.token); localStorage.setItem(UN_KEY, res.username); localStorage.setItem(NN_KEY, res.nickname);
+      } else {
+        localStorage.removeItem(TK_KEY); localStorage.removeItem(UN_KEY); localStorage.removeItem(NN_KEY);
+      }
       window._gameUsername = res.username; window._gameNickname = res.nickname;
+      window._gameAvatar = res.avatar || '';
       showLobby(res.nickname);
     });
   });
@@ -70,16 +76,19 @@
   // ═══ 注册 ═══
   $('reg-btn').addEventListener('click', function() {
     var uname = $('reg-username').value.trim(), nn = $('reg-nickname').value.trim() || uname, pw = $('reg-password').value;
-    if (!uname || !pw) { $('reg-error').textContent = '请填写用户名和密码'; return; }
+    if (!uname || !pw) { $('reg-error').textContent = '请填写账号和密码'; return; }
     if (pw.length < 4) { $('reg-error').textContent = '密码不能少于 4 位'; return; }
     setBtn($('reg-btn'), true); showLoading('正在注册…');
     connect();
     socket.emit('register', { username: uname, nickname: nn, password: pw }, function(res) {
       hideLoading(); setBtn($('reg-btn'), false);
       if (res.error) { $('reg-error').textContent = res.error; return; }
-      localStorage.setItem(TK_KEY, res.token); localStorage.setItem(UN_KEY, res.username); localStorage.setItem(NN_KEY, res.nickname);
-      window._gameUsername = res.username; window._gameNickname = res.nickname;
-      showLobby(res.nickname);
+      // 注册成功，提示并返回登录界面
+      showAuth(false);
+      $('login-username').value = uname; $('login-password').value = '';
+      $('login-error').textContent = '注册成功，请登录';
+      $('login-error').style.color = '#6EE7B7';
+      $('login-password').focus();
     });
   });
   $('reg-password').addEventListener('keydown', function(e) { if (e.key === 'Enter') $('reg-btn').click(); });
@@ -90,23 +99,22 @@
   // ═══ 大厅 ═══
   function showLobby(nickname) {
     showView(LOBBY_VIEW);
-    var uname = localStorage.getItem(UN_KEY) || '';
+    var uname = localStorage.getItem(UN_KEY) || window._gameUsername || '';
     $('lobby-nickname').textContent = nickname;
     $('lobby-avatar').innerHTML = ''; $('lobby-avatar').textContent = nickname.charAt(0).toUpperCase();
     $('lobby-username').textContent = '@' + uname;
-    $('lobby-error').textContent = ''; setBtn($('lobby-create-btn'), false); setBtn($('lobby-join-btn'), false);
+    $('lobby-error').textContent = ''; setBtn($('lobby-create-btn'), false); setBtn($('lobby-join-btn'), false); setBtn($('lobby-solo-btn'), false);
     $('profile-avatar').innerHTML = ''; $('profile-avatar').textContent = nickname.charAt(0).toUpperCase();
     $('profile-nickname').value = nickname;
     ['nickname','pw'].forEach(function(k) { $('profile-' + k + '-msg').textContent = ''; $('profile-' + k + '-msg').className = 'profile-msg'; });
     $('profile-old-pw').value = ''; $('profile-new-pw').value = '';
-    loadSavedAvatar();
+    // 从服务端加载头像
+    if (window._gameAvatar) {
+      $('lobby-avatar').innerHTML = '<img src="' + window._gameAvatar + '" alt="">';
+      $('profile-avatar').innerHTML = '<img src="' + window._gameAvatar + '" alt="">';
+    }
     switchLobbyTab('hall');
     refreshRoomList();
-  }
-
-  function loadSavedAvatar() {
-    var key = 'bwpemu_avatar_' + (localStorage.getItem(UN_KEY) || ''), saved = localStorage.getItem(key);
-    if (saved) { $('lobby-avatar').innerHTML = '<img src="' + saved + '" alt="">'; $('profile-avatar').innerHTML = '<img src="' + saved + '" alt="">'; }
   }
 
   function refreshRoomList() {
@@ -119,8 +127,9 @@
   function renderRoomList(rooms) {
     var listEl = $('room-list'), emptyEl = $('room-list-empty');
     if (!listEl) return;
-    if (!rooms || !rooms.length) { if (emptyEl) emptyEl.style.display = ''; listEl.innerHTML = ''; return; }
+    if (!rooms || !rooms.length) { if (emptyEl) emptyEl.style.display = ''; listEl.innerHTML = ''; window._cachedRoomList = []; return; }
     if (emptyEl) emptyEl.style.display = 'none';
+    window._cachedRoomList = rooms;  // 缓存供密码检查用
     var myUname = localStorage.getItem(UN_KEY) || '';
     // 可重连的房间置顶
     rooms.sort(function(a, b) {
@@ -136,19 +145,24 @@
       var full = online >= 2;
       var myOffline = r.players.some(function(p) { return p.offline && p.username === myUname; });
       var allOffline = online === 0;
-      var status = r.solo ? '单人' : (full ? '对战中' : (myOffline ? '可重连' : (allOffline ? '空闲' : '等待中')));
-      var statusCls = full ? 'playing' : 'waiting';
+      var roomStatus = r.status || 'playing';
+      var status, statusCls;
+      if (r.solo) { status = '单人'; statusCls = 'playing'; }
+      else if (roomStatus === 'playing') { status = '对战中'; statusCls = 'playing'; }
+      else if (myOffline) { status = '可重连'; statusCls = 'waiting'; }
+      else if (roomStatus === 'ready') { status = '等待开始'; statusCls = 'waiting'; }
+      else { status = '等待加入'; statusCls = 'waiting'; }
       html += '<div class="room-list-item" data-room="' + r.room + '">' +
-        '<span class="room-list-code">' + r.room + '</span>' +
+        '<span class="room-list-code">' + (r.hasPassword ? '🔒 ' : '') + r.room + '</span>' +
         '<div class="room-list-info"><span class="room-list-status ' + statusCls + '">' + status + '</span>' +
-        '<span class="room-list-players">' + online + '/2 ' + r.players.map(function(p) { return p.nickname + (p.offline ? '（断线）' : ''); }).join('、') + '</span></div>' +
+        '<span class="room-list-players">' + (r.solo ? '1/1' : (online + '/2')) + ' ' + r.players.map(function(p) { return p.nickname + (p.offline ? '（断线）' : ''); }).join('、') + '</span></div>' +
         '<div class="room-list-actions">';
       if (!r.solo) {
         if (myOffline) html += '<button class="room-list-join-btn" data-room="' + r.room + '">重连</button>';
-        else if (allOffline) html += '<button class="room-list-join-btn" data-room="' + r.room + '">加入</button>';
-        else if (!full) html += '<button class="room-list-join-btn" data-room="' + r.room + '">加入</button>';
+        else if (roomStatus !== 'playing' && !full) html += '<button class="room-list-join-btn" data-room="' + r.room + '">加入</button>';
       }
-      html += '<button class="room-list-spec-btn" data-room="' + r.room + '">观战</button></div></div>';
+      if (roomStatus === 'playing') html += '<button class="room-list-spec-btn" data-room="' + r.room + '">观战</button>';
+      html += '</div></div>';
     });
     listEl.innerHTML = html;
     listEl.querySelectorAll('.room-list-join-btn').forEach(function(b) { b.onclick = function() { lobbyJoin(b.dataset.room, false); }; });
@@ -158,14 +172,66 @@
   function lobbyJoin(code, asSpec) {
     setBtn($('lobby-join-btn'), true); $('lobby-error').textContent = '';
     if (asSpec) { isSpectator = true; isHost = false; localPlayerId = '0'; }
+    // 如果房间有密码，弹窗输入
+    var roomData = _findRoomData(code);
+    if (roomData && roomData.hasPassword) {
+      _promptRoomPassword(code, asSpec);
+      return;
+    }
+    _doLobbyJoin(code, asSpec, '');
+  }
+
+  function _findRoomData(code) {
+    return (window._cachedRoomList || []).find(function(r) { return r.room === code; });
+  }
+
+  function _promptRoomPassword(code, asSpec) {
+    // 记录待加入的房间信息
+    window._pendingJoinCode = code;
+    window._pendingJoinSpec = asSpec;
+    var modal = $('room-password-modal');
+    var input = $('room-password-input');
+    var errEl = $('room-password-error');
+    if (!modal) { _doLobbyJoin(code, asSpec, ''); return; }
+    if (input) input.value = '';
+    if (errEl) errEl.textContent = '';
+    modal.classList.add('active');
+    if (input) input.focus();
+  }
+
+  window._confirmRoomPassword = function() {
+    var input = $('room-password-input');
+    var pw = input ? input.value.trim() : '';
+    var modal = $('room-password-modal');
+    if (modal) modal.classList.remove('active');
+    _doLobbyJoin(window._pendingJoinCode, window._pendingJoinSpec, pw);
+  };
+
+  function _doLobbyJoin(code, asSpec, password) {
     var evt = asSpec ? 'spectate-room' : 'join-room';
-    socket.emit(evt, { room: code }, function(res) {
-      if (!res) { $('lobby-error').textContent = '服务端无响应'; setBtn($('lobby-join-btn'), false); return; }
-      if (res.error) { $('lobby-error').textContent = res.error; setBtn($('lobby-join-btn'), false); return; }
-      if (res.state && typeof applyFullState === 'function') applyFullState(res.state);
-      if (res.joined || res.spectating) enterGame(res);
+    socket.emit(evt, { room: code, password: password }, function(res) {
+      setBtn($('lobby-join-btn'), false);
+      if (!res) { $('lobby-error').textContent = '服务端无响应'; return; }
+      if (res.error) { $('lobby-error').textContent = res.error; return; }
+      if (asSpec && res.spectating) { enterGame(res); return; }
+      if (res.roomStatus === 'waiting' || res.roomStatus === 'ready') {
+        showReadyRoom(res);
+      } else if (res.joined) {
+        if (res.state && typeof applyFullState === 'function') applyFullState(res.state);
+        enterGame(res);
+      }
     });
   }
+
+  // ═══ 创建房间 ═══
+  $('lobby-create-btn').addEventListener('click', function() {
+    setBtn($('lobby-create-btn'), true); $('lobby-error').textContent = '';
+    socket.emit('create-room', {}, function(res) {
+      setBtn($('lobby-create-btn'), false);
+      if (res.error) { $('lobby-error').textContent = res.error; return; }
+      if (res.ok) showReadyRoom({ room: res.room, slot: res.slot, roomStatus: res.status || 'waiting', roomInfo: res.roomInfo });
+    });
+  });
 
   // ═══ 单人模式 ═══
   $('lobby-solo-btn').addEventListener('click', function() {
@@ -173,15 +239,6 @@
     socket.emit('create-solo', {}, function(res) {
       if(res.error) { $('lobby-error').textContent = res.error; setBtn($('lobby-solo-btn'), false); return; }
       if(res.ok || res.solo) enterGame({ solo: res.solo || res.ok, slot: '1' });
-    });
-  });
-
-  // ═══ 创建房间 ═══
-  $('lobby-create-btn').addEventListener('click', function() {
-    setBtn($('lobby-create-btn'), true); $('lobby-error').textContent = '';
-    socket.emit('create-room', {}, function(res) {
-      if (res.error) { $('lobby-error').textContent = res.error; setBtn($('lobby-create-btn'), false); return; }
-      if (res.ok) enterGame(res);
     });
   });
 
@@ -194,13 +251,253 @@
   $('lobby-join-input').addEventListener('keydown', function(e) { if (e.key === 'Enter') $('lobby-join-btn').click(); });
   $('lobby-refresh-btn').addEventListener('click', refreshRoomList);
 
+  // ═══ 房间等待界面 ═══
+  var readyRoomCode = null;
+  var isReadyHost = false;
+  var isReadyMode = false;
+  window._roomPassword = '';
+
+  // 游戏设置保存密码（由 HTML onclick 调用）
+  window._saveGamePassword = function() {
+    if (!isHost) return;
+    var pwInput = document.getElementById('game-settings-password');
+    var pw = pwInput ? pwInput.value.trim() : '';
+    if (window._gameSocket && window._gameSocket.connected) {
+      window._gameSocket.emit('set-room-password', { password: pw });
+    }
+    window._roomPassword = pw;
+    var modal = document.getElementById('game-settings-modal');
+    if (modal) modal.classList.remove('active');
+  };
+
+  function showReadyRoom(res) {
+    isReadyMode = true;
+    readyRoomCode = res.room;
+    isReadyHost = (res.slot === '1');
+    isSpectator = false;
+
+    showView(READY_VIEW);
+    $('ready-room-code').textContent = res.room;
+    $('ready-error').textContent = '';
+    $('ready-chat-log').innerHTML = '';
+
+    // 按钮显隐
+    $('ready-ready-btn').style.display = isReadyHost ? 'none' : '';
+    $('ready-start-btn').style.display = isReadyHost ? '' : 'none';
+    setBtn($('ready-ready-btn'), false);
+    setBtn($('ready-start-btn'), false);
+    $('ready-ready-btn').querySelector('.btn-text').textContent = '准 备';
+    $('ready-start-btn').disabled = true;
+
+    // 初始化玩家显示
+    updateReadyPlayers(res.roomInfo);
+
+    // 注册房间事件
+    socket.off('room-update').off('game-start').off('room-closed').off('room-chat');
+    socket.on('room-update', function(info) {
+      updateReadyPlayers(info);
+    });
+    socket.on('game-start', function(data) {
+      var roomCode = readyRoomCode;
+      isReadyMode = false;
+      readyRoomCode = null;
+      localPlayerId = data.slot;
+      isHost = (data.slot === '1');
+      // 清理准备室监听
+      socket.off('room-update').off('game-start').off('room-closed').off('room-chat');
+      if (data.state && typeof applyFullState === 'function') applyFullState(data.state);
+      enterGame({ joined: roomCode, slot: data.slot, state: data.state, otherOnline: true });
+    });
+    socket.on('room-closed', function(data) {
+      isReadyMode = false; readyRoomCode = null;
+      showLobby(window._gameNickname || '');
+      $('lobby-error').textContent = data.reason || '房间已关闭';
+    });
+    socket.on('room-chat', function(msg) {
+      appendReadyChat(msg);
+    });
+
+    // 加载历史聊天
+    if (res.roomInfo && res.roomInfo.chatLog) {
+      res.roomInfo.chatLog.forEach(function(m) { appendReadyChat(m); });
+    }
+  }
+
+  function updateReadyPlayers(info) {
+    if (!info || !info.players) return;
+    var p1 = info.players.find(function(p) { return p.slot === '1'; });
+    var p2 = info.players.find(function(p) { return p.slot === '2'; });
+
+    // 玩家 1（房主）
+    var av1 = $('ready-player-1').querySelector('.ready-player-avatar');
+    if (p1) {
+      $('ready-player-1').querySelector('.ready-player-name').textContent = p1.nickname;
+      $('ready-badge-1').textContent = '房主';
+      $('ready-badge-1').className = 'ready-player-badge';
+      if (p1.ready) $('ready-badge-1').classList.add('ready');
+      _setPlayerAvatar(av1, p1.avatar, p1.nickname);
+    }
+    // 玩家 2
+    var av2 = $('ready-player-2').querySelector('.ready-player-avatar');
+    if (p2) {
+      $('ready-player-2').querySelector('.ready-player-name').textContent = p2.nickname;
+      $('ready-badge-2').textContent = p2.ready ? '已准备' : '未准备';
+      $('ready-badge-2').className = 'ready-player-badge' + (p2.ready ? ' ready' : '');
+      _setPlayerAvatar(av2, p2.avatar, p2.nickname);
+    } else {
+      $('ready-player-2').querySelector('.ready-player-name').textContent = '等待中';
+      $('ready-badge-2').textContent = '';
+      $('ready-badge-2').className = 'ready-player-badge';
+      av2.innerHTML = '';
+      av2.textContent = '?';
+    }
+
+    // 更新状态文字
+    if (info.status === 'ready') {
+      $('ready-status-text').textContent = '双方已就位，等待房主开始';
+      if (isReadyHost) {
+        var bothReady = p1 && p2 && p2.ready;
+        $('ready-start-btn').disabled = !bothReady;
+      }
+    } else {
+      $('ready-status-text').textContent = '等待玩家加入…';
+    }
+
+    // 更新准备按钮
+    if (!isReadyHost && p2) {
+      var myReady = p2.ready;
+      $('ready-ready-btn').querySelector('.btn-text').textContent = myReady ? '取消准备' : '准 备';
+    }
+  }
+
+  function _setPlayerAvatar(el, avatarUrl, nickname) {
+    el.innerHTML = '';
+    if (avatarUrl) {
+      el.innerHTML = '<img src="' + avatarUrl + '" alt="">';
+    } else {
+      el.textContent = (nickname || '?').charAt(0).toUpperCase();
+    }
+  }
+
+  function appendReadyChat(msg) {
+    var log = $('ready-chat-log');
+    var div = document.createElement('div');
+    div.className = 'chat-msg';
+    if (msg.type === 'sysmsg') {
+      div.textContent = msg.text || '';
+      div.style.color = '#6EE7B7';
+    } else {
+      div.innerHTML = '<span class="chat-sender">' + (msg.senderName || '未知') + '：</span>' + (msg.text || '');
+    }
+    log.appendChild(div);
+    log.scrollTop = log.scrollHeight;
+  }
+
+  // 准备按钮
+  $('ready-ready-btn').addEventListener('click', function() {
+    socket.emit('player-ready', {}, function(res) {
+      if (res && res.error) { $('ready-error').textContent = res.error; return; }
+    });
+  });
+
+  // 开始按钮
+  $('ready-start-btn').addEventListener('click', function() {
+    setBtn($('ready-start-btn'), true);
+    socket.emit('start-game', {}, function(res) {
+      setBtn($('ready-start-btn'), false);
+      if (res && res.error) { $('ready-error').textContent = res.error; return; }
+    });
+  });
+
+  // 房间设置
+  window._toggleReadySettings = function() {
+    var panel = document.getElementById('ready-settings-panel');
+    if (!panel) return;
+    if (panel.classList.contains('open')) { panel.classList.remove('open'); return; }
+    var pwInput = document.getElementById('ready-password-input');
+    var saveBtn = document.getElementById('ready-password-save');
+    if (!isReadyHost) {
+      if (pwInput) { pwInput.disabled = true; pwInput.placeholder = '仅房主可设置密码'; }
+      if (saveBtn) saveBtn.style.display = 'none';
+    } else {
+      if (pwInput) { pwInput.disabled = false; pwInput.placeholder = '设置密码'; }
+      if (saveBtn) saveBtn.style.display = '';
+    }
+    panel.classList.add('open');
+  };
+
+  // 保存密码
+  var pwSaveBtn = document.getElementById('ready-password-save');
+  if (pwSaveBtn) pwSaveBtn.addEventListener('click', function() {
+    var pw = document.getElementById('ready-password-input').value.trim();
+    socket.emit('set-room-password', { password: pw }, function(res) {
+      if (res && res.error) {
+        var errEl = document.getElementById('ready-error');
+        if (errEl) errEl.textContent = res.error;
+        return;
+      }
+      window._roomPassword = pw;
+      var panel = document.getElementById('ready-settings-panel');
+      if (panel) panel.classList.remove('open');
+    });
+  });
+
+  // 退出房间
+  $('ready-leave-btn').addEventListener('click', function() {
+    socket.emit('leave-room');
+    isReadyMode = false; readyRoomCode = null;
+    showLobby(window._gameNickname || '');
+  });
+
+  // 聊天发送
+  $('ready-chat-send').addEventListener('click', function() {
+    var txt = $('ready-chat-input').value.trim();
+    if (!txt) return;
+    socket.emit('room-chat', { text: txt });
+    $('ready-chat-input').value = '';
+  });
+  $('ready-chat-input').addEventListener('keydown', function(e) {
+    if (e.key === 'Enter') $('ready-chat-send').click();
+  });
+
   // ═══ 页签 ═══
   function switchLobbyTab(name) {
     document.querySelectorAll('.lobby-nav-item').forEach(function(t) { t.classList.toggle('active', t.dataset.tab === name); });
     document.querySelectorAll('.lobby-panel').forEach(function(p) { p.classList.toggle('active', p.id === 'panel-' + name); });
     if (name === 'profile') { ['nickname','pw'].forEach(function(k) { $('profile-' + k + '-msg').textContent = ''; $('profile-' + k + '-msg').className = 'profile-msg'; }); $('profile-old-pw').value = ''; $('profile-new-pw').value = ''; }
+    if (name === 'history') loadBattleHistory();
   }
   document.querySelectorAll('.lobby-nav-item').forEach(function(t) { t.addEventListener('click', function() { switchLobbyTab(t.dataset.tab); }); });
+
+  // ═══ 加载战绩 ═══
+  function loadBattleHistory() {
+    var listEl = $('history-list'), emptyEl = $('history-empty');
+    if (!listEl) return;
+    socket.emit('get-profile', {}, function(res) {
+      if (!res || res.error) { listEl.innerHTML = ''; if(emptyEl) emptyEl.style.display = ''; return; }
+      var records = res.battleRecord || [];
+      if (!records.length) { listEl.innerHTML = ''; if(emptyEl) emptyEl.style.display = ''; return; }
+      if(emptyEl) emptyEl.style.display = 'none';
+      // 倒序显示（最新在前）
+      var html = '';
+      records.slice().reverse().forEach(function(rec, i) {
+        var dt = rec.endedAt ? new Date(rec.endedAt).toLocaleString('zh-CN') : '未知时间';
+        var players = (rec.participants || []).join(' vs ');
+        var p1Info = rec.playerInfo && rec.playerInfo['1'] ? rec.playerInfo['1'].name || '玩家1' : '玩家1';
+        var p2Info = rec.playerInfo && rec.playerInfo['2'] ? rec.playerInfo['2'].name || '玩家2' : '玩家2';
+        var p1Hp = rec.playerInfo && rec.playerInfo['1'] ? rec.playerInfo['1'].hp || '?' : '?';
+        var p2Hp = rec.playerInfo && rec.playerInfo['2'] ? rec.playerInfo['2'].hp || '?' : '?';
+        html += '<div class="history-item">' +
+          '<div class="history-item-header">' +
+            '<span class="history-item-code">' + (rec.roomCode || '----') + '</span>' +
+            '<span class="history-item-time">' + dt + '</span>' +
+          '</div>' +
+          '<div class="history-item-vs">' + p1Info + ' <span class="history-hp">' + p1Hp + ' HP</span>  VS  ' + p2Info + ' <span class="history-hp">' + p2Hp + ' HP</span></div>' +
+        '</div>';
+      });
+      listEl.innerHTML = html;
+    });
+  }
 
   // ═══ 个人中心 ═══
   $('profile-avatar').addEventListener('click', function() { $('profile-avatar-input').click(); });
@@ -208,7 +505,6 @@
     var f = e.target.files[0]; if (!f) return;
     var reader = new FileReader();
     reader.onload = function(ev) {
-      // 缩放到 64x64 减少体积
       var img = new Image();
       img.onload = function() {
         var c = document.createElement('canvas');
@@ -218,7 +514,11 @@
         var dataUrl = c.toDataURL('image/jpeg', 0.75);
         $('lobby-avatar').innerHTML = '<img src="' + dataUrl + '" alt="">';
         $('profile-avatar').innerHTML = '<img src="' + dataUrl + '" alt="">';
-        localStorage.setItem('bwpemu_avatar_' + (localStorage.getItem(UN_KEY) || ''), dataUrl);
+        window._gameAvatar = dataUrl;
+        // 保存到服务端
+        socket.emit('save-avatar', { avatar: dataUrl }, function(res) {
+          if (res && res.error) console.warn('[Auth] 头像保存失败:', res.error);
+        });
       };
       img.src = ev.target.result;
     };
@@ -249,12 +549,55 @@
     });
   });
 
+  // ═══ 注销账号 ═══
+  $('profile-delete-btn').addEventListener('click', function() {
+    $('delete-modal').classList.add('active');
+    $('delete-password').value = '';
+    $('delete-error').textContent = '';
+    $('delete-password').focus();
+  });
+  $('delete-modal-cancel').addEventListener('click', function() {
+    $('delete-modal').classList.remove('active');
+  });
+  // 点背景关闭
+  $('delete-modal').addEventListener('click', function(e) {
+    if (e.target === $('delete-modal')) $('delete-modal').classList.remove('active');
+  });
+  // 回车确认
+  $('delete-password').addEventListener('keydown', function(e) {
+    if (e.key === 'Enter') $('delete-modal-confirm').click();
+  });
+  $('delete-modal-confirm').addEventListener('click', function() {
+    var pw = $('delete-password').value;
+    if (!pw) { $('delete-error').textContent = '请输入密码确认'; return; }
+    setBtn($('delete-modal-confirm'), true);
+    socket.emit('delete-account', { password: pw }, function(res) {
+      setBtn($('delete-modal-confirm'), false);
+      if (res.error) { $('delete-error').textContent = res.error; return; }
+      $('delete-modal').classList.remove('active');
+      localStorage.removeItem(TK_KEY); localStorage.removeItem(UN_KEY); localStorage.removeItem(NN_KEY);
+      window._gameUsername = null; window._gameNickname = null; window._gameAvatar = null;
+      if (socket) { socket.disconnect(); socket = null; }
+      showAuth(false);
+      $('login-error').textContent = '账号已注销';
+      $('login-error').style.color = '#6EE7B7';
+    });
+  });
+
+  // ═══ 游戏设置弹窗（事件在 enterGame 中绑定） ═══
+
   // ═══ 退出 ═══
   $('lobby-logout-btn').addEventListener('click', function() {
     localStorage.removeItem(TK_KEY); localStorage.removeItem(UN_KEY); localStorage.removeItem(NN_KEY);
     window._gameUsername = null; window._gameNickname = null;
+    window._roomPassword = '';
     if (socket) { socket.disconnect(); socket = null; }
     showAuth(false);
+    $('login-username').value = '';
+    $('login-password').value = '';
+    $('login-error').textContent = '';
+    $('login-error').style.color = '';
+    $('login-username').focus();
   });
 
   // ═══ 进入游戏 ═══
@@ -323,7 +666,7 @@
     }
     applyPermissionLock();
 
-    socket.off('room-state').off('update').off('player-joined').off('player-left').off('error-msg');
+    socket.off('room-state').off('update').off('player-joined').off('player-left').off('error-msg').off('room-update').off('room-closed').off('room-chat');
     socket.on('room-state', function(s) { if (typeof applyFullState === 'function') applyFullState(s); });
     socket.on('update', function(a) { handlePeerData(a); });
     socket.on('player-joined', function(p) {
@@ -336,8 +679,6 @@
       else { setConnStatus(false, '对手离线'); addSystemChatMessage('【系统】对手已离线'); }
     });
     socket.on('error-msg', function(m) { console.warn('[Game]', m); addSystemChatMessage('【系统】⚠️ ' + m); });
-    // 清空旧聊天
-    ['chat-system-log','chat-player-log'].forEach(function(id) { var el = document.getElementById(id); if(el) el.innerHTML = ''; });
 
     // 设置双方默认值（不覆盖已从 room-state 恢复的数据）
     ['1','2'].forEach(function(pid) {
@@ -355,14 +696,13 @@
       if (!playerFire[pid]) { playerFire[pid] = 2; applyRemoteFireState(pid, 2); }
     });
 
-    // 设置己方头像和昵称，同步到服务器
+    // 设置己方头像和昵称，同步到服务器（观众跳过）
     var myPid = localPlayerId || '1';
-    var uname = localStorage.getItem('bwpemu_username') || window._gameUsername || '';
-    var avatarKey = 'bwpemu_avatar_' + uname;
-    var savedAvatar = localStorage.getItem(avatarKey);
+    if (!isSpectator) {
+    var savedAvatar = window._gameAvatar || '';
     if (savedAvatar) {
       setAvatarImage(myPid, savedAvatar);
-      // 同步头像到服务器（已压缩为 64x64 jpeg，约 2-4KB）
+      // 同步头像到服务器
       if (window._gameSocket && window._gameSocket.connected) {
         window._gameSocket.emit('act', { type: 'avatar-update', playerId: myPid, imageSrc: savedAvatar });
       }
@@ -375,13 +715,47 @@
         window._gameSocket.emit('act', { type: 'player-info', playerId: myPid, name: nn, hp: '30' });
       }
     }
+    }  // end if (!isSpectator)
     // 退出按钮
     var exitBtn = $('game-btn-exit');
     if (exitBtn) exitBtn.onclick = function() {
       if (window._gameSocket) { window._gameSocket.emit('leave-room'); }
       isSoloMode = false; isHost = false; isSpectator = false; localPlayerId = null;
+      isReadyMode = false; readyRoomCode = null;
       showLobby(window._gameNickname || '');
     };
+    // 设置按钮
+    var settingsBtn = $('game-btn-settings');
+    if (settingsBtn) settingsBtn.onclick = function() {
+      var modal = $('game-settings-modal');
+      var pwInput = $('game-settings-password');
+      var curPw = $('game-settings-current-pw');
+      var errEl = $('game-settings-error');
+      var saveBtn = $('game-settings-save');
+      if (!modal) return;
+      if (errEl) errEl.textContent = '';
+      // 从服务端获取真实密码
+      if (curPw) curPw.textContent = '加载中...';
+      if (window._gameSocket && window._gameSocket.connected) {
+        window._gameSocket.emit('get-room-info', {}, function(res) {
+          var realPw = (res && res.password) ? res.password : '';
+          if (curPw) curPw.textContent = realPw || '无';
+          if (pwInput) { pwInput.value = ''; pwInput.placeholder = realPw ? '输入新密码（留空则取消）' : '设置密码'; }
+        });
+      } else {
+        if (curPw) curPw.textContent = '（离线）';
+      }
+      if (!isHost) {
+        if (pwInput) { pwInput.disabled = true; pwInput.placeholder = '仅房主可修改'; }
+        if (saveBtn) saveBtn.style.display = 'none';
+      } else {
+        if (pwInput) pwInput.disabled = false;
+        if (saveBtn) saveBtn.style.display = '';
+      }
+      modal.classList.add('active');
+      if (pwInput) pwInput.focus();
+    };
+
     } catch(e) { console.error('[Auth] enterGame 异常:', e); }
   }
 
@@ -395,6 +769,7 @@
       hideLoading();
       if (res.error) { localStorage.removeItem(TK_KEY); showAuth(false); return; }
       window._gameUsername = res.username; window._gameNickname = res.nickname;
+      window._gameAvatar = res.avatar || '';
       showLobby(res.nickname);
     });
   }

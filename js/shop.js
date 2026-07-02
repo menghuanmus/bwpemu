@@ -305,8 +305,13 @@
       shop.products = selected;
     }
 
-    /** 打开商店（观众仅可查看） */
+    /** 打开商店（只能打开自己的，观众仅可查看） */
     function openShop(playerId) {
+      // 非单人模式下，不能打开对方商店
+      if (typeof localPlayerId !== 'undefined' && typeof isSoloMode !== 'undefined' && !isSoloMode && playerId !== localPlayerId) {
+        if (typeof addSystemChatMessage === 'function') addSystemChatMessage('【系统】不能打开对方的商店');
+        return;
+      }
       _activeShopPlayer = playerId;
       const shop = getShop(playerId);
       if (!shop.products.length && typeof CardDB !== 'undefined' && CardDB.isReady()) {
