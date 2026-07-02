@@ -6,7 +6,7 @@
     // ================================================================
     //  全局常量
     // ================================================================
-    const APP_VERSION = 'v0.35';
+    const APP_VERSION = 'v0.37';
     const APP_TITLE = '百闻牌模拟器';
 
     /** 调试模式：0=关闭 1=开启（显示隐藏的编辑器按钮） */
@@ -18,6 +18,9 @@
     document.title = `${APP_TITLE} ${APP_VERSION}`;
     const roomTitleEl = document.getElementById('room-title');
     if (roomTitleEl) roomTitleEl.textContent = `🎴 ${APP_TITLE} ${APP_VERSION}`;
+    // 登录界面左下角版本号
+    const versionEl = document.getElementById('auth-version');
+    if (versionEl) versionEl.textContent = APP_VERSION;
 
     // ================================================================
     //  工具函数
