@@ -12,10 +12,19 @@
     /** 调试模式：0=关闭 1=开启（显示隐藏的编辑器按钮） */
     const DEBUG_MODE = 0;
 
+    /**
+     * 服务器环境：1=正式服  2=测试服
+     * 本地开发调试时改为 2，上传正式服时改回 1
+     */
+    const SERVER_ENV = 1;
+
     /** 联机服务器配置 */
-    // PEER_SERVER 已废弃，联机改用 Socket.IO
-    const IMAGE_BASE = 'https://bwpemu.top';
+    const SERVER_HOST = 'https://bwpemu.top';
+    const SERVER_PATH = SERVER_ENV === 2 ? '/ws-test/socket.io' : '/ws/socket.io';
+    const IMAGE_BASE = SERVER_HOST;
     window._IMAGE_BASE = IMAGE_BASE;  // 供 inline onerror 使用
+    window._SERVER_HOST = SERVER_HOST;  // 供 auth.js 使用
+    window._SERVER_PATH = SERVER_PATH;  // 供 auth.js 使用
     /** 自动将所有相对 images/ 路径改为服务端URL */
     (function() {
       function fixImg(img) {
@@ -52,12 +61,13 @@
     })();
     function imgUrl(path) { return IMAGE_BASE + '/' + path; }
 
-    document.title = `${APP_TITLE} ${APP_VERSION}`;
+    const ENV_LABEL = SERVER_ENV === 2 ? '【测试服】' : '';
+    document.title = `${ENV_LABEL}${APP_TITLE} ${APP_VERSION}`;
     const roomTitleEl = document.getElementById('room-title');
-    if (roomTitleEl) roomTitleEl.textContent = `🎴 ${APP_TITLE} ${APP_VERSION}`;
+    if (roomTitleEl) roomTitleEl.textContent = `🎴 ${ENV_LABEL}${APP_TITLE} ${APP_VERSION}`;
     // 登录界面左下角版本号
     const versionEl = document.getElementById('auth-version');
-    if (versionEl) versionEl.textContent = APP_VERSION;
+    if (versionEl) versionEl.textContent = ENV_LABEL + APP_VERSION;
 
     // ================================================================
     //  工具函数

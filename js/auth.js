@@ -5,7 +5,6 @@
 (function() {
   'use strict';
 
-  const SVR_URL = 'https://bwpemu.top';
   const TK_KEY = 'bwpemu_token';
   const UN_KEY = 'bwpemu_username';
   const NN_KEY = 'bwpemu_nickname';
@@ -48,7 +47,7 @@
   function connect() {
     if (socket && socket.connected) return;
     if (socket) { socket.disconnect(); socket = null; }
-    socket = io(SVR_URL, { path: '/ws/socket.io', transports: ['websocket', 'polling'], reconnection: true, reconnectionDelay: 1000, reconnectionAttempts: Infinity });
+    socket = io(window._SERVER_HOST, { path: window._SERVER_PATH, transports: ['websocket', 'polling'], reconnection: true, reconnectionDelay: 1000, reconnectionAttempts: Infinity });
     window._gameSocket = socket;
   }
 
