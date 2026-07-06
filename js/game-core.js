@@ -234,6 +234,10 @@
     }
 
     function setSlotImage(slot, src) {
+      // 相对路径当场转为完整 URL，不等 MutationObserver，确保 sync 拿到正确 URL
+      if (src && (src.startsWith('images/') || src.startsWith('../images/'))) {
+        src = (window._IMAGE_BASE || '') + '/' + src.replace('../','');
+      }
       const art = getCardArt(slot);
       let img = art.querySelector('img');
       if (!img) {
@@ -270,9 +274,12 @@
 
     /** 自动切换卡图：形态优先 → 觉醒 → 默认（仅当图片存在时切换，否则保持原图） */
     function autoUpdateSlotImage(slot) {
+      // 手动上传的卡图（base64 data URL）不参与自动切换，全程保留
+      var curSrc = getSlotImageSrc(slot);
+      if (curSrc && curSrc.startsWith('data:')) return;
       const baseName = slot.querySelector('.card-name')?.value?.trim();
       if (!baseName) return;
-      const baseUrl = (typeof IMAGE_BASE !== 'undefined') ? IMAGE_BASE + '/' : '';
+      const baseUrl = (window._IMAGE_BASE || '') + '/';
 
       const paths = [];
       if (slot._formName) paths.push(baseUrl + 'images/' + baseName + '/' + slot._formName + '.png');
@@ -292,7 +299,12 @@
     }
 
     function _trySetImage(slot, paths, idx) {
-      if (idx >= paths.length) return;
+      if (idx >= paths.length) {
+        // 全部路径都加载失败，最后一招：显示"无图"
+        setSlotImage(slot, _noImagePath());
+        if (typeof syncSlotToPeer === 'function' && !slotSyncSuppress) syncSlotToPeer(slot);
+        return;
+      }
       const testImg = new Image();
       testImg.onload = () => {
         setSlotImage(slot, paths[idx]);
@@ -377,7 +389,7 @@
       if (factionIcon) {
         const fac = slot.dataset.slotFaction;
         if (fac && fac !== '无相') {
-          factionIcon.src = 'images/派系/' + fac + '.png';
+          factionIcon.src = (window._IMAGE_BASE || '') + '/images/派系/' + fac + '.png';
           factionIcon.style.display = '';
         } else {
           factionIcon.style.display = 'none';

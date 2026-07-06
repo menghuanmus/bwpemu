@@ -1728,6 +1728,8 @@
     dropdownMenu.addEventListener('click', (e) => {
       const action = e.target.dataset.action;
       if (!action) return;
+      // 观众只能使用式神录
+      if (typeof isSpectator !== 'undefined' && isSpectator && action !== 'shikigami-book') return;
       dropdownMenu.hidden = true;
       switch (action) {
         case 'upload-cards':

@@ -213,7 +213,10 @@
       setBtn($('lobby-join-btn'), false);
       if (!res) { $('lobby-error').textContent = '服务端无响应'; return; }
       if (res.error) { $('lobby-error').textContent = res.error; return; }
-      if (asSpec && res.spectating) { enterGame(res); return; }
+      if (asSpec && res.spectating) {
+        if (res.state && typeof applyFullState === 'function') applyFullState(res.state);
+        enterGame(res); return;
+      }
       if (res.solo) {
         if (res.state && typeof applyFullState === 'function') applyFullState(res.state);
         enterGame(res);
@@ -662,6 +665,9 @@
       lastRoomCode = res.spectating;
       ROOM_OVERLAY.hidden = true; ROOM_HOME.hidden = true; ROOM_WAITING.hidden = true; $('room-joining').hidden = true;
       updateSysChatTitle(); applyPermissionLock(); setConnStatus(true, '观战中');
+      // 观众名默认使用登录昵称
+      var si = document.getElementById('spectator-name-input');
+      if (si) si.value = window._gameNickname || '观众';
       addSystemChatMessage('【系统】已进入观战模式');
     } else if (res.ok || res.room) {
       isHost = true; isSpectator = false; localPlayerId = '1'; isSoloMode = false;

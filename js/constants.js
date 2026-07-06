@@ -18,6 +18,14 @@
      */
     const SERVER_ENV = 1;
 
+    // 正式服关闭 console.log 输出（测试服保留）
+    if (SERVER_ENV === 1) {
+      var _noop = function() {};
+      console.log = _noop;
+      console.info = _noop;
+      console.debug = _noop;
+    }
+
     /** 联机服务器配置 */
     const SERVER_HOST = 'https://bwpemu.top';
     const SERVER_PATH = SERVER_ENV === 2 ? '/ws-test/socket.io' : '/ws/socket.io';
@@ -59,6 +67,17 @@
         document.querySelectorAll('img').forEach(fixImg);
       });
     })();
+    // 全局兜底：任何图片加载失败，自动加上服务器前缀重试一次
+    document.addEventListener('error', function(e) {
+      if (e.target.tagName !== 'IMG') return;
+      var src = e.target.getAttribute('src') || '';
+      if (!src || src.startsWith('data:') || src.indexOf(IMAGE_BASE) !== -1) return;
+      // 把相对路径或错误域名路径修正为服务器路径
+      var fixed = src.replace(/^.*?\/\/[^/]+\//, '').replace(/^(\.\.\/)?/, '');
+      if (fixed.startsWith('images/')) {
+        e.target.src = IMAGE_BASE + '/' + fixed;
+      }
+    }, true);
     function imgUrl(path) { return IMAGE_BASE + '/' + path; }
 
     const ENV_LABEL = SERVER_ENV === 2 ? '【测试服】' : '';

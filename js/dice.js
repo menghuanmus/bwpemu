@@ -451,6 +451,7 @@
 
     document.addEventListener('click', (e) => {
       if (!isTargeting) return;
+      if (typeof isSpectator !== 'undefined' && isSpectator) { exitTargetingMode(); return; }
 
       // 占卜模式：选择牌手头像
       if (targetingMode === 'divine') {
@@ -770,6 +771,8 @@
         // 气绝时清除形态，然后重置属性（清临时属性+恢复永久值）
         slot._formName = ''; slot._formAtk = 0; slot._formHp = 0; slot._formAbility = '';
         if (typeof resetToPermStats === 'function') resetToPermStats(slot);
+        // 卡图切回基础/觉醒
+        if (typeof autoUpdateSlotImage === 'function') autoUpdateSlotImage(slot);
         // 【特效】气绝动画
         if (typeof DamageEffects !== 'undefined' && DamageEffects.playKoEffect) {
           setTimeout(() => DamageEffects.playKoEffect(slot), 50);

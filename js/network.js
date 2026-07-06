@@ -330,15 +330,21 @@
             else { el.disabled = true; el.style.opacity = '0.4'; el.style.cursor = 'not-allowed'; }
           });
         });
+        // 中间栏全部按钮灰置
         document.querySelectorAll('.center-dice-bar input, .center-dice-bar button, .center-dice-bar select').forEach(function(el) {
-          el.removeAttribute('data-locked'); el.disabled = false; el.readOnly = false; el.style.opacity = ''; el.style.cursor = '';
+          el.setAttribute('data-locked', 'true');
+          el.disabled = true; el.style.opacity = '0.4'; el.style.cursor = 'not-allowed';
         });
-        document.querySelectorAll('.btn-save-game').forEach(function(el) {
-          el.removeAttribute('data-locked'); el.disabled = false; el.style.opacity = ''; el.style.cursor = '';
-        });
-        document.querySelectorAll('.dropdown-mechanic__item, .dropdown-other__item').forEach(function(el) {
-          el.removeAttribute('data-locked'); el.style.opacity = ''; el.style.cursor = '';
-        });
+        // 观众只能发言 + 改自己的观众名 + 看式神录
+        var speakBtn = document.getElementById('btn-speak-unified');
+        if (speakBtn) { speakBtn.removeAttribute('data-locked'); speakBtn.disabled = false; speakBtn.style.opacity = ''; speakBtn.style.cursor = ''; }
+        var specNameInput = document.getElementById('spectator-name-input');
+        if (specNameInput) { specNameInput.removeAttribute('data-locked'); specNameInput.readOnly = false; specNameInput.style.opacity = ''; }
+        // 解锁"其他"下拉开关 + 式神录按钮（其余下拉项保持灰置）
+        var otherToggle = document.getElementById('btn-dropdown-toggle');
+        if (otherToggle) { otherToggle.removeAttribute('data-locked'); otherToggle.disabled = false; otherToggle.style.opacity = ''; otherToggle.style.cursor = ''; }
+        var shikigamiBookBtn = document.querySelector('.dropdown-other__item[data-action="shikigami-book"]');
+        if (shikigamiBookBtn) { shikigamiBookBtn.removeAttribute('data-locked'); shikigamiBookBtn.disabled = false; shikigamiBookBtn.style.opacity = ''; shikigamiBookBtn.style.cursor = ''; }
         if (tagYour) { tagYour.hidden = true; }
         if (tagOpp) { tagOpp.hidden = true; }
         if (specRow) specRow.hidden = false;
@@ -447,7 +453,9 @@
       // 恢复聊天记录
       if (state.chatLog && Array.isArray(state.chatLog)) {
         var logEl = document.getElementById('chat-system-log');
+        var playerLogEl = document.getElementById('chat-player-log');
         if (logEl) logEl.innerHTML = '';
+        if (playerLogEl) playerLogEl.innerHTML = '';
         state.chatLog.forEach(function(entry) {
           if (entry.type === 'sysmsg') addSystemChatMessage(entry.text);
           else if (entry.type === 'chat') addChatMessage(entry.from, entry.text, entry.senderName);

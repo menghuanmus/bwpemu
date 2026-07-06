@@ -205,7 +205,7 @@ const Presets = (() => {
     if (factionIcon2) {
       const fac = p.faction;
       if (fac && fac !== '无相') {
-        factionIcon2.src = 'images/派系/' + fac + '.png';
+        factionIcon2.src = (window._IMAGE_BASE || '') + '/images/派系/' + fac + '.png';
         factionIcon2.style.display = '';
       } else {
         factionIcon2.style.display = 'none';
@@ -250,10 +250,10 @@ const Presets = (() => {
         <button type="button" class="preset-filter-btn" data-filter="summon">召唤物</button>
       </div>
       <div class="preset-panel__factions" id="preset-faction-filters">
-        <button type="button" class="preset-faction-btn preset-faction-btn--active" data-faction="红莲"><img src="images/派系/红莲.png" class="preset-faction-btn__icon"><br>红莲</button>
-        <button type="button" class="preset-faction-btn preset-faction-btn--active" data-faction="紫岩"><img src="images/派系/紫岩.png" class="preset-faction-btn__icon"><br>紫岩</button>
-        <button type="button" class="preset-faction-btn preset-faction-btn--active" data-faction="青岚"><img src="images/派系/青岚.png" class="preset-faction-btn__icon"><br>青岚</button>
-        <button type="button" class="preset-faction-btn preset-faction-btn--active" data-faction="苍叶"><img src="images/派系/苍叶.png" class="preset-faction-btn__icon"><br>苍叶</button>
+        <button type="button" class="preset-faction-btn preset-faction-btn--active" data-faction="红莲"><img src="' + (window._IMAGE_BASE || '') + '/images/派系/红莲.png" class="preset-faction-btn__icon"><br>红莲</button>
+        <button type="button" class="preset-faction-btn preset-faction-btn--active" data-faction="紫岩"><img src="' + (window._IMAGE_BASE || '') + '/images/派系/紫岩.png" class="preset-faction-btn__icon"><br>紫岩</button>
+        <button type="button" class="preset-faction-btn preset-faction-btn--active" data-faction="青岚"><img src="' + (window._IMAGE_BASE || '') + '/images/派系/青岚.png" class="preset-faction-btn__icon"><br>青岚</button>
+        <button type="button" class="preset-faction-btn preset-faction-btn--active" data-faction="苍叶"><img src="' + (window._IMAGE_BASE || '') + '/images/派系/苍叶.png" class="preset-faction-btn__icon"><br>苍叶</button>
         <button type="button" class="preset-faction-btn preset-faction-btn--active" data-faction="无相"><span class="preset-faction-btn__icon">🌐</span><br>无相</button>
       </div>
       <div class="preset-panel__filters">
