@@ -133,19 +133,22 @@
   text-overflow: ellipsis;
 }
 
-/* 置入数量行 */
-.card-text-quantity-row {
+/* 置入数量行 / 商品等级行 */
+.card-text-quantity-row,
+.card-text-level-row {
   display: flex;
   align-items: center;
   gap: 6px;
   margin-top: 8px;
 }
+.card-text-level-row[hidden] { display: none; }   /* 等级行仅在添加商店商品时显示 */
 .card-text-quantity-label {
   font-size: 13px;
   color: #b0a0c0;
   white-space: nowrap;
 }
-#card-text-dialog-quantity {
+#card-text-dialog-quantity,
+#card-text-dialog-level {
   width: 60px;
   padding: 5px 8px;
   border-radius: 4px;
@@ -159,11 +162,14 @@
   appearance: textfield;
 }
 #card-text-dialog-quantity::-webkit-inner-spin-button,
-#card-text-dialog-quantity::-webkit-outer-spin-button {
+#card-text-dialog-quantity::-webkit-outer-spin-button,
+#card-text-dialog-level::-webkit-inner-spin-button,
+#card-text-dialog-level::-webkit-outer-spin-button {
   -webkit-appearance: none;
   margin: 0;
 }
-#card-text-dialog-quantity:focus {
+#card-text-dialog-quantity:focus,
+#card-text-dialog-level:focus {
   outline: none;
   border-color: rgba(200, 160, 80, 0.7);
 }

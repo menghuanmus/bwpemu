@@ -98,6 +98,8 @@
   // ═══ 大厅 ═══
   function showLobby(nickname) {
     showView(LOBBY_VIEW);
+    // 回到大厅时彻底清空上一局的战场数据，防止新房间继承旧状态
+    if (typeof resetGameState === 'function') resetGameState();
     var uname = localStorage.getItem(UN_KEY) || window._gameUsername || '';
     $('lobby-nickname').textContent = nickname;
     $('lobby-avatar').innerHTML = ''; $('lobby-avatar').textContent = nickname.charAt(0).toUpperCase();
@@ -129,7 +131,7 @@
     if (!rooms || !rooms.length) { if (emptyEl) emptyEl.style.display = ''; listEl.innerHTML = ''; window._cachedRoomList = []; return; }
     if (emptyEl) emptyEl.style.display = 'none';
     window._cachedRoomList = rooms;  // 缓存供密码检查用
-    var myUname = localStorage.getItem(UN_KEY) || '';
+    var myUname = (typeof window._gameUsername !== 'undefined' && window._gameUsername) ? window._gameUsername : (localStorage.getItem(UN_KEY) || '');
     // 可重连的房间置顶
     rooms.sort(function(a, b) {
       var aMine = a.players.some(function(p) { return p.offline && p.username === myUname; });
@@ -613,7 +615,6 @@
     try {
     if (roomRefreshTimer) { clearTimeout(roomRefreshTimer); roomRefreshTimer = null; }
     showView(GAME_VIEW);
-    setConnStatus(true, '已连接');
     window._gameSocket = socket;
 
     window.sendToServer = function(data) {
@@ -651,20 +652,24 @@
       ROOM_ID_CODE.textContent = res.solo;
       ROOM_OVERLAY.hidden = true; $('room-joining').hidden = true; ROOM_HOME.hidden = true; ROOM_WAITING.hidden = true;
       updateSysChatTitle(); resetPermissionLock();
-      if (res.rejoined) { setConnStatus(true, '已重连'); addSystemChatMessage('【系统】已重连，单人模式'); }
-      else { setConnStatus(true, '单人模式'); addSystemChatMessage('【系统】单人模式 —— 所有区域均可操作'); }
+      if (res.rejoined) { setConnStatus(true, '已重连'); setPlayerConnStatus('2', true, '单人模式'); addSystemChatMessage('【系统】已重连，单人模式'); }
+      else { setConnStatus(true, '单人模式'); setPlayerConnStatus('2', true, '单人模式'); addSystemChatMessage('【系统】单人模式 —— 所有区域均可操作'); }
     } else if (res.joined) {
       isHost = false; isSpectator = false; localPlayerId = res.slot || '2'; isSoloMode = false;
       lastRoomCode = res.joined;
       ROOM_OVERLAY.hidden = true; ROOM_HOME.hidden = true; ROOM_WAITING.hidden = true; $('room-joining').hidden = true;
       updateSysChatTitle(); applyPermissionLock();
-      if (res.rejoined && !res.otherOnline) { setConnStatus(false, '等待对手重连'); addSystemChatMessage('【系统】已重连，等待对手重连…'); }
-      else { setConnStatus(true, '已连接'); addSystemChatMessage('【系统】连接成功，游戏开始！'); }
+      var peerId = (res.slot === '1') ? '2' : '1';
+      if (res.rejoined && !res.otherOnline) { setConnStatus(true, '已连接'); setPlayerConnStatus(peerId, false, '等待重连'); addSystemChatMessage('【系统】已重连，等待对手重连…'); }
+      else { setConnStatus(true, '已连接'); setPlayerConnStatus(peerId, true, '已连接'); addSystemChatMessage('【系统】连接成功，游戏开始！'); }
     } else if (res.spectating) {
       isHost = false; isSpectator = true; localPlayerId = '0'; isSoloMode = false;
       lastRoomCode = res.spectating;
       ROOM_OVERLAY.hidden = true; ROOM_HOME.hidden = true; ROOM_WAITING.hidden = true; $('room-joining').hidden = true;
-      updateSysChatTitle(); applyPermissionLock(); setConnStatus(true, '观战中');
+      updateSysChatTitle(); applyPermissionLock();
+      // 观众视角：两位玩家的连接状态都显示"已连接"（观战身份由中间栏观众行体现）
+      setPlayerConnStatus('1', true, '已连接');
+      setPlayerConnStatus('2', true, '已连接');
       // 观众名默认使用登录昵称
       var si = document.getElementById('spectator-name-input');
       if (si) si.value = window._gameNickname || '观众';
@@ -674,7 +679,7 @@
       lastRoomCode = res.room;
       ROOM_ID_CODE.textContent = res.room;
       ROOM_OVERLAY.hidden = true; $('room-joining').hidden = true; ROOM_HOME.hidden = true; ROOM_WAITING.hidden = false;
-      updateSysChatTitle(); setConnStatus(true, '等待对手加入…');
+      updateSysChatTitle(); setConnStatus(true, '已连接'); setPlayerConnStatus('2', false, '等待加入');
     }
     applyPermissionLock();
 
@@ -682,13 +687,14 @@
     socket.on('room-state', function(s) { if (typeof applyFullState === 'function') applyFullState(s); });
     socket.on('update', function(a) { handlePeerData(a); });
     socket.on('player-joined', function(p) {
-      if (p.rejoined) { addSystemChatMessage('【系统】对手重连'); setConnStatus(true, '已连接'); }
-      else if (p.slot !== '0') { addSystemChatMessage('【系统】对手已加入'); if (isHost) { onPeerConnected(); setConnStatus(true, '已连接'); } }
+      if (p.rejoined) { addSystemChatMessage('【系统】对手重连'); setConnStatus(true, '已连接'); if (p.slot) setPlayerConnStatus(p.slot, true, '已连接'); }
+      else if (p.slot !== '0') { addSystemChatMessage('【系统】对手已加入'); if (p.slot) setPlayerConnStatus(p.slot, true, '已连接'); if (isHost) { onPeerConnected(); setConnStatus(true, '已连接'); } }
       else addSystemChatMessage('【系统】观众进入');
     });
     socket.on('player-left', function(p) {
-      if (p.gone) { setConnStatus(false, '对手已退出'); addSystemChatMessage('【系统】对手已退出房间'); }
-      else { setConnStatus(false, '对手离线'); addSystemChatMessage('【系统】对手已离线'); }
+      var peerSlot = p.slot || ((localPlayerId === '1') ? '2' : '1');
+      if (p.gone) { setPlayerConnStatus(peerSlot, false, '已退出'); addSystemChatMessage('【系统】对手已退出房间'); }
+      else { setPlayerConnStatus(peerSlot, false, '离线'); addSystemChatMessage('【系统】对手已离线'); }
     });
     socket.on('error-msg', function(m) { console.warn('[Game]', m); addSystemChatMessage('【系统】⚠️ ' + m); });
 

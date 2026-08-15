@@ -1783,6 +1783,95 @@
       font-weight: 600;
       color: #ffe8b0;
     }
+    /* 库存 / 添加商品按钮（与刷新按钮同风格渐变） */
+    .shop-dialog__inv-btn,
+    .shop-dialog__add-btn {
+      padding: 10px 22px;
+      border-radius: 6px;
+      font-size: 15px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+    .shop-dialog__inv-btn {
+      border: 1px solid rgba(140, 170, 210, 0.5);
+      background: linear-gradient(180deg, rgba(90, 127, 181, 0.55), rgba(61, 90, 128, 0.55));
+      color: #d0e2f5;
+    }
+    .shop-dialog__add-btn {
+      border: 1px solid rgba(140, 200, 140, 0.5);
+      background: linear-gradient(180deg, rgba(80, 140, 80, 0.55), rgba(40, 90, 40, 0.55));
+      color: #c0e8c0;
+    }
+    .shop-dialog__inv-btn:hover {
+      background: linear-gradient(180deg, rgba(106, 143, 197, 0.7), rgba(77, 106, 144, 0.7));
+      border-color: rgba(170, 200, 240, 0.8);
+    }
+    .shop-dialog__add-btn:hover {
+      background: linear-gradient(180deg, rgba(96, 156, 96, 0.7), rgba(56, 106, 56, 0.7));
+      border-color: rgba(170, 230, 170, 0.8);
+    }
+    .shop-dialog__inv-btn:disabled,
+    .shop-dialog__add-btn:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+    }
+    /* 库存列表 */
+    .shop-dialog__inventory {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      max-height: 300px;
+      overflow-y: auto;
+      min-height: 120px;
+    }
+    .shop-dialog__inventory[hidden] { display: none; }
+    .shop-inv-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 8px 12px;
+      background: rgba(20, 30, 50, 0.7);
+      border: 1px solid rgba(150, 180, 220, 0.2);
+      border-radius: 8px;
+    }
+    .shop-inv-row__name {
+      flex: 1;
+      min-width: 0;
+      font-size: 15px;
+      color: #e0d8c8;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .shop-inv-row__stock {
+      font-size: 14px;
+      color: #8090a8;
+      flex-shrink: 0;
+    }
+    .shop-inv-row__stock--unlimited { color: #60c080; }
+    .shop-inv-row__del {
+      padding: 6px 12px;
+      font-size: 13px;
+      border-radius: 5px;
+      border: 1px solid rgba(200, 90, 90, 0.5);
+      background: rgba(140, 50, 50, 0.4);
+      color: #f0a0a0;
+      cursor: pointer;
+      flex-shrink: 0;
+      transition: all 0.15s;
+    }
+    .shop-inv-row__del:hover {
+      background: rgba(180, 60, 60, 0.55);
+      color: #ffc0c0;
+    }
+    .shop-inv-row__del:disabled { opacity: 0.4; cursor: not-allowed; }
+    .shop-inv-empty {
+      text-align: center;
+      color: #8090a0;
+      padding: 24px;
+      font-size: 14px;
+    }
     .shop-dialog__close {
       width: 36px;
       height: 36px;
@@ -1830,11 +1919,16 @@
     .shop-product:hover {
       border-color: rgba(200, 160, 60, 0.5);
     }
+    /* 名字列：名字在上、库存在下 */
+    .shop-product__name-col {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 4px;
+      flex-shrink: 0;
+    }
     .shop-product__stock {
-      position: absolute;
-      top: 6px;
-      right: 8px;
-      font-size: 14px;
+      font-size: 13px;
       color: #8090a8;
     }
     .shop-product__stock--unlimited {
@@ -1845,7 +1939,7 @@
       font-weight: 600;
       color: #e0d8c8;
       text-align: center;
-      margin-top: 10px;
+      margin-top: 0;
     }
     .shop-product__effect {
       font-size: 13px;
@@ -1888,6 +1982,62 @@
       justify-content: space-between;
       padding-top: 8px;
       border-top: 1px solid rgba(150, 180, 220, 0.12);
+    }
+    .shop-dialog__footer-btns {
+      display: flex;
+      gap: 8px;
+    }
+    /* 库存/添加商品按钮排（刷新按钮下方） */
+    .shop-dialog__manage-row {
+      display: flex;
+      gap: 8px;
+    }
+    /* 第二排按钮统一高度与均分（库存按钮在手机端会移到第一排） */
+    .shop-dialog__manage-row .shop-dialog__inv-btn,
+    .shop-dialog__manage-row .shop-dialog__add-btn,
+    .shop-dialog__footer-btns .shop-dialog__inv-btn {
+      flex: 1;
+      height: 40px;
+      padding: 0 8px;
+      font-size: 15px;
+      box-sizing: border-box;
+      white-space: nowrap;
+    }
+    /* 优先刷新输入框（第二排左边） */
+    .shop-priority-input {
+      flex: 1.6;
+      min-width: 0;
+      height: 40px;
+      padding: 0 12px;
+      border-radius: 6px;
+      border: 1px solid #5a7090;
+      background: #1e2a3a;
+      color: #eee;
+      font-size: 14px;
+      font-family: inherit;
+      box-sizing: border-box;
+      outline: none;
+    }
+    .shop-priority-input:focus {
+      border-color: rgba(200, 160, 80, 0.7);
+    }
+    .shop-priority-btn {
+      height: 40px;
+      padding: 0 14px;
+      border-radius: 6px;
+      border: 1px solid rgba(200, 160, 60, 0.5);
+      background: linear-gradient(180deg, rgba(180, 140, 60, 0.5), rgba(120, 90, 30, 0.5));
+      color: #ffe8b0;
+      font-size: 15px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.15s;
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+    .shop-priority-btn:hover {
+      background: linear-gradient(180deg, rgba(200, 160, 80, 0.65), rgba(140, 105, 40, 0.65));
+      border-color: rgba(255, 200, 100, 0.7);
     }
     .shop-dialog__footer-btns {
       display: flex;

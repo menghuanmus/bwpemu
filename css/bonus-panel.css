@@ -38,6 +38,10 @@
 
 .bonus-dialog__body { padding: 14px 20px; }
 
+/* 手机端 Tab 结构在桌面旋转时的兜底：隐藏标签栏、全部面板堆叠显示 */
+.bonus-tab-bar { display: none; }
+.bonus-tab-panel { display: block; }
+
 /* 信息行 */
 .bonus-info {
   display: flex; gap: 10px; align-items: center; justify-content: center;

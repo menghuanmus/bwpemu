@@ -251,6 +251,11 @@
       padding: 16px;
     }
 
+    /* 文本输入弹窗（如添加新商品）要盖在商店等其他弹窗之上 */
+    #card-text-dialog-overlay {
+      z-index: 610;
+    }
+
     .speak-dialog-overlay[hidden] {
       display: none;
     }

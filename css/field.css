@@ -67,6 +67,25 @@
       gap: 8px;
     }
 
+    /* 玩家连接状态条（名字下方，双方各一条） */
+    .player-conn-status {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      font-size: 10px;
+      line-height: 1;
+      color: rgba(170, 195, 220, 0.85);
+      white-space: nowrap;
+    }
+    .player-conn-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      flex-shrink: 0;
+      background: #e0a030;
+    }
+    .player-conn-dot.conn-ok { background: #40c060; }
+
     /* 鬼火区域：名字右侧，上下两排左对齐 */
     .player-fire-area {
       display: flex;
@@ -177,7 +196,8 @@
       display: flex;
       align-items: center;
       justify-content: center;
-      background: rgba(20, 30, 50, 0.6);
+      /* 默认占位：无图.png（有头像时被 img 覆盖） */
+      background: url('https://bwpemu.top/images/无图.png') center/cover no-repeat, rgba(20, 30, 50, 0.6);
       transition: border-color 0.2s;
     }
 
@@ -192,10 +212,7 @@
     }
 
     .player-avatar .avatar-placeholder {
-      font-size: 15px;
-      color: rgba(150, 170, 200, 0.55);
-      pointer-events: none;
-      font-weight: 600;
+      display: none;   /* 默认用"无图"背景占位，不显示文字 */
     }
 
     .player-avatar.has-avatar .avatar-placeholder {

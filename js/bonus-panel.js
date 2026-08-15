@@ -58,6 +58,10 @@ const BonusPanel = (() => {
 
   function handleBodyClick(e) {
     if (!ctx) return;
+    if (e.target.classList.contains('bonus-tab')) {
+      switchBonusTab(e.target.dataset.bonusTab);
+      return;
+    }
     const pm = e.target.closest('.bonus-list-item__pm');
     if (pm) { handlePmClick(pm); return; }
     const del = e.target.closest('.bonus-list-item__del');
@@ -380,11 +384,128 @@ const BonusPanel = (() => {
     ctx = null;
   }
 
+  /** 手机端 Tab 切换 */
+  function switchBonusTab(tabName) {
+    document.querySelectorAll('.bonus-tab').forEach(function(t) {
+      t.classList.toggle('active', t.dataset.bonusTab === tabName);
+    });
+    document.querySelectorAll('.bonus-tab-panel').forEach(function(p) {
+      p.classList.toggle('active', p.dataset.bonusPanel === tabName);
+    });
+  }
+
   function render() {
     const body = document.getElementById('bonus-body');
     const ability = ctx.permAbility || (ctx.dbCard ? (ctx.dbCard.ability || '') : '');
 
-    body.innerHTML = `
+    // 手机端：Tab 分页结构；桌面端：两栏结构
+    if (window.matchMedia('(max-width: 768px)').matches) {
+      body.innerHTML = _renderMobile(ability);
+    } else {
+      body.innerHTML = _renderDesktop(ability);
+    }
+  }
+
+  /** 手机端：Tab 分页（属性/能力/形态/效果），弹窗不整体滚动 */
+  function _renderMobile(ability) {
+    const factionHTML = `<div class="bonus-faction-row">
+      ${['苍叶','红莲','青岚','紫岩','无相'].map(function(f) {
+        return '<button type="button" class="bonus-faction-btn' + (ctx.faction === f ? ' active' : '') + '">' + f + '</button>';
+      }).join('')}
+      <label class="bonus-summon-label"><input type="checkbox" id="bonus-is-summon" ${ctx.slot.dataset.slotType === 'summon' ? 'checked' : ''}> 召唤物</label>
+    </div>`;
+
+    const abilityHTML = `<textarea id="bonus-ability" class="bonus-ability-input" placeholder="${escapeHTML(ability)}" rows="3">${escapeHTML(ctx.permAbility)}</textarea>`;
+
+    const permHTML = `<div class="bonus-add-row">
+      <input type="text" id="bonus-mod-source" placeholder="来源" maxlength="30" style="flex:3;">
+      <label class="bonus-inline-label">攻击</label>
+      <input type="number" id="bonus-mod-atk" value="0" min="-99" max="99">
+      <label class="bonus-inline-label">生命</label>
+      <input type="number" id="bonus-mod-hp" value="0" min="-99" max="99">
+      <button type="button" class="bonus-btn bonus-btn--add" id="bonus-add-mod">添加</button>
+    </div>
+    <div class="bonus-list" id="bonus-mod-list">${renderModList()}</div>`;
+
+    const tempHTML = `<div class="bonus-add-row">
+      <input type="text" id="bonus-temp-source" placeholder="来源" maxlength="30" style="flex:3;">
+      <label class="bonus-inline-label">攻击</label>
+      <input type="number" id="bonus-temp-atk" value="0" min="-99" max="99">
+      <label class="bonus-inline-label">生命</label>
+      <input type="number" id="bonus-temp-hp" value="0" min="-99" max="99">
+      <button type="button" class="bonus-btn bonus-btn--add" id="bonus-add-temp">添加</button>
+    </div>
+    <div class="bonus-list" id="bonus-temp-list">${renderTempList()}</div>`;
+
+    const formHTML = `<button type="button" id="bonus-quick-form" class="bonus-btn--keyword">+快捷结附形态</button>
+    <div id="bonus-form-picker" class="bonus-keyword-picker" style="display:none;"></div>
+    ${renderFormSection()}`;
+
+    const effectsHTML = `<button type="button" id="bonus-quick-keyword" class="bonus-btn--keyword">+快捷关键词</button>
+    <div id="bonus-keyword-picker" class="bonus-keyword-picker" style="display:none;"></div>
+    <div class="bonus-add-row">
+      <input type="text" id="bonus-effect-source" placeholder="来源" maxlength="30" class="flex-06">
+      <input type="text" id="bonus-effect-desc" placeholder="效果描述" maxlength="100" class="flex-14">
+      <button type="button" class="bonus-btn bonus-btn--add" id="bonus-add-effect">添加</button>
+    </div>
+    <div class="bonus-list" id="bonus-effect-list">${renderEffectList()}</div>`;
+
+    return `
+      <div class="bonus-info">
+        <span class="bonus-info__name">「${escapeHTML(ctx.cardName)}」</span>
+        <span class="bonus-info__stats"><span>${ATK_ICON} ${ctx.permAtk}</span> <span>${HP_ICON} ${ctx.permHp}</span></span>
+      </div>
+      <div class="bonus-tabs">
+        <div class="bonus-tab-bar">
+          <button type="button" class="bonus-tab active" data-bonus-tab="stats">属性</button>
+          <button type="button" class="bonus-tab" data-bonus-tab="ability">能力</button>
+          <button type="button" class="bonus-tab" data-bonus-tab="form">形态</button>
+          <button type="button" class="bonus-tab" data-bonus-tab="effects">效果</button>
+        </div>
+        <div class="bonus-tab-panel active" data-bonus-panel="stats">
+          <div class="bonus-section">
+            <div class="bonus-section__label">⚔️ 永久属性</div>
+            ${permHTML}
+          </div>
+          <div class="bonus-section">
+            <div class="bonus-section__label">⏳ 临时属性</div>
+            ${tempHTML}
+          </div>
+        </div>
+        <div class="bonus-tab-panel" data-bonus-panel="ability">
+          <div class="bonus-section">
+            <div class="bonus-section__label">🎌 式神派系</div>
+            ${factionHTML}
+          </div>
+          <div class="bonus-section">
+            <div class="bonus-section__label">📝 基础/觉醒能力 <span class="bonus-help-icon" title="无内容时默认为基础能力">?</span></div>
+            ${abilityHTML}
+          </div>
+        </div>
+        <div class="bonus-tab-panel" data-bonus-panel="form">
+          <div class="bonus-section">
+            <div class="bonus-section__label">🎴 形态</div>
+            ${formHTML}
+          </div>
+        </div>
+        <div class="bonus-tab-panel" data-bonus-panel="effects">
+          <div class="bonus-section">
+            <div class="bonus-section__label">📋 效果记录</div>
+            ${effectsHTML}
+          </div>
+        </div>
+      </div>
+      <div class="bonus-actions">
+        <button type="button" class="bonus-btn bonus-btn--delete" id="bonus-delete-slot">🗑 删除式神</button>
+        <button type="button" class="bonus-btn bonus-btn--image" id="bonus-change-image">🖼 更换卡图</button>
+        <button type="button" class="bonus-btn bonus-btn--close" id="bonus-close-btn">关闭</button>
+      </div>
+    `;
+  }
+
+  /** 桌面端：两栏布局（原版） */
+  function _renderDesktop(ability) {
+    return `
       <div class="bonus-info">
         <span class="bonus-info__name">「${escapeHTML(ctx.cardName)}」</span>
         <span class="bonus-info__stats"><span>${ATK_ICON} ${ctx.permAtk}</span> <span>${HP_ICON} ${ctx.permHp}</span></span>

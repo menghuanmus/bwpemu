@@ -1,0 +1,38 @@
+name: Deploy Test Site
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build-and-deploy:
+    # 只在测试仓库运行，防止正式仓库被误部署
+    if: github.repository == 'menghuanmus/bwpemu-test'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: 默认连测试服务器
+        run: sed -i 's/const SERVER_ENV_DEFAULT = 1;/const SERVER_ENV_DEFAULT = 2;/' js/constants.js
+
+      - name: Setup Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: '.'
+
+      - name: Deploy
+        id: deployment
+        uses: actions/deploy-pages@v4

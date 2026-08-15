@@ -320,7 +320,9 @@ const Charge = (() => {
     body.innerHTML = cards.map((charged, idx) => {
       const chargedBy = charged.chargedBy || slotPlayerId;
       const isPlaceholder = charged.cardId === -1 || chargedBy === '?';
-      const isMyCharge = !isPlaceholder && String(chargedBy) === String(viewerId);
+      const isSolo = (typeof isSoloMode !== 'undefined' && isSoloMode);
+      // 单人模式不判定使用者，双方蓄力均可操作
+      const isMyCharge = isSolo ? !isPlaceholder : (!isPlaceholder && String(chargedBy) === String(viewerId));
 
       const displayName = isMyCharge ? escapeHTML(charged.cardName || '(未知)') : '未知（仅使用者可操作）';
       const nameClass = isMyCharge ? 'charge-card-name' : 'charge-card-name charge-card-name--unknown';
@@ -350,6 +352,7 @@ const Charge = (() => {
 
   function bindPanelEvents(body, slot, cards, slotPlayerId) {
     const viewerId = (typeof getViewerPlayerId === 'function') ? getViewerPlayerId() : (localPlayerId || '1');
+    const isSolo = (typeof isSoloMode !== 'undefined' && isSoloMode);
 
     body.querySelectorAll('[data-action="complete"]').forEach(btn => {
       btn.addEventListener('click', () => {
@@ -357,7 +360,7 @@ const Charge = (() => {
         const charged = (slot._chargedCards || [])[idx];
         if (!charged) return;
         const chargeOwner = charged.chargedBy || slotPlayerId;
-        if (String(chargeOwner) !== String(viewerId)) return;
+        if (!isSolo && String(chargeOwner) !== String(viewerId)) return;
         completeCharge(slot, idx, chargeOwner);
         closePanel();
       });
@@ -369,7 +372,7 @@ const Charge = (() => {
         const charged = (slot._chargedCards || [])[idx];
         if (!charged) return;
         const chargeOwner = charged.chargedBy || slotPlayerId;
-        if (String(chargeOwner) !== String(viewerId)) return;
+        if (!isSolo && String(chargeOwner) !== String(viewerId)) return;
         cancelCharge(slot, idx, chargeOwner);
         closePanel();
       });
@@ -381,7 +384,7 @@ const Charge = (() => {
         const charged = (slot._chargedCards || [])[idx];
         if (!charged) return;
         const chargeOwner = charged.chargedBy || slotPlayerId;
-        if (String(chargeOwner) !== String(viewerId)) return;
+        if (!isSolo && String(chargeOwner) !== String(viewerId)) return;
         returnToHand(slot, idx, chargeOwner);
         closePanel();
       });

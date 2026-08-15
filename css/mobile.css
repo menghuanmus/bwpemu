@@ -1,0 +1,1349 @@
+/* ================================================================
+   css/mobile.css — 手机端适配（竖屏优先）
+   仅在小屏（≤768px）生效，加载顺序最后，覆盖桌面样式
+   分块实施：第 1 块 = 登录 / 注册 / 大厅
+   ================================================================ */
+
+/* ═══════════════ 通用 ═══════════════ */
+@media (max-width: 768px) {
+
+  /* 关闭桌面端的光标光晕（手机上没鼠标） */
+  .cursor-aura { display: none; }
+
+  /* 输入框字号 ≥16px，避免 iOS 聚焦时页面自动放大 */
+  .auth-field input,
+  .lobby-join-row input,
+  .profile-field input {
+    font-size: 16px !important;
+  }
+
+  /* 所有可点按钮加大点击区域（手指 44px 标准） */
+  .auth-btn,
+  .lobby-create-btn,
+  .lobby-join-btn,
+  .room-btn {
+    min-height: 48px;
+    padding: 14px 20px;
+    font-size: 1.15rem;
+  }
+
+  /* 隐藏桌面端细滚动条（手机上内容少，不占地方） */
+  ::-webkit-scrollbar { width: 4px; height: 4px; }
+}
+
+/* ═══════════════ 登录 / 注册 ═══════════════ */
+@media (max-width: 768px) {
+
+  #auth-view, #lobby-view {
+    overflow-y: auto;           /* 内容超出可滚动，避免键盘遮挡时卡死 */
+    justify-content: flex-start;
+    padding: 20px 0;
+  }
+
+  .auth-card {
+    width: 100%;
+    max-width: 100%;
+    margin: 0 16px;
+    padding: 36px 22px 28px;
+    border-radius: 16px;
+    box-sizing: border-box;
+  }
+
+  .auth-card h2 {
+    font-size: 1.6rem;
+    margin-bottom: 24px;
+  }
+
+  .auth-field { margin-bottom: 14px; }
+  .auth-field label { font-size: 0.95rem; }
+  .auth-field input {
+    padding: 14px;
+    border-radius: 8px;
+  }
+
+  .auth-btn {
+    margin-top: 6px;
+    border-radius: 8px;
+  }
+
+  .auth-link { font-size: 1rem; text-align: center; }
+
+  .auth-footer { font-size: 0.95rem; }
+
+  /* 加载遮罩文字 */
+  .spinner-text { font-size: 1rem; }
+}
+
+/* ═══════════════ 大厅 ═══════════════ */
+@media (max-width: 768px) {
+
+  /* 大厅壳占满整个屏幕 */
+  .lobby-shell {
+    width: 100vw;
+    max-width: 100vw;
+    height: 100vh;
+    max-height: 100vh;
+    border-radius: 0;
+    border: none;
+    flex-direction: column;
+  }
+
+  /* 顶部用户条：头像 + 昵称 + 退出，紧凑一行 */
+  .lobby-sidebar {
+    width: 100%;
+    flex-direction: row;
+    align-items: center;
+    padding: 10px 14px;
+    border-right: none;
+    border-bottom: 1px solid rgba(255,255,255,0.05);
+    gap: 10px;
+  }
+  .lobby-sidebar-user {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 0;
+    margin: 0;
+    border-bottom: none;
+    min-width: 0;
+  }
+  .lobby-sidebar-avatar {
+    width: 40px; height: 40px;
+    margin: 0;
+    font-size: 1.2rem;
+    flex-shrink: 0;
+  }
+  .lobby-sidebar-name {
+    font-size: 1.05rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .lobby-sidebar-username { font-size: 0.85rem; margin-top: 1px; }
+
+  /* 侧栏底部"退出登录"挪进顶部条 */
+  .lobby-sidebar-footer {
+    padding: 0;
+    border-top: none;
+    flex-shrink: 0;
+  }
+  .lobby-sidebar-logout {
+    font-size: 1rem;
+    padding: 10px 12px;
+    display: inline-block;
+  }
+
+  /* 大厅内容区全宽 */
+  .lobby-main { flex: 1; min-height: 0; }
+
+  /* 导航页签：顶部横排，等宽 */
+  .lobby-nav {
+    display: flex;
+    flex-direction: row;
+    padding: 0 12px 10px;
+    gap: 8px;
+    border-bottom: 1px solid rgba(255,255,255,0.05);
+  }
+  .lobby-nav-item {
+    flex: 1;
+    justify-content: center;
+    padding: 10px 8px;
+    font-size: 1.05rem;
+    margin-bottom: 0;
+  }
+  .lobby-nav-item.active {
+    box-shadow: none;
+    border-bottom: 2px solid #7C83FF;
+    border-radius: 6px 6px 0 0;
+  }
+
+  /* 面板内边距收紧 */
+  .lobby-panel { padding: 18px 16px; }
+  .lobby-panel-header { margin-bottom: 18px; }
+  .lobby-panel-header h3 { font-size: 1.35rem; }
+  .lobby-panel-header p { font-size: 1rem; margin-top: 4px; }
+
+  /* 房间列表：紧凑单行，按钮放大 */
+  .room-list-item {
+    padding: 12px;
+    gap: 10px;
+    margin-bottom: 8px;
+    flex-wrap: wrap;
+  }
+  .room-list-code {
+    font-size: 1.15rem;
+    min-width: 70px;
+  }
+  .room-list-info {
+    gap: 8px;
+    min-width: 0;
+  }
+  .room-list-status {
+    font-size: 0.95rem;
+    padding: 3px 8px;
+    white-space: nowrap;
+  }
+  .room-list-players {
+    font-size: 0.9rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .room-list-actions { width: 100%; display: flex; gap: 8px; }
+  .room-list-actions .room-list-join-btn,
+  .room-list-actions .room-list-spec-btn {
+    flex: 1;
+    min-height: 42px;
+    font-size: 1.05rem;
+  }
+
+  /* 快捷操作区：输入框+按钮排布 */
+  .lobby-quick-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  .lobby-quick-actions #lobby-join-input {
+    min-height: 48px;
+    font-size: 1.2rem;
+    letter-spacing: 0.12em;
+  }
+  #lobby-solo-btn, #lobby-create-btn, #lobby-join-btn {
+    width: 100%;
+  }
+
+  .lobby-error-msg { font-size: 1rem; }
+}
+
+/* ═══════════════ 房间覆盖层（建房/加入对话框） ═══════════════ */
+@media (max-width: 768px) {
+
+  .room-overlay { padding: 12px; }
+
+  .room-dialog {
+    width: 100%;
+    max-width: 440px;
+    padding: 22px 18px;
+    border-radius: 12px;
+  }
+
+  .room-dialog h2 { font-size: 1.3rem; }
+  .room-subtitle { font-size: 0.95rem; margin-bottom: 16px; }
+
+  .room-actions { gap: 10px; }
+  .room-btn { font-size: 1.05rem; }
+
+  /* 准备界面聊天框更矮一些，留空间给按钮 */
+  .ready-chat-send { min-height: 44px; font-size: 1rem; }
+}
+
+/* ═══════════════ 通用弹窗（注销确认等） ═══════════════ */
+@media (max-width: 768px) {
+  .modal-card {
+    width: calc(100% - 32px);
+    max-width: 440px;
+    padding: 22px 18px;
+    border-radius: 12px;
+  }
+  .modal-card h3 { font-size: 1.25rem; }
+}
+
+/* ════════════════════════════════════════════════════════════
+   对局主界面 — 第 1 步：整体框架 + 卡槽尺寸（竖屏）
+   ════════════════════════════════════════════════════════════ */
+@media (max-width: 768px) {
+
+  /* 游戏板改纵向：战场在上，聊天栏到底部 */
+  .game-board {
+    --card-w-prep: 64px;
+    --card-h-prep: 128px;   /* 底栏 44px + 卡图 84px */
+    --card-w-battle: 70px;
+    --card-h-battle: 136px; /* 底栏 44px + 卡图 92px */
+    --field-gap: 6px;
+    --center-gap: 6px;
+    flex-direction: column;
+    height: 100vh;
+    height: 100dvh;          /* 动态视口：手机地址栏收起/展开时自适应 */
+    padding: 4px;
+    gap: 4px;
+  }
+
+  /* 战场占满剩余高度 */
+  .board-main { flex: 1; min-height: 0; }
+
+  /* ── 玩家区：纵向排布，信息条在上 ── */
+  .player-zone {
+    flex-direction: column;
+    padding: 4px 6px;
+    gap: 4px;
+  }
+  .player-zone--top { padding-bottom: 4px; }
+  .player-zone--bottom { padding-top: 4px; }
+
+  /* 效果面板缩成一条横向信息栏 */
+  .zone-effects {
+    width: 100%;
+    min-width: 0;
+    max-width: none;
+    flex-direction: row;
+    align-items: center;
+    gap: 8px;
+    flex-shrink: 0;
+  }
+  .player-zone--bottom .zone-effects { flex-direction: row; }
+
+  /* 幻境面板和"添加幻境"按钮：改为点信息条右侧 🏞 按钮弹出 */
+  .effects-panel, .btn-add-effect { display: none; }
+
+  /* 🏞 幻境按钮（信息条末尾） */
+  .btn-mobile-realm {
+    position: relative;
+    width: 34px;
+    height: 34px;
+    flex-shrink: 0;
+    border-radius: 50%;
+    border: 2px solid rgba(220, 180, 80, 0.6);
+    background: rgba(40, 30, 10, 0.85);
+    font-size: 16px;
+    line-height: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+  }
+  /* 右上角角标：幻境+效果总数（0 时不生成，由 JS 控制） */
+  .btn-mobile-realm__badge {
+    position: absolute;
+    top: -7px;
+    right: -7px;
+    min-width: 17px;
+    height: 17px;
+    padding: 0 3px;
+    border-radius: 9px;
+    background: #e0564a;
+    border: 1px solid rgba(255, 255, 255, 0.45);
+    color: #fff;
+    font-size: 10px;
+    font-weight: 700;
+    line-height: 15px;
+    text-align: center;
+    box-sizing: border-box;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.6);
+  }
+
+  /* 展开后的幻境/效果弹层：从信息条向中间弹出 */
+  .player-zone.realm-open .effects-panel {
+    display: block;
+    position: absolute;
+    left: 6px;
+    right: 6px;
+    z-index: 260;
+    max-height: 38dvh;
+    overflow-y: auto;
+    background: rgba(20, 28, 45, 0.97);
+    border: 2px solid rgba(150, 180, 220, 0.55);
+    border-radius: 12px;
+    padding: 8px;
+    box-shadow: 0 6px 26px rgba(0, 0, 0, 0.65);
+  }
+  .player-zone--top.realm-open .effects-panel { top: 50px; }
+  .player-zone--bottom.realm-open .effects-panel { bottom: 54px; }
+
+  /* 添加按钮：固定在弹层最上方（列表滚动时吸顶） */
+  .player-zone.realm-open .btn-add-effect {
+    display: flex;
+    position: sticky;
+    top: 0;
+    z-index: 2;
+    width: 100%;
+    justify-content: center;
+    padding: 8px;
+    font-size: 13px;
+    margin: 0 0 6px;
+  }
+  /* 条目保持一行：名称 + 数值 + 移除 */
+  .player-zone.realm-open .effect-item {
+    margin-bottom: 6px;
+  }
+
+  /* 玩家信息条：头像缩小、血量缩小、鬼火图标缩小 */
+  .player-id-area {
+    flex-direction: row;
+    align-items: center;
+    gap: 8px;
+    flex: 1;
+    min-width: 0;
+  }
+  .player-avatar {
+    width: 40px; height: 40px;
+    border-width: 2px;
+  }
+  .player-avatar-name-row { gap: 6px; }
+  /* 名字列改为 grid 两行（名字 + 连接状态），见下方连接状态区样式 */
+  .player-id-area .player-heart {
+    width: 44px; height: 38px;
+  }
+  .player-id-area .player-heart input {
+    width: 34px;
+    font-size: 18px;
+    margin-top: 3px;
+    padding-left: 5px;
+  }
+  .player-id-area .player-name-input {
+    width: 64px;
+    font-size: 12px;
+    padding: 2px 4px;
+  }
+  .player-fire-area { gap: 2px; }
+  .fire-btn { width: 18px; height: 18px; font-size: 13px; }
+  .fire-icon { font-size: 18px; }
+
+  /* ── 卡槽区 ── */
+  .zone-center { padding: 2px 0; }
+  .player-zone--top .zone-center { padding-bottom: 2px; }
+  .player-zone--bottom .zone-center { padding-top: 2px; }
+
+  .field-row { gap: var(--field-gap); padding-inline: 4px; }
+  .prep-group { gap: var(--field-gap); }
+  .prep-group:first-of-type .card-slot:first-child { transform: none; }
+  .prep-group:last-of-type .card-slot:last-child { transform: none; }
+  .battle-block { margin: 0; transform: none !important; }
+  .area-label { font-size: 11px; margin-bottom: 3px; }
+  .field-label { display: none; }   /* 手机上去掉"准备区"占位 */
+  .player-zone--bottom .field-label { margin-top: 3px; }
+
+  /* ── 牌库工具栏（操作按钮排）：7 按钮并排等宽，文字两行 ── */
+  .deck-toolbar-row {
+    gap: 4px;
+    min-height: 44px;
+    flex-wrap: nowrap;
+    align-items: stretch;
+  }
+  .player-zone--top .deck-toolbar-row { margin-bottom: 2px; }
+  .player-zone--bottom .deck-toolbar-row { margin-top: 2px; }
+  .deck-toolbar-center { display: none; }   /* 手机上去掉中间占位 */
+  .deck-btn-group { flex: 1; gap: 4px; justify-content: center; }
+  .btn-deck {
+    flex: 1;
+    min-height: 42px;
+    padding: 3px 2px;
+    font-size: 11px;
+    line-height: 1.25;
+    white-space: normal;
+    border-radius: 4px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+  }
+  /* 启悟区按钮：保持 hidden（flex 样式会覆盖 UA 的 hidden 规则，需显式恢复） */
+  .btn-deck[hidden] { display: none; }
+
+  /* ── 中间操作栏：先允许换行，按钮重排放第 2 步 ── */
+  .center-dice-bar {
+    flex-wrap: wrap;
+    gap: 4px 8px;
+    padding: 4px 6px;
+  }
+
+  /* ── 聊天栏：底部横条 ── */
+  .chat-sidebar {
+    width: 100%;
+    height: 132px;
+    flex-shrink: 0;
+    flex-direction: row;
+    align-items: stretch;
+    padding: 4px;
+    gap: 4px;
+  }
+  .chat-section--system { flex: 1; }
+  .chat-section--player { flex: 1; }
+  .chat-section-title { font-size: 0.85rem; }
+  .chat-section-body { font-size: 0.8rem; }
+
+  /* 聊天栏里的设置/退出工具栏：缩小 */
+  .game-toolbar {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    flex-shrink: 0;
+  }
+  .game-toolbar-btn {
+    font-size: 0.85rem;
+    padding: 4px 8px;
+  }
+
+  /* ── 连接状态：全局横条取消，拆为双方玩家名字下方的状态条 ── */
+  .conn-status-bar { display: none; }
+  .player-name-col {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    grid-template-areas: "heart name" "heart conn";
+    align-items: center;
+    column-gap: 5px;
+    row-gap: 2px;
+  }
+  .player-id-area .player-heart { grid-area: heart; }
+  .player-id-area .player-name-input { grid-area: name; }
+  .player-conn-status {
+    grid-area: conn;
+    display: flex;
+    align-items: center;
+    gap: 3px;
+    font-size: 9px;
+    line-height: 1;
+    color: rgba(160, 190, 220, 0.9);
+    white-space: nowrap;
+    min-width: 0;
+    overflow: hidden;
+  }
+  .player-conn-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    flex-shrink: 0;
+    background: #e0a030;
+  }
+  .player-conn-dot.conn-ok { background: #40c060; }
+
+  /* ── 发言弹窗：宽度自适应（第 4 步再精修） ── */
+  .speak-dialog {
+    width: calc(100% - 32px);
+    max-width: 440px;
+  }
+}
+
+/* ════════════════════════════════════════════════════════════
+   对局主界面 — 第 2 步：中间操作栏简化（竖屏）
+   只留 5 个按钮：骰子 | 伤害/治疗 | 气绝/复活 | 机制 | 其他
+   输入框全部隐藏；发言按钮移到聊天标题栏；灵咒挪进机制菜单
+   ════════════════════════════════════════════════════════════ */
+@media (max-width: 768px) {
+
+  /* ── 中间栏：一行 5 按钮，不换行 ── */
+  .center-dice-bar {
+    flex-wrap: nowrap;
+    justify-content: space-between;
+    gap: 5px;
+    padding: 5px 6px;
+  }
+
+  /* 面板按按钮数量分配宽度 */
+  .dice-panel { flex: 1; }
+  .damage-panel { flex: 2; }   /* 里面 2 个按钮 */
+  .dropdown-mechanic { flex: 1; }
+  .dropdown-other { flex: 1; }
+
+  /* 骰子：隐藏输入框和图标，按钮占满 */
+  .dice-panel {
+    border: none;
+    background: transparent;
+    padding: 0;
+    min-width: 0;
+  }
+  .dice-panel input[type="number"], .dice-panel__sep { display: none; }
+  .btn-dice-roll {
+    width: 100%;
+    min-height: 42px;
+    justify-content: center;
+    padding: 6px 2px;
+    font-size: 12px;
+    line-height: 1.2;
+    gap: 0;
+  }
+  .btn-dice-roll svg { display: none; }
+
+  /* 伤害面板：隐藏来源/数值/模式按钮，只剩 伤害+气绝 */
+  .damage-panel {
+    border: none;
+    background: transparent;
+    padding: 0;
+    display: flex;
+    gap: 5px;
+    min-width: 0;
+  }
+  .damage-panel .damage-source,
+  .damage-panel input[type="number"],
+  .btn-damage-mode { display: none; }
+  .btn-damage, .btn-ko {
+    flex: 1;
+    min-height: 42px;
+    padding: 4px 2px;
+    font-size: 12px;
+    line-height: 1.2;
+    text-align: center;
+    white-space: normal;
+    min-width: 0;
+  }
+
+  /* 机制、其他：按钮占满 */
+  .btn-mechanic-toggle, .btn-dropdown-toggle {
+    width: 100%;
+    min-height: 42px;
+    padding: 4px 2px;
+    font-size: 12px;
+    line-height: 1.2;
+    text-align: center;
+  }
+
+  /* ── 发言按钮：现在在聊天标题栏里 ── */
+  .chat-section--player .chat-section-title {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 6px;
+  }
+  #btn-speak-unified {
+    flex-shrink: 0;
+    padding: 4px 10px;
+    font-size: 0.85rem;
+  }
+
+  /* ── 灵咒面板：在机制菜单里，无边框紧凑 ── */
+  .curse-target-panel {
+    border: none;
+    border-top: 1px solid rgba(210, 170, 100, 0.3);
+    border-radius: 0;
+    background: transparent;
+    padding: 8px 4px 2px;
+    margin-top: 4px;
+    flex-wrap: nowrap;
+  }
+  .curse-target-panel input {
+    flex: 1;
+    width: auto;
+    min-width: 0;
+    font-size: 14px;   /* ≥16px 防 iOS 聚焦放大 */
+  }
+  .btn-curse-target { padding: 6px 10px; }
+
+  /* 机制/其他下拉菜单在手机上往上弹，加宽方便点按 */
+  .dropdown-mechanic__menu, .dropdown-other__menu {
+    min-width: 150px;
+  }
+  .dropdown-mechanic__item, .dropdown-other__item {
+    padding: 9px 10px;
+    font-size: 13px !important;
+  }
+
+  /* ── 机制菜单：下拉框撑满全屏宽，每排 5 个按钮 ── */
+  .dropdown-mechanic { position: static; }   /* 菜单改相对中间栏定位 */
+  .dropdown-mechanic__menu {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: calc(100% + 6px);
+    width: auto;
+    min-width: 0;
+    border-radius: 12px;
+    padding: 8px;
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 6px;
+    max-height: none;
+    overflow-y: visible;
+    box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.6);
+  }
+  .dropdown-mechanic__menu[hidden] { display: none; }
+  .dropdown-mechanic__item {
+    padding: 10px 4px;
+    font-size: 13px !important;
+    text-align: center;
+    white-space: normal;
+    border: 1px solid rgba(210, 170, 100, 0.3);
+    border-radius: 8px;
+    line-height: 1.2;
+  }
+  /* 灵咒行：横跨整行 */
+  .curse-target-panel {
+    grid-column: 1 / -1;
+    display: flex;
+    gap: 8px;
+    padding: 8px 4px 2px;
+    border-top: 1px solid rgba(210, 170, 100, 0.3);
+    border-radius: 0;
+    background: transparent;
+    margin-top: 2px;
+    flex-wrap: nowrap;
+  }
+  .curse-target-panel input {
+    flex: 1;
+    width: auto;
+    min-width: 0;
+    font-size: 16px;
+  }
+  .btn-curse-target {
+    padding: 8px 12px;
+    font-size: 13px;
+  }
+
+  /* ── "其他"菜单：手机端隐藏保存/导入对局 ── */
+  .dropdown-other__item[data-action="save-game"],
+  .dropdown-other__item[data-action="load-game"] {
+    display: none;
+  }
+  /* 退出房间：红色醒目，与上面分隔 */
+  #game-btn-exit.dropdown-other__item {
+    color: #FB7185;
+    border-top: 1px solid rgba(251, 113, 133, 0.25);
+    border-radius: 0;
+    margin-top: 4px;
+    padding-top: 10px;
+  }
+  #game-btn-settings.dropdown-other__item,
+  #game-btn-exit.dropdown-other__item {
+    flex: none;
+    display: block;
+    width: 100%;
+    padding: 10px 12px;
+    font-size: 14px;
+    background: transparent;
+    border-left: none;
+    border-right: none;
+    border-bottom: none;
+    text-align: left;
+  }
+  #game-btn-settings.dropdown-other__item {
+    color: #d8c8a8;
+  }
+
+  /* ── 下方玩家信息列：下移到操作按钮排和聊天栏之间 ── */
+  .player-zone--bottom .zone-center { order: 1; }
+  .player-zone--bottom .zone-effects { order: 2; }
+
+  /* ═══ 手机端子面板（伤害/治疗、骰子）：从中间栏向上弹出 ═══ */
+  .mobile-sub-panel {
+    position: absolute;
+    bottom: calc(100% + 6px);
+    left: 50%;
+    transform: translateX(-50%);
+    width: min(330px, 88vw);
+    background: #1e2a3a;
+    border: 2px solid rgba(150, 180, 220, 0.55);
+    border-radius: 12px;
+    padding: 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    z-index: 320;
+    box-shadow: 0 -6px 26px rgba(0, 0, 0, 0.65);
+  }
+  .mobile-sub-panel[hidden] { display: none; }
+
+  .mdp-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    justify-content: center;
+  }
+  .mdp-sep { color: rgba(200, 210, 230, 0.7); font-weight: 600; }
+
+  /* 来源选择 */
+  .mdp-source { position: relative; }
+  .mdp-source-btn {
+    width: 100%;
+    padding: 10px;
+    font-size: 14px;
+    font-weight: 600;
+    background: rgba(60, 80, 120, 0.5);
+    border: 1px solid rgba(150, 180, 220, 0.5);
+    border-radius: 8px;
+    color: #dce6f5;
+    cursor: pointer;
+    text-align: center;
+  }
+  .mdp-source-menu {
+    position: absolute;
+    bottom: calc(100% + 4px);
+    left: 0;
+    right: 0;
+    min-width: 0;
+    background: #16222f;
+    border: 2px solid rgba(150, 180, 220, 0.5);
+    border-radius: 8px;
+    padding: 4px;
+    z-index: 330;
+    max-height: 180px;
+    overflow-y: auto;
+  }
+  .mdp-source-menu[hidden] { display: none; }
+  .mdp-source-menu .damage-source__item {
+    padding: 9px 10px;
+    font-size: 14px;
+  }
+
+  /* 数值加减 */
+  .mdp-step {
+    width: 38px;
+    height: 38px;
+    font-size: 20px;
+    font-weight: 700;
+    border-radius: 8px;
+    border: 1px solid rgba(150, 180, 220, 0.5);
+    background: rgba(60, 80, 120, 0.5);
+    color: #dce6f5;
+    cursor: pointer;
+    flex-shrink: 0;
+  }
+  .mdp-value {
+    width: 58px;
+    padding: 8px 4px;
+    font-size: 18px;
+    font-weight: 700;
+    text-align: center;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(150, 180, 220, 0.45);
+    border-radius: 8px;
+    color: #fff;
+    outline: none;
+  }
+
+  /* 模式切换 / 主按钮 */
+  .mdp-mode, .mdp-go {
+    padding: 11px 8px;
+    font-size: 14px;
+    font-weight: 600;
+    border-radius: 8px;
+    border: 1px solid transparent;
+    cursor: pointer;
+    text-align: center;
+    white-space: nowrap;
+  }
+  .mdp-mode {
+    flex: 1.6;
+    font-size: 14px;
+    line-height: 1.3;
+    background: linear-gradient(180deg, #7a4232, #5a2a1a);
+    border-color: rgba(210, 120, 100, 0.55);
+    color: #fcc;
+  }
+  .mdp-mode.is-heal {
+    background: linear-gradient(180deg, #3a7a4a, #1a5a2a);
+    border-color: rgba(120, 210, 150, 0.55);
+    color: #cfc;
+  }
+  .mdp-go {
+    flex: 1;
+    background: linear-gradient(180deg, #5a7fb5, #3d5a80);
+    border-color: rgba(140, 190, 230, 0.6);
+    color: #fff;
+  }
+}
+
+/* ════════════════════════════════════════════════════════════
+   对局主界面 — 第 5 步：卡槽信息重排（竖屏）
+   虚线框只包卡图；底部信息栏四行：名字、形态、灵咒、蓄力
+   （某行隐藏时下方内容上提、卡图自动变高，中间不留空白）
+   ════════════════════════════════════════════════════════════ */
+@media (max-width: 768px) {
+
+  /* 卡槽本体去边框，虚线框移到卡图上；触摸由 JS 拖拽处理 */
+  .card-slot {
+    border: none;
+    background: transparent;
+    touch-action: none;      /* 手机上让 pointer 事件正常派发（拖动/点击） */
+    /* 信息栏高度：名字恒有，形态/灵咒/蓄力各占一行（步长 14px） */
+    --info-h: 56px;   /* 4 行全有 */
+  }
+  .card-slot:not(:has(.charge-indicator)),
+  .card-slot:not(:has(.card-curses)),
+  .card-slot:not(:has(.card-form-badge)) {
+    --info-h: 42px;   /* 缺一行 */
+  }
+  .card-slot:not(:has(.charge-indicator)):not(:has(.card-curses)),
+  .card-slot:not(:has(.charge-indicator)):not(:has(.card-form-badge)),
+  .card-slot:not(:has(.card-curses)):not(:has(.card-form-badge)) {
+    --info-h: 28px;   /* 缺两行 */
+  }
+  .card-slot:not(:has(.charge-indicator)):not(:has(.card-curses)):not(:has(.card-form-badge)) {
+    --info-h: 14px;   /* 只有名字 */
+  }
+  /* 手机触摸"悬停"会粘住，去掉 hover 金色光晕残留 */
+  .card-slot:hover { box-shadow: none; }
+  .card-art {
+    inset: 0 0 var(--info-h) 0;
+    border: 2px dashed rgba(180, 200, 230, 0.55);
+    border-radius: 10px;
+    box-sizing: border-box;
+  }
+  .card-slot[data-slot-type="battle"] .card-art {
+    border-color: rgba(255, 180, 100, 0.55);
+  }
+  /* 空卡槽提示区域跟随卡图区 */
+  .card-slot .placeholder-hint { padding: 6px; }
+
+  /* ── 左上角：等级、觉醒框、加成按钮 缩小 ── */
+  .card-badge--level {
+    width: 22px;
+    height: 22px;
+    transform: translate(-30%, -30%) rotate(45deg);
+    border-radius: 5px;
+  }
+  .card-badge--level input {
+    font-size: 12px;
+  }
+  .card-badge--awakened-frame {
+    width: 21px; height: 21px;
+    border-width: 2px;
+    transform: translate(-30%, -30%);
+  }
+  .card-badge--bonus {
+    top: 13px;
+    left: -7px;
+    width: 17px;
+    height: 17px;
+    font-size: 9px;
+  }
+
+  /* ── 右上角：倒计时、能量 缩小并排 ── */
+  .card-badge--countdown,
+  .card-badge--energy {
+    width: 22px;
+    height: 22px;
+    transform: translate(25%, -25%);
+    border-width: 1.5px;
+  }
+  .card-badge--countdown { right: 0; }
+  /* JS 内联样式 right:48px 会覆盖，手机上用 !important 紧挨倒计时 */
+  .card-badge--countdown ~ .card-badge--energy { right: 24px !important; }
+  .card-badge--countdown .badge-icon,
+  .card-badge--energy .badge-icon {
+    top: -6px;
+    left: -7px;
+    font-size: 13px;
+  }
+  .card-badge--countdown input,
+  .card-badge--energy input {
+    font-size: 11px;
+  }
+
+  /* ── 左下/右下：攻击、生命 缩小为小圆标（贴虚线框下缘） ── */
+  .card-badge--attack {
+    left: -4px;
+    bottom: var(--info-h);
+    width: 22px;
+    height: 22px;
+    transform: none;
+  }
+  .card-badge--hp {
+    right: -4px;
+    bottom: var(--info-h);
+    width: 24px;
+    height: 24px;
+    transform: none;
+  }
+  .card-badge--attack input,
+  .card-badge--hp input {
+    font-size: 12px;
+    padding: 0;
+  }
+  .card-badge--hp input { padding-left: 3px; padding-top: 2px; }
+
+  /* ── 第一行：名字（整宽，永远在信息栏最上方） ── */
+  .card-badge--name {
+    bottom: calc(var(--info-h) - 14px);
+    left: 2px;
+    width: calc(100% - 4px);
+    max-width: none;
+    height: 14px;
+    transform: none;
+    border-radius: 4px;
+    border-width: 1px;
+    padding: 0 3px;
+    box-sizing: border-box;
+  }
+  .card-badge--name input {
+    font-size: 10px;
+    font-weight: 600;
+    text-align: center;
+  }
+
+  /* ── 第二行：形态（独立整宽一行，紧排名字下方） ── */
+  .card-form-badge {
+    left: 2px;
+    right: 2px;
+    transform: none;
+    width: auto;
+    max-width: none;
+    height: 13px;
+    bottom: 28px;   /* 灵咒、蓄力都在时 */
+    border-radius: 4px;
+    font-size: 9px;
+    padding: 0 3px;
+    box-sizing: border-box;
+  }
+  /* 形态下方少一行就上提一行，不留空白 */
+  .card-slot:not(:has(.charge-indicator)) .card-form-badge,
+  .card-slot:not(:has(.card-curses)) .card-form-badge {
+    bottom: 14px;
+  }
+  .card-slot:not(:has(.charge-indicator)):not(:has(.card-curses)) .card-form-badge {
+    bottom: 0;
+  }
+
+  /* ── 第三行：灵咒（横排，可左右滑动；蓄力在其下方） ── */
+  .card-curses {
+    top: auto;
+    bottom: 14px;
+    left: 2px;
+    right: 2px;
+    transform: none;
+    flex-direction: row;
+    flex-wrap: nowrap;
+    gap: 2px;
+    max-width: none;
+    overflow-x: auto;
+    overflow-y: hidden;
+    scrollbar-width: none;         /* Firefox 隐藏滚动条 */
+    -webkit-overflow-scrolling: touch;
+  }
+  .card-curses::-webkit-scrollbar { display: none; }
+  .curse-badge {
+    padding: 0 3px;
+    font-size: 9px;
+    line-height: 1.4;
+    border-radius: 3px;
+    flex-shrink: 0;
+  }
+  /* 无蓄力时：灵咒贴到最底行 */
+  .card-slot:not(:has(.charge-indicator)) .card-curses {
+    bottom: 0;
+  }
+
+  /* ── 第四行：蓄力（始终贴最底，居中） ── */
+  .charge-indicator {
+    top: auto;
+    bottom: 0;
+    left: 50%;
+    right: auto;
+    transform: translateX(-50%);
+    padding: 0 6px;
+    font-size: 9px;
+    border-radius: 6px;
+    border-width: 1px;
+    white-space: nowrap;
+  }
+
+  /* ── 派系图标：缩到卡图区右下角内侧 ── */
+  .card-faction-icon {
+    bottom: calc(var(--info-h) + 4px);
+    right: 4px;
+    left: auto;
+    transform: none;
+    width: 16px;
+    height: 16px;
+  }
+
+  /* ── 气绝遮罩数字缩小 ── */
+  .ko-circle input { font-size: 16px; }
+  .ko-circle .ko-icon { font-size: 20px; top: -8px; left: -8px; }
+
+  /* ── 蓄力光环：光点只环绕卡图虚线框 ── */
+  @keyframes charge-dot-orbit {
+    0%   { top: -5px; left: 0%; }
+    25%  { top: -5px; left: calc(100% - 5px); }
+    50%  { top: calc(100% - var(--info-h) + 4px); left: calc(100% - 5px); }
+    75%  { top: calc(100% - var(--info-h) + 4px); left: -5px; }
+    100% { top: -5px; left: 0%; }
+  }
+
+  /* ── 赏金/入夜大图标：手机端缩小 30%，以中间栏为锚点 ──
+     上方玩家：图标底边与「你的区域」标签同一排（中间栏上沿往上 8px）
+     下方玩家：图标顶边与「对方区域」标签同一排（中间栏下沿往下 8px）
+     入夜排在赏金右侧（赏金左侧 8px + 钱袋视觉宽 60px） ── */
+  /* 关键：去掉内层容器的定位基准，让图标直接挂到玩家区上，
+     这样屏幕尺寸变化时图标始终贴着中间栏 */
+  .field-layout { position: static; }
+  .player-zone--top .bounty-indicator,
+  .player-zone--top .nightfall-indicator {
+    top: auto;
+    bottom: 6px;   /* 再远离中间栏 4px */
+    transform: scale(0.7) !important;   /* !important 防入场动画的内联 transform 覆盖 */
+    transform-origin: left bottom !important;
+  }
+  .player-zone--bottom .bounty-indicator,
+  .player-zone--bottom .nightfall-indicator {
+    top: 0;
+    bottom: auto;
+    transform: scale(0.7) !important;
+    transform-origin: left top !important;
+  }
+  .nightfall-indicator {
+    left: 68px;                          /* 移到赏金右边 */
+  }
+}
+
+/* ════════════════════════════════════════════════════════════
+   手机端 — 卡牌悬浮窗居中 + 式神管理面板全屏
+   ════════════════════════════════════════════════════════════ */
+@media (max-width: 768px) {
+
+  /* 卡牌详情浮窗：手机端限制宽度（居中定位由 JS 处理） */
+  .card-tooltip {
+    min-width: 0;
+    max-width: 88vw;
+    font-size: 15px;
+    padding: 12px 14px;
+  }
+
+  /* ── 式神管理面板（加成弹窗）：居中弹窗留边，Tab 分页 ── */
+  .bonus-overlay { align-items: center; }
+  .bonus-dialog {
+    width: 94%;
+    max-width: 94%;
+    max-height: 86vh;
+    max-height: 86dvh;
+    border-radius: 16px;
+    border: 2px solid rgba(220, 180, 80, 0.5);
+    font-size: 15px;
+    overflow-y: hidden;    /* 弹窗整体不滚动，页内滚动 */
+    display: flex;
+    flex-direction: column;
+  }
+  .bonus-dialog__body { flex: 1; min-height: 0; overflow: hidden; }
+
+  /* Tab 标签栏 */
+  .bonus-tab-bar {
+    display: flex;
+    gap: 6px;
+    padding: 0 2px 10px;
+  }
+  .bonus-tab {
+    flex: 1;
+    padding: 10px 4px;
+    font-size: 14px;
+    font-weight: 600;
+    border-radius: 8px;
+    border: 1px solid rgba(220, 180, 80, 0.3);
+    background: rgba(20, 15, 5, 0.6);
+    color: #c0a060;
+    cursor: pointer;
+  }
+  .bonus-tab.active {
+    background: rgba(200, 160, 60, 0.25);
+    border-color: rgba(240, 200, 60, 0.7);
+    color: #f0d860;
+  }
+
+  /* Tab 面板：只显示当前页，页内可滚 */
+  .bonus-tab-panel {
+    display: none;
+    overflow-y: auto;
+    max-height: calc(86vh - 210px);
+    max-height: calc(86dvh - 210px);
+    -webkit-overflow-scrolling: touch;
+  }
+  .bonus-tab-panel.active { display: block; }
+  .bonus-columns { flex-direction: column; gap: 10px; }
+  .bonus-dialog__header { padding: 12px 14px 10px; }
+  .bonus-dialog__title { font-size: 18px; }
+  .bonus-dialog__close {
+    width: 36px; height: 36px;
+    font-size: 22px;
+  }
+  .bonus-dialog__body { padding: 12px 14px; }
+
+  /* 输入框 ≥16px 防 iOS 聚焦放大，按钮加大触摸区域 */
+  .bonus-ability-input,
+  .bonus-faction-input,
+  .bonus-add-row input[type="text"],
+  .bonus-add-row input[type="number"] {
+    font-size: 16px;
+  }
+  .bonus-ability-input { padding: 12px; }
+  .bonus-faction-btn {
+    padding: 10px 12px;
+    font-size: 15px;
+  }
+  .bonus-add-row {
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+  .bonus-add-row input[type="text"] { flex: 1 1 40% !important; padding: 9px 8px; }
+  .bonus-add-row input[type="number"] { width: 60px; padding: 9px 4px; }
+  .bonus-list-item { padding: 8px 10px; }
+  .bonus-summon-label { font-size: 15px; }
+}
+
+/* ════════════════════════════════════════════════════════════
+   手机端 — 商店横排商品 + 聊天放大弹窗
+   ════════════════════════════════════════════════════════════ */
+@media (max-width: 768px) {
+
+  /* ── 商店弹窗：留边、限高、商品改一排排横排 ── */
+  .shop-dialog {
+    width: 94%;
+    max-width: 94%;
+    max-height: 88dvh;
+    padding: 12px;
+    gap: 10px;
+    overflow-y: auto;
+  }
+  .shop-dialog__header-right { gap: 6px; }
+  .shop-dialog__bounty { font-size: 15px; }
+  .shop-dialog__inv-btn,
+  .shop-dialog__add-btn {
+    padding: 8px 10px;
+    font-size: 13px;
+  }
+  .shop-dialog__products,
+  .shop-dialog__extras {
+    grid-template-columns: 1fr;
+    min-height: 0;
+  }
+  /* 商品一行：名字 + 效果 + 价格按钮横排 */
+  .shop-product {
+    flex-direction: row;
+    align-items: center;
+    min-height: 0;
+    padding: 10px;
+    gap: 8px;
+    text-align: left;
+  }
+  .shop-product__name-col {
+    flex: 0 0 26%;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+  }
+  .shop-product__name {
+    margin: 0;
+    font-size: 15px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    text-align: left;
+  }
+  .shop-product__stock {
+    position: static;
+    font-size: 12px;
+    text-align: left;
+  }
+  .shop-product__effect {
+    flex: 1;
+    min-width: 0;
+    font-size: 12px;
+    text-align: left;
+  }
+  .shop-product__price-btn {
+    margin: 0;
+    padding: 8px 10px;
+    font-size: 15px;
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+  .shop-dialog__inventory { max-height: 46dvh; }
+  .shop-dialog__footer { flex-direction: column; align-items: stretch; gap: 8px; }
+  .shop-dialog__footer-btns { display: flex; gap: 6px; }
+  .shop-dialog__manage-row { gap: 6px; }
+  /* 手机端：三个按钮均分第一排，统一高度 */
+  .shop-dialog__footer-btns .shop-dialog__refresh-btn,
+  .shop-dialog__footer-btns .shop-dialog__free-refresh-btn,
+  .shop-dialog__footer-btns .shop-dialog__inv-btn {
+    flex: 1;
+    height: 38px;
+    padding: 0 4px;
+    font-size: 13px;
+    box-sizing: border-box;
+    white-space: nowrap;
+  }
+  /* 手机端：第二排 = 添加商品 + 优先输入框 + 确定优先 */
+  .shop-dialog__manage-row .shop-dialog__add-btn {
+    order: -1;
+    flex: none;
+    height: 38px;
+    padding: 0 8px;
+    font-size: 14px;
+  }
+  .shop-dialog__manage-row .shop-priority-input {
+    flex: 1;
+    height: 38px;
+    font-size: 13px;
+    padding: 0 8px;
+  }
+  .shop-dialog__manage-row .shop-priority-btn {
+    height: 38px;
+    padding: 0 10px;
+    font-size: 13px;
+  }
+  .shop-dialog__footer { flex-wrap: wrap; gap: 8px; }
+  .shop-dialog__upgrade-hint { font-size: 14px; }
+  .shop-dialog__refresh-btn,
+  .shop-dialog__free-refresh-btn { font-size: 14px; padding: 9px 14px; }
+
+  /* ── 聊天放大弹窗：居中留边，默认滚到底部 ── */
+  .chat-section-title {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .chat-expand-btn {
+    margin-left: auto;
+    width: 26px;
+    height: 26px;
+    border-radius: 6px;
+    border: 1px solid rgba(150, 180, 220, 0.4);
+    background: rgba(255, 255, 255, 0.06);
+    color: #a8c0d8;
+    font-size: 15px;
+    line-height: 1;
+    flex-shrink: 0;
+  }
+  .chat-expand-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 520;
+    background: rgba(8, 12, 22, 0.72);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .chat-expand-overlay[hidden] { display: none; }
+  .chat-expand-dialog {
+    width: 92%;
+    height: 78dvh;
+    display: flex;
+    flex-direction: column;
+    background: rgba(22, 30, 46, 0.98);
+    border: 2px solid rgba(150, 180, 220, 0.5);
+    border-radius: 14px;
+    overflow: hidden;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.7);
+  }
+  .chat-expand-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 12px;
+    border-bottom: 1px solid rgba(150, 180, 220, 0.2);
+    flex-shrink: 0;
+  }
+  .chat-expand-title {
+    font-size: 16px;
+    font-weight: 700;
+    color: #d8e0ec;
+  }
+  .chat-expand-close {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    border: 1px solid rgba(150, 180, 220, 0.4);
+    background: rgba(0, 0, 0, 0.3);
+    color: #c0d0e0;
+    font-size: 15px;
+    cursor: pointer;
+  }
+  .chat-expand-body {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+  }
+  .chat-expand-body .chat-section-body {
+    flex: 1;
+    height: auto;
+  }
+}

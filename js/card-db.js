@@ -47,11 +47,21 @@
           const raw = localStorage.getItem(STORAGE_KEY);
           if (raw) {
             const cards = JSON.parse(raw);
+            const kept = [];
+            let removed = 0;
             for (const card of cards) {
+              const existing = _cards.get(card.name);
+              // 官方牌优先：本地旧数据不得覆盖官方同名卡
+              if (existing && !existing._custom) { removed++; continue; }
               card._custom = true;
               _cards.set(card.name, card);
+              kept.push(card);
             }
-            console.log(`[CardDB] 本地自定义卡牌加载完成，共 ${cards.length} 张`);
+            if (removed > 0) {
+              // 自动清理与官方同名的旧自定义卡（垃圾数据，安全删除）
+              localStorage.setItem(STORAGE_KEY, JSON.stringify(kept));
+            }
+            console.log(`[CardDB] 本地自定义卡牌加载完成，共 ${kept.length} 张${removed > 0 ? '（已自动清理与官方同名的 ' + removed + ' 张）' : ''}`);
           }
         } catch (e) {
           console.warn('[CardDB] 本地自定义卡牌读取失败:', e.message);
@@ -85,6 +95,9 @@
       /** 添加自定义卡牌 */
       function addCustom(card) {
         if (!card || !card.name || !card.type) return false;
+        const existing = _cards.get(card.name);
+        // 官方牌优先：不允许与官方卡重名
+        if (existing && !existing._custom) return false;
         card._custom = true;
         if (card.reviewed === undefined) card.reviewed = false;
         _cards.set(card.name, card);
@@ -119,6 +132,8 @@
         let count = 0;
         for (const card of cards) {
           if (!card.name || !card.type) continue;
+          const existing = _cards.get(card.name);
+          if (existing && !existing._custom) continue; // 官方牌优先
           card._custom = true;
           _cards.set(card.name, card);
           count++;

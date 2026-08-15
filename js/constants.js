@@ -87,6 +87,379 @@
     }, true);
     function imgUrl(path) { return IMAGE_BASE + '/' + path; }
 
+    // ================================================================
+    //  手机端布局调整（≤768px）：移动 DOM 元素到新位置
+    // ================================================================
+    (function() {
+      const MOBILE_MQ = window.matchMedia('(max-width: 768px)');
+
+      // 1) 发言按钮：中间栏 → 聊天大厅标题栏右边
+      function placeSpeakBtn() {
+        var btn = document.getElementById('btn-speak-unified');
+        if (!btn) return;
+        var chatTitle = document.querySelector('.chat-section--player .chat-section-title');
+        var centerBar = document.querySelector('.center-dice-bar');
+        if (MOBILE_MQ.matches && chatTitle && btn.parentElement !== chatTitle) {
+          chatTitle.appendChild(btn);
+        } else if (!MOBILE_MQ.matches && centerBar && btn.parentElement !== centerBar) {
+          centerBar.appendChild(btn);
+        }
+      }
+
+      // 2) 灵咒面板：中间栏 → "机制"下拉菜单里（功能不丢）
+      function placeCursePanel() {
+        var panel = document.querySelector('.curse-target-panel');
+        if (!panel) return;
+        var menu = document.getElementById('dropdown-mechanic-menu');
+        var bar = document.querySelector('.center-dice-bar');
+        if (MOBILE_MQ.matches && menu && panel.parentElement !== menu) {
+          menu.appendChild(panel);
+        } else if (!MOBILE_MQ.matches && bar && panel.parentElement !== bar) {
+          var mechanic = document.getElementById('dropdown-mechanic');
+          bar.insertBefore(panel, mechanic);  // 恢复到机制按钮前面（原位置）
+        }
+      }
+
+      // 2.5) 设置/退出按钮：聊天栏 → "其他"下拉菜单里（手机端）
+      function placeToolbarButtons() {
+        var settingsBtn = document.getElementById('game-btn-settings');
+        var exitBtn = document.getElementById('game-btn-exit');
+        var otherMenu = document.getElementById('dropdown-other-menu');
+        var gameToolbar = document.querySelector('.game-toolbar');
+        if (!settingsBtn || !exitBtn || !otherMenu || !gameToolbar) return;
+        if (MOBILE_MQ.matches) {
+          [settingsBtn, exitBtn].forEach(function(btn) {
+            btn.classList.add('dropdown-other__item');
+            btn.style.width = '100%';
+            btn.style.textAlign = 'left';
+            if (btn.parentElement !== otherMenu) otherMenu.appendChild(btn);
+          });
+          gameToolbar.style.display = 'none';
+        } else {
+          [settingsBtn, exitBtn].forEach(function(btn) {
+            btn.classList.remove('dropdown-other__item');
+            btn.style.width = '';
+            btn.style.textAlign = '';
+            if (btn.parentElement !== gameToolbar) gameToolbar.appendChild(btn);
+          });
+          gameToolbar.style.display = '';
+        }
+      }
+
+      // 3) 手机端：去掉按钮/标题里的图标（emoji），桌面端恢复原文字
+      function stripMobileIcons() {
+        var isMobile = MOBILE_MQ.matches;
+        var map = [
+          ['#btn-mechanic-toggle', isMobile ? '机制 ▾' : '🔧 机制 ▾'],
+          ['#btn-dropdown-toggle', isMobile ? '其他 ▾' : '📋 其他 ▾'],
+          ['#btn-speak-unified', isMobile ? '发言' : '💬 发言'],
+          ['#btn-curse-target', isMobile ? '灵咒' : '⛓️ 灵咒'],
+          ['#game-btn-settings', isMobile ? '设置' : '⚙ 设置'],
+          ['#game-btn-exit', isMobile ? '退出' : '🚪 退出'],
+        ];
+        map.forEach(function(entry) {
+          var el = document.getElementById(entry[0].slice(1));
+          if (el && el.textContent !== entry[1]) el.textContent = entry[1];
+        });
+        // 气绝按钮：手机端两行"气绝 / 复活"
+        var koBtn = document.getElementById('btn-ko');
+        if (koBtn) {
+          if (isMobile) {
+            if (!koBtn.getAttribute('data-mobile-lines')) {
+              koBtn.setAttribute('data-mobile-lines', '1');
+              koBtn.innerHTML = '气绝<br>复活';
+            }
+          } else {
+            if (koBtn.getAttribute('data-mobile-lines')) {
+              koBtn.removeAttribute('data-mobile-lines');
+              koBtn.textContent = '💀 气绝/复活';
+            }
+          }
+        }
+        // 机制菜单项：手机端去图标
+        var mechItems = document.querySelectorAll('.dropdown-mechanic__item');
+        mechItems.forEach(function(item) {
+          var orig = item.getAttribute('data-orig-text');
+          if (isMobile) {
+            if (orig === null) {
+              orig = (item.textContent || '').trim();
+              item.setAttribute('data-orig-text', orig);
+            }
+            var clean = orig.replace(/[\u{1F000}-\u{1FAFF}\u{2300}-\u{23FF}\u{2600}-\u{27BF}\u{2B00}-\u{2BFF}\uFE0F\u200D]/gu, '').trim();
+            if (item.textContent !== clean) item.textContent = clean;
+          } else {
+            if (orig !== null) {
+              item.textContent = orig;
+              item.removeAttribute('data-orig-text');
+            }
+          }
+        });
+        // 其他菜单项：手机端去图标（式神录、预设）
+        ['.dropdown-other__item[data-action="shikigami-book"]', '#btn-preset-toggle'].forEach(function(sel) {
+          var el = document.querySelector(sel);
+          if (!el) return;
+          var orig = el.getAttribute('data-orig-text');
+          if (isMobile) {
+            if (orig === null) {
+              orig = (el.textContent || '').trim();
+              el.setAttribute('data-orig-text', orig);
+            }
+            var cleanTxt = orig.replace(/[\u{1F000}-\u{1FAFF}\u{2300}-\u{23FF}\u{2600}-\u{27BF}\u{2B00}-\u{2BFF}\uFE0F\u200D]/gu, '').trim();
+            if (el.textContent !== cleanTxt) el.textContent = cleanTxt;
+          } else {
+            if (orig !== null) {
+              el.textContent = orig;
+              el.removeAttribute('data-orig-text');
+            }
+          }
+        });
+        // 聊天大厅标题
+        var playerChatTitle = document.querySelector('.chat-section--player .chat-section-title');
+        if (playerChatTitle && playerChatTitle.childNodes.length > 0 && playerChatTitle.childNodes[0].nodeType === 3) {
+          playerChatTitle.childNodes[0].textContent = isMobile ? '聊天大厅' : '💬 聊天大厅';
+        }
+        // 骰子按钮文字
+        var diceBtn = document.getElementById('btn-dice-roll');
+        if (diceBtn) {
+          if (isMobile) {
+            var svg = diceBtn.querySelector('svg');
+            if (svg) svg.style.display = 'none';
+            if (diceBtn.childNodes[0] && diceBtn.childNodes[0].nodeType === 3) diceBtn.childNodes[0].textContent = '骰子';
+          } else {
+            var svg2 = diceBtn.querySelector('svg');
+            if (svg2) svg2.style.display = '';
+            if (diceBtn.childNodes[0] && diceBtn.childNodes[0].nodeType === 3) diceBtn.childNodes[0].textContent = '投掷';
+          }
+        }
+      }
+
+      // 4) 手机端：操作按钮排（牌库工具栏）文字两行、每行 2 字
+      function formatDeckButtons() {
+        var btns = document.querySelectorAll('.btn-deck');
+        var isMobile = MOBILE_MQ.matches;
+        btns.forEach(function(btn) {
+          // 手牌/牌库计数按钮交给 updateDeckButtons 渲染（手机端两行），这里跳过
+          if (btn.dataset.action === 'hand' || btn.dataset.action === 'deck') return;
+          var orig = btn.getAttribute('data-orig-text');
+          if (isMobile) {
+            if (orig === null) {
+              orig = (btn.textContent || '').trim();
+              btn.setAttribute('data-orig-text', orig);
+            }
+            // 去掉 emoji 图标
+            var clean = orig.replace(/[\u{1F000}-\u{1FAFF}\u{2300}-\u{23FF}\u{2600}-\u{27BF}\u{2B00}-\u{2BFF}\uFE0F\u200D]/gu, '').trim();
+            if (clean.length <= 2) {
+              btn.textContent = clean;
+            } else {
+              var lines = [];
+              for (var i = 0; i < clean.length; i += 2) lines.push(clean.slice(i, i + 2));
+              btn.innerHTML = lines.join('<br>');
+            }
+          } else {
+            if (orig !== null) {
+              btn.textContent = orig;
+              btn.removeAttribute('data-orig-text');
+            }
+          }
+        });
+      }
+
+      // 5) 手机端：每位玩家信息条加"🏞"按钮，点击弹出该玩家的幻境/效果面板
+      function _updateRealmBadge(zone) {
+        var panel = zone.querySelector('.effects-panel');
+        var btn = zone.querySelector('.btn-mobile-realm');
+        if (!panel || !btn) return;
+        var count = panel.querySelectorAll('.effect-item').length;
+        var badge = btn.querySelector('.btn-mobile-realm__badge');
+        if (count > 0) {
+          if (!badge) {
+            badge = document.createElement('span');
+            badge.className = 'btn-mobile-realm__badge';
+            btn.appendChild(badge);
+          }
+          badge.textContent = count;
+        } else if (badge) {
+          badge.remove();
+        }
+      }
+
+      function placeRealmButtons() {
+        var isMobile = MOBILE_MQ.matches;
+        document.querySelectorAll('.player-zone').forEach(function(zone) {
+          var bar = zone.querySelector('.player-id-area');
+          var panel = zone.querySelector('.effects-panel');
+          var addBtn = zone.querySelector('.btn-add-effect');
+          var btn = zone.querySelector('.btn-mobile-realm');
+          if (!isMobile) {
+            // 桌面端：移除按钮、收起面板、添加按钮回原位
+            if (btn) btn.remove();
+            zone.classList.remove('realm-open');
+            if (addBtn && panel && addBtn.parentElement === panel && panel.parentElement) {
+              panel.parentElement.insertBefore(addBtn, panel.nextSibling);
+            }
+            if (addBtn) addBtn.style.display = '';
+            return;
+          }
+          if (!bar || !panel) return;
+          if (!btn) {
+            btn = document.createElement('button');
+            btn.type = 'button';
+            btn.className = 'btn-mobile-realm';
+            btn.textContent = '🏞';
+            btn.title = '幻境/效果';
+            bar.appendChild(btn);
+            btn.addEventListener('click', function(e) {
+              e.stopPropagation();
+              var isOpen = zone.classList.contains('realm-open');
+              document.querySelectorAll('.player-zone.realm-open').forEach(function(z) {
+                z.classList.remove('realm-open');
+              });
+              if (isOpen) {
+                // 关闭：添加按钮回原位
+                if (addBtn && panel && addBtn.parentElement === panel && panel.parentElement) {
+                  panel.parentElement.insertBefore(addBtn, panel.nextSibling);
+                }
+                if (addBtn) addBtn.style.display = '';
+              } else {
+                // 打开：添加按钮固定在面板最上方
+                if (addBtn && panel && addBtn.parentElement !== panel) panel.insertBefore(addBtn, panel.firstChild);
+                if (typeof isSpectator !== 'undefined' && isSpectator) {
+                  if (addBtn) addBtn.style.display = 'none';   // 观众只读，隐藏添加
+                } else if (addBtn) {
+                  addBtn.style.display = '';
+                }
+                zone.classList.add('realm-open');
+              }
+            });
+          }
+          // 角标显示幻境+效果总数（0 自动隐藏），监听面板变化实时刷新
+          _updateRealmBadge(zone);
+          if (!zone._realmObserver && typeof MutationObserver !== 'undefined') {
+            zone._realmObserver = new MutationObserver(function() { _updateRealmBadge(zone); });
+            zone._realmObserver.observe(panel, { childList: true });
+          }
+        });
+        // 点击面板/按钮以外区域：收起弹层（只注册一次）
+        if (isMobile && !document._realmOutsideHandler) {
+          document._realmOutsideHandler = true;
+          document.addEventListener('pointerdown', function(e) {
+            if (e.target.closest('.btn-mobile-realm') || e.target.closest('.effects-panel') || e.target.closest('.btn-add-effect')) return;
+            document.querySelectorAll('.player-zone.realm-open').forEach(function(z) { z.classList.remove('realm-open'); });
+          }, true);
+        }
+      }
+
+      // 7) 手机端：聊天区放大按钮 + 留边大弹窗（默认滚到最底部）
+      var _chatExpandOrigin = null;
+
+      function ensureChatExpandDialog() {
+        if (document.getElementById('chat-expand-overlay')) return;
+        var overlay = document.createElement('div');
+        overlay.id = 'chat-expand-overlay';
+        overlay.className = 'chat-expand-overlay';
+        overlay.hidden = true;
+        overlay.innerHTML =
+          '<div class="chat-expand-dialog">' +
+          '<div class="chat-expand-header"><span class="chat-expand-title" id="chat-expand-title">聊天</span>' +
+          '<button type="button" class="chat-expand-close" aria-label="关闭">✕</button></div>' +
+          '<div class="chat-expand-body"></div>' +
+          '</div>';
+        document.body.appendChild(overlay);
+        overlay.querySelector('.chat-expand-close').addEventListener('click', closeChatExpand);
+        overlay.addEventListener('click', function(e) { if (e.target === overlay) closeChatExpand(); });
+      }
+
+      function openChatExpand(section) {
+        ensureChatExpandDialog();
+        var overlay = document.getElementById('chat-expand-overlay');
+        if (!overlay) return;
+        var srcBody = section.querySelector('.chat-section-body');
+        var title = section.querySelector('.chat-section-title');
+        _chatExpandOrigin = section;
+        var titleText = title ? title.textContent.replace(/[\u{1F000}-\u{1FAFF}\u{2300}-\u{23FF}\u{2600}-\u{27BF}\u{2B00}-\u{2BFF}\uFE0F\u200D⤢]/gu, '').trim() : '聊天';
+        document.getElementById('chat-expand-title').textContent = titleText;
+        var bodyWrap = overlay.querySelector('.chat-expand-body');
+        if (srcBody && srcBody.parentElement !== bodyWrap) bodyWrap.appendChild(srcBody);
+        overlay.hidden = false;
+        if (srcBody) srcBody.scrollTop = srcBody.scrollHeight;
+      }
+
+      function closeChatExpand() {
+        var overlay = document.getElementById('chat-expand-overlay');
+        if (!overlay || overlay.hidden) return;
+        var bodyWrap = overlay.querySelector('.chat-expand-body');
+        var src = bodyWrap.querySelector('.chat-section-body');
+        if (src && _chatExpandOrigin) _chatExpandOrigin.appendChild(src);
+        _chatExpandOrigin = null;
+        overlay.hidden = true;
+      }
+
+      function placeChatExpand() {
+        var isMobile = MOBILE_MQ.matches;
+        ['.chat-section--system', '.chat-section--player'].forEach(function(sel) {
+          var section = document.querySelector(sel);
+          if (!section) return;
+          var title = section.querySelector('.chat-section-title');
+          var btn = section.querySelector('.chat-expand-btn');
+          if (!isMobile) {
+            if (btn) btn.remove();
+            return;
+          }
+          if (title && !btn) {
+            btn = document.createElement('button');
+            btn.type = 'button';
+            btn.className = 'chat-expand-btn';
+            btn.textContent = '⤢';
+            btn.title = '放大查看';
+            title.appendChild(btn);
+            btn.addEventListener('click', function(e) {
+              e.stopPropagation();
+              openChatExpand(section);
+            });
+          }
+        });
+        if (!isMobile) closeChatExpand();
+        else ensureChatExpandDialog();
+      }
+
+      // 8) 手机端：商店按钮布局（库存移入第一排、按钮去图标）
+      function placeShopButtons() {
+        var isMobile = MOBILE_MQ.matches;
+        var footerBtns = document.querySelector('.shop-dialog__footer-btns');
+        var manageRow = document.querySelector('.shop-dialog__manage-row');
+        var invBtn = document.getElementById('shop-inv-btn');
+        var freeBtn = document.getElementById('shop-free-refresh-btn');
+        var refreshBtn = document.getElementById('shop-refresh-btn');
+        var addBtn = document.getElementById('shop-add-btn');
+        if (!footerBtns || !manageRow || !invBtn) return;
+        if (isMobile) {
+          // 库存按钮移到第一排（刷新按钮旁边），三个均分
+          if (invBtn.parentElement !== footerBtns) footerBtns.appendChild(invBtn);
+          // 按钮去图标（保留刷新 1💰 的钱袋）
+          if (freeBtn) { if (freeBtn.getAttribute('data-orig-text') === null) freeBtn.setAttribute('data-orig-text', freeBtn.textContent.trim()); freeBtn.textContent = '免费刷新'; }
+          if (refreshBtn) { if (refreshBtn.getAttribute('data-orig-text') === null) refreshBtn.setAttribute('data-orig-text', refreshBtn.textContent.trim()); refreshBtn.textContent = '刷新 1💰'; }
+          if (addBtn) { if (addBtn.getAttribute('data-orig-text') === null) addBtn.setAttribute('data-orig-text', addBtn.textContent.trim()); addBtn.textContent = '添加商品'; }
+        } else {
+          // 桌面端：库存按钮回到第二排原位（输入框、确定之后）
+          if (invBtn.parentElement === footerBtns) {
+            manageRow.insertBefore(invBtn, addBtn && addBtn.parentElement === manageRow ? addBtn : null);
+          }
+          [freeBtn, refreshBtn, addBtn].forEach(function(b) {
+            if (b && b.getAttribute('data-orig-text') !== null) {
+              b.textContent = b.getAttribute('data-orig-text');
+              b.removeAttribute('data-orig-text');
+            }
+          });
+        }
+        if (typeof _refreshShopInvBtnText === 'function') _refreshShopInvBtnText();
+      }
+
+      function layoutMobile() { placeSpeakBtn(); placeCursePanel(); placeToolbarButtons(); stripMobileIcons(); formatDeckButtons(); placeRealmButtons(); placeChatExpand(); placeShopButtons(); if (typeof updateAllDeckButtons === 'function') updateAllDeckButtons(); }
+      if (MOBILE_MQ.addEventListener) MOBILE_MQ.addEventListener('change', layoutMobile);
+      else if (MOBILE_MQ.addListener) MOBILE_MQ.addListener(layoutMobile);
+      layoutMobile();
+    })();
+
     const ENV_LABEL = SERVER_ENV === 2 ? '【测试服】' : '';
     document.title = `${ENV_LABEL}${APP_TITLE} ${APP_VERSION}`;
     const roomTitleEl = document.getElementById('room-title');

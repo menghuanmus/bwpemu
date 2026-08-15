@@ -779,6 +779,14 @@
       return el.closest('.card-badge, input, label, button, .charge-indicator');
     }
 
+    /** 判断点击坐标是否落在卡图区域内（card-art 有 pointer-events:none，不能用 closest 判断） */
+    function _pointInCardArt(slot, x, y) {
+      const art = slot.querySelector('.card-art');
+      if (!art) return false;
+      const r = art.getBoundingClientRect();
+      return x >= r.left && x <= r.right && y >= r.top && y <= r.bottom;
+    }
+
     function getSlotUnderPoint(x, y) {
       const el = document.elementFromPoint(x, y);
       return el ? el.closest('.card-slot') : null;
@@ -833,8 +841,8 @@
           } else if (e.target.closest('.card-form-badge')) {
             // 点击形态标签 → 打开式神管理
             if (typeof BonusPanel !== 'undefined') BonusPanel.open(slot);
-          } else if (!isInteractiveTarget(e.target) && !isTargeting && !slot.querySelector('.ko-overlay') && !e.target.closest('.curse-badge')) {
-            // 没有卡图时点击上传，有卡图时不响应（通过式神管理面板更换）
+          } else if (!isInteractiveTarget(e.target) && _pointInCardArt(slot, e.clientX, e.clientY) && !isTargeting && !slot.querySelector('.ko-overlay') && !e.target.closest('.curse-badge')) {
+            // 只有点击卡图区域才触发上传（信息栏等其他区域不触发）；没有卡图时点击上传，有卡图时不响应
             if ((typeof isSpectator === 'undefined' || !isSpectator) && !slot.classList.contains('has-image')) {
               openImagePicker(slot);
             }
@@ -1086,4 +1094,95 @@
       } else {
         slot.classList.remove('awakened');
       }
+    }
+
+    /* ================================================================
+       重置游戏状态：退出房间回大厅时调用，清空全部对局数据
+       （式神/手牌/商店/赏金/灵咒等），防止上一局残留到新房间
+       ================================================================ */
+    function resetGameState() {
+      // 1) 卡槽：重建初始结构，清掉形态/灵咒/蓄力/气绝等动态内容
+      document.querySelectorAll('.card-slot').forEach(slot => {
+        slot.innerHTML = CARD_INNER_HTML;
+        ['_formName', '_formAtk', '_formHp', '_formAbility', '_permAbility',
+         '_permAtkMods', '_permHpMods', '_permEffects',
+         '_tempAtkMods', '_tempHpMods', '_chargedCards'].forEach(function(k) { delete slot[k]; });
+        slot.classList.remove('has-image', 'charging', 'awakened');
+        delete slot.dataset.slotFaction;
+        delete slot.dataset.slotType;
+      });
+
+      // 2) 牌库/手牌/坟场
+      if (typeof playerCards !== 'undefined') {
+        ['1', '2'].forEach(function(pid) { playerCards[pid] = { deck: [], hand: [], grave: [] }; });
+      }
+      // 3) 赏金 / 商店 / 库存
+      if (typeof playerBounty !== 'undefined') { playerBounty['1'] = 0; playerBounty['2'] = 0; }
+      if (typeof playerShops !== 'undefined') { delete playerShops['1']; delete playerShops['2']; }
+      if (typeof playerCardStocks !== 'undefined') { playerCardStocks['1'] = {}; playerCardStocks['2'] = {}; }
+      if (typeof stockInitialized !== 'undefined') { stockInitialized['1'] = false; stockInitialized['2'] = false; }
+      if (typeof customShopDefs !== 'undefined') { customShopDefs['1'] = {}; customShopDefs['2'] = {}; }
+      // 4) 鬼火
+      if (typeof playerFire !== 'undefined') { playerFire['1'] = 0; playerFire['2'] = 0; }
+
+      // 4.1) 赏金 / 入夜开关状态（防止新房间第一次按变"关闭"）
+      if (typeof bountyActive !== 'undefined') { bountyActive['1'] = false; bountyActive['2'] = false; }
+      if (typeof nightfallActive !== 'undefined') { nightfallActive['1'] = false; nightfallActive['2'] = false; }
+
+      // 5) 玩家区：生命/名字/效果面板/赏金入夜图标/连接状态条
+      document.querySelectorAll('.player-zone').forEach(function(zone) {
+        const hp = zone.querySelector('.player-hp-input'); if (hp) hp.value = '';
+        const ni = zone.querySelector('.player-name-input'); if (ni) ni.value = '';
+        const panel = zone.querySelector('.effects-panel'); if (panel) panel.innerHTML = '';
+        zone.querySelectorAll('.bounty-indicator, .nightfall-indicator').forEach(function(el) { el.remove(); });
+        zone.classList.remove('realm-open');
+        // 幻境面板的添加按钮如果被移进面板，放回原位
+        const addBtn = zone.querySelector('.btn-add-effect');
+        if (addBtn && panel && addBtn.parentElement === panel && panel.parentElement) {
+          panel.parentElement.insertBefore(addBtn, panel.nextSibling);
+        }
+        const conn = zone.querySelector('.player-conn-status'); if (conn) conn.remove();
+        zone.querySelectorAll('.card-curses').forEach(function(el) { el.remove(); });
+      });
+
+      // 6) 头像
+      document.querySelectorAll('.player-avatar').forEach(function(av) {
+        av.innerHTML = '';
+        av.classList.remove('has-avatar');
+      });
+
+      // 7) 启悟按钮/状态
+      if (typeof oracleActive !== 'undefined') { oracleActive['1'] = false; oracleActive['2'] = false; }
+      document.querySelectorAll('.btn-deck--oracle').forEach(function(b) { b.hidden = true; });
+
+      // 8) 聊天清空
+      ['chat-system-log', 'chat-player-log'].forEach(function(id) {
+        const el = document.getElementById(id); if (el) el.innerHTML = '';
+      });
+
+      // 9) 退出瞄准/目标选择模式
+      if (typeof exitTargetingMode === 'function') { try { exitTargetingMode(); } catch(_) {} }
+
+      // 10) 关闭还开着的弹窗
+      ['shop-dialog-overlay', 'card-text-dialog-overlay'].forEach(function(id) {
+        const el = document.getElementById(id);
+        if (el) el.hidden = true;
+      });
+      const bonusOv = document.querySelector('.bonus-overlay');
+      if (bonusOv) { bonusOv.hidden = true; }
+      // 聊天放大弹窗：把消息区放回原位再关闭
+      const chatExpand = document.getElementById('chat-expand-overlay');
+      if (chatExpand && !chatExpand.hidden) {
+        const moved = chatExpand.querySelector('.chat-expand-body .chat-section-body');
+        if (moved) {
+          const home = moved.id === 'chat-system-log'
+            ? document.querySelector('.chat-section--system')
+            : document.querySelector('.chat-section--player');
+          if (home) home.appendChild(moved);
+        }
+        chatExpand.hidden = true;
+      }
+
+      // 11) 牌库按钮计数刷新
+      if (typeof updateAllDeckButtons === 'function') updateAllDeckButtons();
     }

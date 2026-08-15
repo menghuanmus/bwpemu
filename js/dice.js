@@ -9,8 +9,7 @@
     const diceMinInput = document.getElementById('dice-min');
     const diceMaxInput = document.getElementById('dice-max');
 
-    function rollDice() {
-      if (typeof isSpectator !== 'undefined' && isSpectator) return;
+    function _doRollDice() {
       const min = parseInt(diceMinInput.value, 10);
       const max = parseInt(diceMaxInput.value, 10);
       if (Number.isNaN(min) || Number.isNaN(max)) return;
@@ -25,6 +24,13 @@
       // 骰子动画
       var btn = document.getElementById('btn-dice-roll');
       if (btn && typeof playDiceAnim === 'function') playDiceAnim(result, btn);
+    }
+
+    function rollDice() {
+      if (typeof isSpectator !== 'undefined' && isSpectator) return;
+      // 手机端：点击打开骰子面板（面板里投掷）
+      if (MOBILE_MQ.matches) { toggleMobileDicePanel(); return; }
+      _doRollDice();
     }
 
     document.getElementById('btn-dice-roll').addEventListener('click', rollDice);
@@ -47,26 +53,27 @@
     let isTargeting = false;
     let targetingMode = 'damage'; // 'damage' | 'heal' | 'countdown' | 'energy' | 'ko' | 'curse' | 'divine' | 'cook' | 'nightfall' | 'bounty' | 'oracle' | 'fate' | 'reset-stats' | 'charge'
     let targetingOrigin = { x: 0, y: 0 };
+    const MOBILE_MQ = window.matchMedia('(max-width: 768px)');
 
     // ---- 伤害/恢复来源 ----
     let damageSourceType = 'player';     // 'player' | 'shikigami'
     let damageSourceName = '';           // 式神卡牌名称（追踪名称而非槽位，换位不丢失）
 
     const TARGETING_BTN_MAP = {
-      damage:    { btn: () => btnDamage,         activeText: '🎯 选择式神…(Esc取消)', idleText: '🎯 选择目标' },
-      heal:      { btn: () => btnDamage,         activeText: '🎯 选择式神…(Esc取消)', idleText: '🎯 选择目标' },
-      countdown: { btn: () => btnMechanicToggle, activeText: '⏳ 倒计时中…(Esc取消)', idleText: '🔧 机制 ▾' },
-      energy:    { btn: () => btnMechanicToggle, activeText: '🏮 能量中…(Esc取消)',   idleText: '🔧 机制 ▾' },
-      divine:    { btn: () => btnMechanicToggle, activeText: '🔮 选择牌手…(Esc取消)', idleText: '🔧 机制 ▾' },
-      cook:      { btn: () => btnMechanicToggle, activeText: '🍳 选择式神…(Esc取消)', idleText: '🔧 机制 ▾' },
-      nightfall: { btn: () => btnMechanicToggle, activeText: '🌙 选择牌手…(Esc取消)', idleText: '🔧 机制 ▾' },
-      bounty:    { btn: () => btnMechanicToggle, activeText: '💰 选择牌手…(Esc取消)', idleText: '🔧 机制 ▾' },
-      oracle:    { btn: () => btnMechanicToggle, activeText: '✨ 选择牌手…(Esc取消)', idleText: '🔧 机制 ▾' },
-      fate:      { btn: () => btnMechanicToggle, activeText: '🔀 选择牌手…(Esc取消)', idleText: '🔧 机制 ▾' },
-      'reset-stats': { btn: () => btnMechanicToggle, activeText: '🔄 选择式神…(Esc取消)', idleText: '🔧 机制 ▾' },
-      charge:    { btn: () => btnMechanicToggle, activeText: '⚡ 选择式神…(Esc取消)', idleText: '🔧 机制 ▾' },
-      ko:        { btn: () => btnKo,             activeText: '💀 选择式神…(Esc取消)', idleText: '💀 气绝/复活' },
-      curse:     { btn: () => btnCurse,          activeText: '⛓️ 选择式神…(Esc取消)', idleText: '⛓️ 灵咒' },
+      damage:    { btn: () => btnDamage,         activeText: '🎯 选择式神…(Esc取消)', idleText: '🎯 选择目标', mobileActiveText: '选择式神<br>造成伤害' },
+      heal:      { btn: () => btnDamage,         activeText: '🎯 选择式神…(Esc取消)', idleText: '🎯 选择目标', mobileActiveText: '选择式神<br>恢复治疗' },
+      countdown: { btn: () => btnMechanicToggle, activeText: '⏳ 倒计时中…(Esc取消)', idleText: '🔧 机制 ▾', mobileActiveText: '选择式神<br>添加倒计时' },
+      energy:    { btn: () => btnMechanicToggle, activeText: '🏮 能量中…(Esc取消)',   idleText: '🔧 机制 ▾', mobileActiveText: '选择式神<br>添加能量' },
+      divine:    { btn: () => btnMechanicToggle, activeText: '🔮 选择牌手…(Esc取消)', idleText: '🔧 机制 ▾', mobileActiveText: '选择牌手<br>占卜' },
+      cook:      { btn: () => btnMechanicToggle, activeText: '🍳 选择式神…(Esc取消)', idleText: '🔧 机制 ▾', mobileActiveText: '选择式神<br>烹饪' },
+      nightfall: { btn: () => btnMechanicToggle, activeText: '🌙 选择牌手…(Esc取消)', idleText: '🔧 机制 ▾', mobileActiveText: '选择牌手<br>添加入夜' },
+      bounty:    { btn: () => btnMechanicToggle, activeText: '💰 选择牌手…(Esc取消)', idleText: '🔧 机制 ▾', mobileActiveText: '选择牌手<br>添加赏金' },
+      oracle:    { btn: () => btnMechanicToggle, activeText: '✨ 选择牌手…(Esc取消)', idleText: '🔧 机制 ▾', mobileActiveText: '选择牌手<br>启悟' },
+      fate:      { btn: () => btnMechanicToggle, activeText: '🔀 选择牌手…(Esc取消)', idleText: '🔧 机制 ▾', mobileActiveText: '选择牌手<br>命运抉择' },
+      'reset-stats': { btn: () => btnMechanicToggle, activeText: '🔄 选择式神…(Esc取消)', idleText: '🔧 机制 ▾', mobileActiveText: '选择式神<br>重置属性' },
+      charge:    { btn: () => btnMechanicToggle, activeText: '⚡ 选择式神…(Esc取消)', idleText: '🔧 机制 ▾', mobileActiveText: '选择式神<br>蓄力' },
+      ko:        { btn: () => btnKo,             activeText: '💀 选择式神…(Esc取消)', idleText: '💀 气绝/复活', mobileActiveText: '选择式神<br>气绝/复活' },
+      curse:     { btn: () => btnCurse,          activeText: '⛓️ 选择式神…(Esc取消)', idleText: '⛓️ 灵咒', mobileActiveText: '选择式神<br>结附灵咒' },
     };
 
     function getActiveTargetingBtn() {
@@ -84,9 +91,16 @@
     function enterTargetingMode(mode) {
       targetingMode = mode || 'damage';
       isTargeting = true;
+      // 进入瞄准时收起机制菜单（手机端底部弹层）
+      if (dropdownMechanicMenu) dropdownMechanicMenu.hidden = true;
       const btn = getActiveTargetingBtn();
       btn.classList.add('active');
-      btn.textContent = TARGETING_BTN_MAP[targetingMode].activeText;
+      var entry = TARGETING_BTN_MAP[targetingMode];
+      if (MOBILE_MQ.matches && entry.mobileActiveText) {
+        btn.innerHTML = entry.mobileActiveText;
+      } else {
+        btn.textContent = entry.activeText;
+      }
       document.body.style.cursor = 'crosshair';
       damageLineSvg.style.display = 'block';
       const rect = btn.getBoundingClientRect();
@@ -132,9 +146,10 @@
       return playerName;
     }
 
-    /** 弹出伤害来源选择菜单 */
-    function openDamageSourceMenu() {
-      damageSourceMenu.innerHTML = '';
+    /** 弹出伤害来源选择菜单（可指定渲染到自定义容器，手机面板复用） */
+    function openDamageSourceMenu(targetMenu) {
+      const menu = targetMenu || damageSourceMenu;
+      menu.innerHTML = '';
       const pid = localPlayerId || '1';
       const playerName = pid === '1' ? '玩家一' : (pid === '2' ? '玩家二' : '己方');
 
@@ -149,9 +164,9 @@
         damageSourceType = 'player';
         damageSourceName = '';
         btnDamageSource.textContent = '👤 己方牌手';
-        damageSourceMenu.hidden = true;
+        menu.hidden = true;
       });
-      damageSourceMenu.appendChild(playerItem);
+      menu.appendChild(playerItem);
 
       // 选项：己方所有有卡图的式神（准备区+战斗区，不限于固定位置）
       const zone = document.querySelector(`.player-zone[data-player="${pid}"]`);
@@ -174,11 +189,11 @@
           damageSourceName = cardName;
           const short = cardName.length > 4 ? cardName.slice(0, 4) + '…' : cardName;
           btnDamageSource.textContent = '⚔ ' + short;
-          damageSourceMenu.hidden = true;
+          menu.hidden = true;
         });
-        damageSourceMenu.appendChild(item);
+        menu.appendChild(item);
       });
-      damageSourceMenu.hidden = false;
+      menu.hidden = false;
     }
 
     btnDamageSource.addEventListener('click', (e) => {
@@ -199,12 +214,14 @@
     });
 
     btnDamage.addEventListener('click', () => {
+      // 手机端：打开/关闭伤害面板
+      if (MOBILE_MQ.matches) { toggleMobileDamagePanel(); return; }
       if (isTargeting) { exitTargetingMode(); return; }
       enterTargetingMode(targetingMode === 'heal' ? 'heal' : 'damage');
     });
 
-    /* 伤害/恢复 模式切换 */
-    btnDamageMode.addEventListener('click', () => {
+    /* 伤害/恢复 模式切换（桌面按钮 + 手机面板共用） */
+    function toggleDamageMode() {
       const panel = btnDamageMode.closest('.damage-panel');
       if (targetingMode === 'heal') {
         targetingMode = 'damage';
@@ -217,11 +234,204 @@
         btnDamageMode.classList.add('is-heal');
         if (panel) panel.classList.add('is-heal');
       }
+      // 更新手机版按钮文字
+      updateMobileDamageLabel();
       // 如果正在瞄准中，更新瞄准按钮文字
       if (isTargeting) {
         btnDamage.textContent = TARGETING_BTN_MAP[targetingMode].activeText;
       }
-    });
+    }
+    btnDamageMode.addEventListener('click', toggleDamageMode);
+
+    /* ═══════ 手机端：伤害/治疗面板 ═══════ */
+    let _mdpOpen = false;
+    let _mdpHeal = false;
+    function updateMobileDamageLabel() {
+      if (!MOBILE_MQ.matches) return;
+      if (_mdpOpen) { btnDamage.textContent = '关闭'; return; }
+      if (isTargeting) return;  // 瞄准中文字由 enter/exit 管理
+      // 固定两行文字
+      btnDamage.innerHTML = '伤害<br>治疗';
+    }
+    function _mdpEl(id) { return document.getElementById(id); }
+    function _mdpSync() {
+      var val = parseInt(damageValueInput.value, 10);
+      if (Number.isNaN(val) || val <= 0) val = 1;
+      var vEl = _mdpEl('mdp-value'); if (vEl) vEl.value = val;
+      var mEl = _mdpEl('mdp-mode');
+      if (mEl) {
+        mEl.innerHTML = _mdpHeal ? '当前：治疗<br>点击切换为伤害' : '当前：伤害<br>点击切换为治疗';
+        mEl.classList.toggle('is-heal', _mdpHeal);
+      }
+      var sEl = _mdpEl('mdp-source-btn');
+      if (sEl) sEl.textContent = (damageSourceType === 'shikigami' && damageSourceName) ? ('⚔ ' + damageSourceName) : '👤 己方牌手';
+    }
+    function toggleMobileDamagePanel() {
+      var panel = _mdpEl('mobile-damage-panel');
+      if (!panel) return;
+      _mdpOpen = !_mdpOpen;
+      panel.hidden = !_mdpOpen;
+      if (_mdpOpen) {
+        _closeMobileDicePanel();
+        _mdpHeal = (targetingMode === 'heal');
+        _mdpSync();
+        var srcMenu = _mdpEl('mdp-source-menu'); if (srcMenu) srcMenu.hidden = true;
+      }
+      updateMobileDamageLabel();
+    }
+    // 创建面板 DOM
+    (function() {
+      var bar = document.querySelector('.center-dice-bar');
+      if (!bar) return;
+      var panel = document.createElement('div');
+      panel.id = 'mobile-damage-panel';
+      panel.className = 'mobile-sub-panel';
+      panel.hidden = true;
+      panel.innerHTML =
+        '<div class="mdp-source">' +
+          '<button type="button" class="mdp-source-btn" id="mdp-source-btn">👤 己方牌手</button>' +
+          '<div class="mdp-source-menu damage-source__menu" id="mdp-source-menu" hidden></div>' +
+        '</div>' +
+        '<div class="mdp-row">' +
+          '<button type="button" class="mdp-step" id="mdp-minus">−</button>' +
+          '<input type="number" class="mdp-value" id="mdp-value" value="1" min="0">' +
+          '<button type="button" class="mdp-step" id="mdp-plus">+</button>' +
+        '</div>' +
+        '<div class="mdp-row">' +
+          '<button type="button" class="mdp-mode" id="mdp-mode">⚔ 伤害</button>' +
+          '<button type="button" class="mdp-go" id="mdp-go">选择目标</button>' +
+        '</div>';
+      bar.appendChild(panel);
+      // 事件
+      panel.addEventListener('click', function(e) { e.stopPropagation(); });
+      _mdpEl('mdp-minus').addEventListener('click', function() {
+        var cur = parseInt(_mdpEl('mdp-value').value, 10) || 1;
+        if (cur > 0) { _mdpEl('mdp-value').value = cur - 1; }
+      });
+      _mdpEl('mdp-plus').addEventListener('click', function() {
+        var cur = parseInt(_mdpEl('mdp-value').value, 10) || 0;
+        _mdpEl('mdp-value').value = cur + 1;
+      });
+      _mdpEl('mdp-mode').addEventListener('click', function() {
+        _mdpHeal = !_mdpHeal;
+        _mdpSync();
+      });
+      _mdpEl('mdp-go').addEventListener('click', function() {
+        var v = parseInt(_mdpEl('mdp-value').value, 10);
+        if (Number.isNaN(v) || v <= 0) v = 1;
+        damageValueInput.value = v;
+        targetingMode = _mdpHeal ? 'heal' : 'damage';
+        _mdpOpen = false;
+        _mdpEl('mobile-damage-panel').hidden = true;
+        updateMobileDamageLabel();
+        enterTargetingMode(targetingMode);
+      });
+      _mdpEl('mdp-source-btn').addEventListener('click', function() {
+        // 复用桌面来源菜单渲染逻辑，渲染到面板内
+        var menu = _mdpEl('mdp-source-menu');
+        if (!menu) return;
+        if (!menu.hidden) { menu.hidden = true; return; }
+        openDamageSourceMenu(menu);
+      });
+      // 来源菜单选择后同步面板按钮文字（只绑定一次）
+      var _mdpSrcMenu = _mdpEl('mdp-source-menu');
+      if (_mdpSrcMenu) {
+        _mdpSrcMenu.addEventListener('click', function() {
+          setTimeout(_mdpSync, 0);
+          _mdpSrcMenu.hidden = true;
+        });
+      }
+      // 初始化文字
+      updateMobileDamageLabel();
+    })();
+
+    /* ═══════ 手机端：骰子面板 ═══════ */
+    let _dicePanelOpen = false;
+    function _closeMobileDicePanel() {
+      var p = _mdpEl('mobile-dice-panel');
+      if (p) p.hidden = true;
+      _dicePanelOpen = false;
+      var btn = document.getElementById('btn-dice-roll');
+      if (btn && btn.childNodes[0] && btn.childNodes[0].nodeType === 3) btn.childNodes[0].textContent = '骰子';
+    }
+    function toggleMobileDicePanel() {
+      var panel = _mdpEl('mobile-dice-panel');
+      if (!panel) return;
+      _dicePanelOpen = !_dicePanelOpen;
+      panel.hidden = !_dicePanelOpen;
+      if (_dicePanelOpen) {
+        var p2 = _mdpEl('mobile-damage-panel');
+        if (p2 && !p2.hidden) { p2.hidden = true; _mdpOpen = false; updateMobileDamageLabel(); }
+        _diceSync();
+      }
+      var btn = document.getElementById('btn-dice-roll');
+      if (btn && btn.childNodes[0] && btn.childNodes[0].nodeType === 3) {
+        btn.childNodes[0].textContent = _dicePanelOpen ? '关闭' : '骰子';
+      }
+    }
+    function _diceSync() {
+      var mn = parseInt(diceMinInput.value, 10); if (Number.isNaN(mn)) mn = 1;
+      var mx = parseInt(diceMaxInput.value, 10); if (Number.isNaN(mx)) mx = 6;
+      var a = _mdpEl('dice-p-min'), b = _mdpEl('dice-p-max');
+      if (a) a.value = mn; if (b) b.value = mx;
+    }
+    (function() {
+      var bar = document.querySelector('.center-dice-bar');
+      if (!bar) return;
+      var panel = document.createElement('div');
+      panel.id = 'mobile-dice-panel';
+      panel.className = 'mobile-sub-panel';
+      panel.hidden = true;
+      panel.innerHTML =
+        '<div class="mdp-row">' +
+          '<button type="button" class="mdp-step" id="dice-p-min-minus">−</button>' +
+          '<input type="number" class="mdp-value" id="dice-p-min" value="1">' +
+          '<button type="button" class="mdp-step" id="dice-p-min-plus">+</button>' +
+          '<span class="mdp-sep">~</span>' +
+          '<button type="button" class="mdp-step" id="dice-p-max-minus">−</button>' +
+          '<input type="number" class="mdp-value" id="dice-p-max" value="6">' +
+          '<button type="button" class="mdp-step" id="dice-p-max-plus">+</button>' +
+        '</div>' +
+        '<div class="mdp-row">' +
+          '<button type="button" class="mdp-go" id="dice-p-go">🎲 投掷</button>' +
+        '</div>';
+      bar.appendChild(panel);
+      panel.addEventListener('click', function(e) { e.stopPropagation(); });
+      function step(id, delta) {
+        var el = _mdpEl(id);
+        if (!el) return;
+        var cur = parseInt(el.value, 10) || 0;
+        el.value = Math.max(0, cur + delta);
+      }
+      _mdpEl('dice-p-min-minus').addEventListener('click', function() { step('dice-p-min', -1); });
+      _mdpEl('dice-p-min-plus').addEventListener('click', function() { step('dice-p-min', 1); });
+      _mdpEl('dice-p-max-minus').addEventListener('click', function() { step('dice-p-max', -1); });
+      _mdpEl('dice-p-max-plus').addEventListener('click', function() { step('dice-p-max', 1); });
+      _mdpEl('dice-p-go').addEventListener('click', function() {
+        diceMinInput.value = _mdpEl('dice-p-min').value;
+        diceMaxInput.value = _mdpEl('dice-p-max').value;
+        _closeMobileDicePanel();
+        _doRollDice();
+      });
+    })();
+
+    // 退出瞄准后恢复手机版文字
+    const _origExitTargeting = exitTargetingMode;
+    exitTargetingMode = function() {
+      _origExitTargeting();
+      updateMobileDamageLabel();
+      // 手机端：退出瞄准后把被 idleText 恢复的图标文字再清掉
+      if (MOBILE_MQ.matches) {
+        var mechBtn = document.getElementById('btn-mechanic-toggle');
+        if (mechBtn) mechBtn.textContent = '机制 ▾';
+        var koBtn = document.getElementById('btn-ko');
+        if (koBtn) koBtn.innerHTML = '气绝<br>复活';
+        var curseBtn = document.getElementById('btn-curse-target');
+        if (curseBtn) curseBtn.textContent = '灵咒';
+      }
+    };
+    // 手机端页面加载时立即更新按钮文字
+    updateMobileDamageLabel();
 
     btnCountdown.addEventListener('click', () => {
       dropdownMechanicMenu.hidden = true;

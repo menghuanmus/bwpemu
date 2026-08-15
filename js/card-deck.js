@@ -92,6 +92,17 @@
       return text.split(/\r?\n/).map(line => line.trim()).filter(Boolean);
     }
 
+    /** 手牌/牌库计数按钮文案：手机端有牌时两行（括号+数字在下排） */
+    function _setCountBtnText(btn, label, count) {
+      if (!btn) return;
+      const isMobile = window.matchMedia('(max-width: 768px)').matches;
+      if (isMobile && count > 0) {
+        btn.innerHTML = label + '<br>（' + count + '）';
+      } else {
+        btn.textContent = count > 0 ? label + '（' + count + '）' : label;
+      }
+    }
+
     function updateDeckButtons(playerId) {
       const zone = getPlayerZone(playerId);
       if (!zone) return;
@@ -116,10 +127,10 @@
       const oracleBtn = zone.querySelector('.btn-deck--oracle');
       if (oracleBtn && lockActions) oracleBtn.disabled = true;
       if (handBtn) {
-        handBtn.textContent = hand.length ? `手牌（${hand.length}）` : '手牌';
+        _setCountBtnText(handBtn, '手牌', hand.length);
       }
       if (deckBtn) {
-        deckBtn.textContent = deck.length ? `牌库（${deck.length}）` : '牌库';
+        _setCountBtnText(deckBtn, '牌库', deck.length);
       }
     }
 
@@ -128,7 +139,7 @@
       updateDeckButtons('2');
     }
 
-    function openCardTextDialog({ title, placeholder, multiline, onConfirm, hideQuantity }) {
+    function openCardTextDialog({ title, placeholder, multiline, onConfirm, hideQuantity, showLevel }) {
       cardTextContext = { onConfirm };
       cardTextTitle.textContent = title;
       cardTextInput.value = '';
@@ -139,6 +150,11 @@
       // 隐藏/显示置入数量行
       const qtyRow = document.querySelector('.card-text-quantity-row');
       if (qtyRow) qtyRow.style.display = hideQuantity ? 'none' : '';
+      // 隐藏/显示商品等级行
+      const levelRow = document.querySelector('.card-text-level-row');
+      if (levelRow) levelRow.hidden = !showLevel;
+      const levelEl = document.getElementById('card-text-dialog-level');
+      if (levelEl) levelEl.value = '1';
       cardTextInput.focus();
     }
 
@@ -149,6 +165,8 @@
       // 恢复置入数量行可见性
       const qtyRow = document.querySelector('.card-text-quantity-row');
       if (qtyRow) qtyRow.style.display = '';
+      const levelRow = document.querySelector('.card-text-level-row');
+      if (levelRow) levelRow.hidden = true;
     }
 
     function confirmCardTextDialog() {
@@ -157,7 +175,10 @@
       const qtyEl = document.getElementById('card-text-dialog-quantity');
       let qty = parseInt(qtyEl ? qtyEl.value : '1', 10);
       if (isNaN(qty) || qty < 1) qty = 1;
-      cardTextContext.onConfirm(value, qty);
+      const levelEl = document.getElementById('card-text-dialog-level');
+      let level = parseInt(levelEl ? levelEl.value : '1', 10);
+      if (level !== 1 && level !== 2 && level !== 3) level = 1;
+      cardTextContext.onConfirm(value, qty, level);
       closeCardTextDialog();
     }
 
@@ -1727,7 +1748,13 @@
 
     dropdownMenu.addEventListener('click', (e) => {
       const action = e.target.dataset.action;
-      if (!action) return;
+      if (!action) {
+        // 设置/退出按钮（手机端移入菜单，无 data-action）：点击后关闭菜单
+        if (e.target.id === 'game-btn-settings' || e.target.id === 'game-btn-exit') {
+          dropdownMenu.hidden = true;
+        }
+        return;
+      }
       // 观众只能使用式神录
       if (typeof isSpectator !== 'undefined' && isSpectator && action !== 'shikigami-book') return;
       dropdownMenu.hidden = true;

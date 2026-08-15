@@ -51,15 +51,36 @@
     function updateSysChatTitle() {
       const el = document.getElementById('sys-chat-title');
       if (!el) return;
-      if (isSoloMode) { el.textContent = '📢 系统信息（单人模式）'; }
-      else if (lastRoomCode) { el.textContent = '📢 系统信息（房间号：' + lastRoomCode + '）'; }
-      else { el.textContent = '📢 系统信息'; }
+      var isMobile = (typeof window.matchMedia === 'function') && window.matchMedia('(max-width: 768px)').matches;
+      var icon = isMobile ? '' : '📢 ';
+      if (isSoloMode) { el.textContent = icon + '系统信息（单人模式）'; }
+      else if (lastRoomCode) { el.textContent = icon + '系统信息（房间号：' + lastRoomCode + '）'; }
+      else { el.textContent = icon + '系统信息'; }
     }
 
     function setConnStatus(ok, text) {
-      CONN_STATUS_BAR.hidden = false;
-      CONN_DOT.className = ok ? 'conn-dot conn-dot--ok' : 'conn-dot conn-dot--warn';
-      CONN_STATUS_TEXT.textContent = text;
+      // 全局顶部横条弃用，拆分为双方玩家各自的状态条（名字下方）
+      if (CONN_STATUS_BAR) CONN_STATUS_BAR.hidden = true;
+      setPlayerConnStatus(localPlayerId, ok, text);
+    }
+
+    /** 更新指定玩家的连接状态条（名字栏下方） */
+    function setPlayerConnStatus(playerId, ok, text) {
+      if (!playerId || playerId === '0') return;
+      const zone = document.querySelector('.player-zone[data-player="' + playerId + '"]');
+      if (!zone) return;
+      let el = zone.querySelector('.player-conn-status');
+      if (!el) {
+        el = document.createElement('div');
+        el.className = 'player-conn-status';
+        el.innerHTML = '<span class="player-conn-dot"></span><span class="player-conn-text"></span>';
+        const col = zone.querySelector('.player-name-col');
+        (col || zone).appendChild(el);
+      }
+      const dot = el.querySelector('.player-conn-dot');
+      const txt = el.querySelector('.player-conn-text');
+      if (dot) dot.className = 'player-conn-dot' + (ok ? ' conn-ok' : '');
+      if (txt) txt.textContent = text;
     }
 
     // ================================================================

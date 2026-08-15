@@ -333,6 +333,8 @@
             for (const [name, s] of Object.entries(p.shopStocks)) {
               setCardStock(pid, name, s);
             }
+            // 存档库存为准，不再自动补全默认库存
+            if (typeof stockInitialized !== 'undefined') stockInitialized[pid] = true;
           }
           // 恢复启悟状态
           if (p.oracleActive !== undefined && typeof oracleActive !== 'undefined') {

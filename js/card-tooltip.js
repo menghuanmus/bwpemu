@@ -20,10 +20,63 @@
         el = document.getElementById('card-tooltip');
         if (!el) { console.error('[Tooltip] ❌ 未找到 #card-tooltip DOM元素！'); return; }
 
-        // 事件委托
-        document.addEventListener('mouseover', _onMouseOver, true);
-        document.addEventListener('mouseout', _onMouseOut, true);
+        // 事件委托（手机端跳过 hover：tap 会合成 mouseover，导致点按钮也弹浮窗）
+        document.addEventListener('mouseover', function(e) {
+          if (window.matchMedia('(max-width: 768px)').matches) return;
+          _onMouseOver(e);
+        }, true);
+        document.addEventListener('mouseout', function(e) {
+          if (window.matchMedia('(max-width: 768px)').matches) return;
+          _onMouseOut(e);
+        }, true);
         console.log('[Tooltip] ✅ 已初始化，监听卡牌名悬浮');
+
+        // ── 手机端：长按卡牌名显示浮窗（单击/滑动不触发） ──
+        const MQ = window.matchMedia('(max-width: 768px)');
+        let longPressTimer = null;
+        let longPressFired = false;
+        let pressX = 0, pressY = 0;
+        document.addEventListener('pointerdown', function(e) {
+          if (!MQ.matches) return;
+          // 交互控件（按钮/输入框/徽章）不参与长按；点击它们时立即关闭已显示的浮窗
+          const isCardTarget = !_isControl(e.target) && !!_findCardName(e.target);
+          if (!isCardTarget) {
+            if (el && !el.hidden) hide();
+            return;
+          }
+          pressX = e.clientX; pressY = e.clientY;
+          longPressTimer = setTimeout(function() {
+            longPressTimer = null;
+            longPressFired = true;
+            _onMouseOver(e);
+            if (navigator.vibrate) { try { navigator.vibrate(15); } catch(_) {} }
+          }, 450);
+        }, true);
+        document.addEventListener('pointermove', function(e) {
+          if (!MQ.matches || !longPressTimer) return;
+          // 长按期间手指移动超过阈值 → 取消（让位给拖动）
+          if (Math.hypot(e.clientX - pressX, e.clientY - pressY) > 12) {
+            clearTimeout(longPressTimer);
+            longPressTimer = null;
+          }
+        }, true);
+        document.addEventListener('pointerup', function(e) {
+          if (!MQ.matches) return;
+          if (longPressTimer) { clearTimeout(longPressTimer); longPressTimer = null; }
+          // 浮窗已显示时：点击别处关闭
+          if (longPressFired && !_findCardName(e.target) && el && !el.hidden) hide();
+          longPressFired = false;
+        }, true);
+        document.addEventListener('pointercancel', function() {
+          if (longPressTimer) { clearTimeout(longPressTimer); longPressTimer = null; }
+          longPressFired = false;
+        }, true);
+      }
+
+      /** 交互控件：按钮/输入框/徽章等，点击它们绝不触发长按浮窗 */
+      function _isControl(target) {
+        if (!target || !target.closest) return false;
+        return !!target.closest('input, textarea, select, button, .card-form-badge, .curse-badge, .charge-indicator, .card-badge:not(.card-badge--name)');
       }
 
       function _findCardName(target) {
@@ -155,6 +208,12 @@
 
       function _position(mx, my) {
         const rect = el.getBoundingClientRect();
+        // 手机端：固定屏幕居中显示，避免跟随手指错位
+        if (window.matchMedia('(max-width: 768px)').matches) {
+          el.style.left = Math.max(8, (window.innerWidth - rect.width) / 2) + 'px';
+          el.style.top = Math.max(8, (window.innerHeight - rect.height) / 2) + 'px';
+          return;
+        }
         let x = mx + 14;
         let y = my - rect.height / 2;
         if (x + rect.width > window.innerWidth - 10) x = mx - rect.width - 14;

@@ -268,22 +268,42 @@ const CardFlight = (() => {
     if (!overlay || !preview) return;
 
     const isP1 = playerId === '1';
-    const previewTop  = isP1 ? 100 : window.innerHeight - 380;
-    const previewLeft = 200;
+    const isMobile = (typeof window.matchMedia === 'function') && window.matchMedia('(max-width: 768px)').matches;
+    let previewTop, previewLeft;
+    if (isMobile) {
+      // 手机端：预展示固定在中间栏偏左，距左边 5px（P1 在栏上方，P2 在栏下方）
+      const bar = document.querySelector('.center-dice-bar');
+      const barRect = bar ? bar.getBoundingClientRect() : null;
+      previewLeft = 5;
+      previewTop = barRect
+        ? (isP1 ? Math.max(4, barRect.top - 280 - 8) : barRect.bottom + 8)
+        : (isP1 ? 100 : window.innerHeight - 380);
+      preview.style.left = previewLeft + 'px';
+      preview.style.top = previewTop + 'px';
+      preview.style.bottom = 'auto';
+    } else {
+      previewTop  = isP1 ? 100 : window.innerHeight - 380;
+      previewLeft = 200;
+      preview.style.left = previewLeft + 'px';
+      preview.style.top = isP1 ? previewTop + 'px' : 'auto';
+      preview.style.bottom = isP1 ? 'auto' : '100px';
+    }
     const centerX = previewLeft + 100;
     const centerY = previewTop + 140;
     const dst = { x: centerX - 24, y: centerY - 33 };
     const previewCenter = { x: centerX, y: centerY };
 
-    preview.style.left = previewLeft + 'px';
-    preview.style.top = isP1 ? previewTop + 'px' : 'auto';
-    preview.style.bottom = isP1 ? 'auto' : '100px';
-
     /** 恢复预览位置（clearProps 会清除内联样式） */
     function _restorePreviewPos() {
-      preview.style.left = previewLeft + 'px';
-      preview.style.top = isP1 ? previewTop + 'px' : 'auto';
-      preview.style.bottom = isP1 ? 'auto' : '100px';
+      if (isMobile) {
+        preview.style.left = '5px';
+        preview.style.top = previewTop + 'px';
+        preview.style.bottom = 'auto';
+      } else {
+        preview.style.left = '200px';
+        preview.style.top = isP1 ? '100px' : 'auto';
+        preview.style.bottom = isP1 ? 'auto' : '100px';
+      }
     }
 
     // 终止该玩家上一个预展示 + 清除残留飞行卡牌
@@ -389,13 +409,14 @@ const CardFlight = (() => {
 
       master.set(overlay, { hidden: true }, flightStart + 0.6);
     } else {
-      // 无目标：6秒后预展示消失
+      // 无目标：手机端 1.5 秒后渐隐消失，桌面端 6 秒
+      const holdTime = isMobile ? 1.5 : 6.8;
       master.to(preview, {
         scale: 0.9, opacity: 0,
         duration: 0.4, ease: 'power2.in'
-      }, 6.8);
+      }, holdTime);
 
-      master.set(overlay, { hidden: true }, 7.2);
+      master.set(overlay, { hidden: true }, holdTime + 0.4);
     }
   }
 

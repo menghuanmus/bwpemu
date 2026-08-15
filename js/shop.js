@@ -68,6 +68,22 @@
     // 商店卡牌库存（每个玩家独立，key: playerId, value: { cardName: remainingStock }）
     const playerCardStocks = { '1': {}, '2': {} };
 
+    // 默认库存只初始化一次：之后玩家删除/添加均以实际库存为准，不再自动补全
+    const stockInitialized = { '1': false, '2': false };
+
+    // 玩家自定义商品定义（名字 -> { level }），刷新时用来重建卡牌定义
+    const customShopDefs = { '1': {}, '2': {} };
+
+    function ensureStocksInitialized(playerId) {
+      if (stockInitialized[playerId]) return;
+      stockInitialized[playerId] = true;
+      for (const c of getShopCardPool()) {
+        if (!(c.name in (playerCardStocks[playerId] || {}))) {
+          setCardStock(playerId, c.name, getCardDefaultStock(c.name));
+        }
+      }
+    }
+
     function getCardStock(playerId, cardName, defaultStock) {
       if (!playerCardStocks[playerId]) playerCardStocks[playerId] = {};
       if (!(cardName in playerCardStocks[playerId])) {
@@ -89,7 +105,7 @@
       // 额外可售但非商店标记的牌
       const extraNames = ['生命精华'];
       for (const card of all) {
-        if (card._shop || extraNames.includes(card.name)) cards.push(card);
+        if (card._shop || card.owner === '商店' || extraNames.includes(card.name)) cards.push(card);
       }
       // 去重（防止同名被加入两次）
       const seen = new Set();
@@ -124,6 +140,23 @@
     const shopRefreshBtn = document.getElementById('shop-refresh-btn');
     const shopCloseBtn = document.getElementById('shop-dialog-close');
     const shopFreeRefreshBtn = document.getElementById('shop-free-refresh-btn');
+    const shopInvBtn = document.getElementById('shop-inv-btn');
+    const shopAddBtn = document.getElementById('shop-add-btn');
+    const shopInventoryEl = document.getElementById('shop-inventory');
+    const shopPriorityInput = document.getElementById('shop-priority-input');
+    const shopPriorityBtn = document.getElementById('shop-priority-btn');
+    let _shopInvOpen = false;
+
+    /** 刷新库存按钮文字（手机端无图标；供 constants.js 布局切换时调用） */
+    function _refreshShopInvBtnText() {
+      if (!shopInvBtn) return;
+      const isMobile = (typeof window.matchMedia === 'function') && window.matchMedia('(max-width: 768px)').matches;
+      if (_shopInvOpen) {
+        shopInvBtn.textContent = isMobile ? '查看商品' : '🛒 查看商品';
+      } else {
+        shopInvBtn.textContent = isMobile ? '查看库存' : '📦 查看库存';
+      }
+    }
 
     /** 切换赏金图标 */
     function _toggleBounty(playerId, show) {
@@ -266,6 +299,7 @@
       shop.upgradeProgress = 0;
       shop.upgradeNeeded = shop.level === 1 ? 5 : 10;
       shop.refreshPriority = [];
+      ensureStocksInitialized(playerId);   // 默认库存只填这一次
       generateShopProducts(playerId);
     }
 
@@ -275,11 +309,34 @@
       const maxSlots = shop.slotCount || DEFAULT_SLOT_COUNT;
       const pool = getShopCardPool();
       const maxLevel = shop.level;
+      const stocks = playerCardStocks[playerId] || {};
       const available = pool.filter(c => {
         if (c.level > maxLevel) return false;
-        const stock = getCardStock(playerId, c.name, getCardDefaultStock(c.name));
+        const stock = c.name in stocks ? stocks[c.name] : 0;
         return stock > 0;
       });
+
+      // 补充：玩家通过「＋ 添加商品」加入的自定义商品（不在标准池里），刷新时随机刷出。
+      // 注意：必须排除标准池内的牌，否则会把高等级牌误加进低级商店（且效果为空）。
+      const poolNames = new Set(pool.map(c => c.name));
+      for (const sName of Object.keys(stocks)) {
+        if (stocks[sName] > 0 && !poolNames.has(sName)) {
+          const cur = shop.products.find(p => p.cardDef.name === sName);
+          if (cur) {
+            available.push(cur.cardDef);
+          } else {
+            // 重建卡牌定义：优先查卡牌库（带真实效果），等级用玩家添加时填的
+            const db2 = (typeof CardDB !== 'undefined' && CardDB.isReady()) ? CardDB.lookup(sName) : null;
+            const cdef = (customShopDefs[playerId] && customShopDefs[playerId][sName]) || {};
+            const lvl = (cdef.level === 1 || cdef.level === 2 || cdef.level === 3) ? cdef.level : (db2 ? (db2.level || 1) : 1);
+            if (db2) {
+              available.push(Object.assign({}, db2, { level: lvl, _shop: true }));
+            } else {
+              available.push({ name: sName, type: 'spell', owner: '商店', level: lvl, effect: '' });
+            }
+          }
+        }
+      }
 
       const selected = [];
       const usedNames = new Set();
@@ -313,16 +370,25 @@
         return;
       }
       _activeShopPlayer = playerId;
+      _shopInvOpen = false;
+      _refreshShopInvBtnText();
+      const titleEl = document.getElementById('shop-dialog-title');
+      if (titleEl) titleEl.textContent = '神秘商店';
+      if (shopInventoryEl) shopInventoryEl.hidden = true;
+      if (shopProductsEl) shopProductsEl.style.display = '';
+      if (shopPriorityInput) shopPriorityInput.value = '';
       const shop = getShop(playerId);
       if (!shop.products.length && typeof CardDB !== 'undefined' && CardDB.isReady()) {
         initShop(playerId, 1);
       }
       renderShop(playerId);
       shopOverlay.hidden = false;
-      // 观众模式：禁用购买、刷新按钮
+      // 观众模式：禁用购买、刷新按钮（保留库存查看）
       if (typeof isSpectator !== 'undefined' && isSpectator) {
         const btns = shopOverlay.querySelectorAll('button:not(.shop-dialog__close)');
-        btns.forEach(b => { b.disabled = true; b.title = '观战模式下不可操作'; });
+        btns.forEach(b => {
+          if (b !== shopInvBtn) { b.disabled = true; b.title = '观战模式下不可操作'; }
+        });
       }
     }
 
@@ -354,18 +420,45 @@
         } else {
           stockEl.textContent = '剩' + prod.stock;
         }
-        el.appendChild(stockEl);
 
         // 卡牌名
         const nameEl = document.createElement('div');
         nameEl.className = 'shop-product__name';
         nameEl.textContent = prod.cardDef.name;
-        el.appendChild(nameEl);
 
-        // 效果
+        // 名字列：名字在上、库存在下
+        const nameCol = document.createElement('div');
+        nameCol.className = 'shop-product__name-col';
+        nameCol.appendChild(nameEl);
+        nameCol.appendChild(stockEl);
+        el.appendChild(nameCol);
+
+        // 效果：数值括号 + 文字效果（战斗牌拼攻防、形态牌拼攻击生命、幻境牌拼耐久）
         const effectEl = document.createElement('div');
         effectEl.className = 'shop-product__effect';
+        const db2 = (typeof CardDB !== 'undefined' && CardDB.isReady()) ? CardDB.lookup(prod.cardDef.name) : null;
+        let statPrefix = '';
+        if (db2) {
+          if (db2.type === 'battle') {
+            const parts = [];
+            if (db2.atkBonus) parts.push('攻击+' + db2.atkBonus);
+            if (db2.atkPenalty) parts.push('攻击-' + db2.atkPenalty);
+            if (db2.shieldBonus) parts.push('护盾+' + db2.shieldBonus);
+            if (db2.shieldPenalty) parts.push('护盾-' + db2.shieldPenalty);
+            if (parts.length) statPrefix = '（' + parts.join('，') + '）';
+          } else if (db2.type === 'form') {
+            statPrefix = '（攻击' + (db2.attack || 0) + '，生命' + (db2.hp || 0) + '）';
+          } else if (db2.type === 'realm') {
+            statPrefix = '（耐久' + (db2.durability || 0) + '）';
+          }
+        }
         let effectText = prod.cardDef.effect || '';
+        if (!effectText && db2) effectText = db2.effect || db2.ability || '';
+        if (statPrefix || effectText) {
+          effectText = statPrefix + effectText;
+        } else {
+          effectText = '未录入数据';
+        }
         if (prod.cardDef.name === '生命精华' && prod.cardDef.maxStack) {
           effectText += ' 当前层数：2/' + prod.cardDef.maxStack;
         }
@@ -391,6 +484,76 @@
       // 额外栏位（默认隐藏）
       shopExtrasEl.hidden = true;
       shopExtrasEl.innerHTML = '';
+
+      // 库存视图打开时同步刷新
+      if (_shopInvOpen) renderInventory(playerId);
+    }
+
+    /** 渲染库存视图（名字 + 剩余库存 + 删除按钮） */
+    function renderInventory(playerId) {
+      if (!shopInventoryEl) return;
+      const stocks = playerCardStocks[playerId] || {};
+      const entries = Object.entries(stocks);
+      shopInventoryEl.innerHTML = '';
+      if (entries.length === 0) {
+        shopInventoryEl.innerHTML = '<div class="shop-inv-empty">库存为空，点「＋ 商品」添加</div>';
+        return;
+      }
+      entries.forEach(function(entry) {
+        const name = entry[0];
+        const stock = entry[1];
+        const row = document.createElement('div');
+        row.className = 'shop-inv-row';
+        const nameEl = document.createElement('span');
+        nameEl.className = 'shop-inv-row__name';
+        nameEl.textContent = name;
+        const stockEl = document.createElement('span');
+        stockEl.className = 'shop-inv-row__stock' + (stock === Infinity ? ' shop-inv-row__stock--unlimited' : '');
+        stockEl.textContent = stock === Infinity ? '无限' : '剩' + stock;
+        const delBtn = document.createElement('button');
+        delBtn.type = 'button';
+        delBtn.className = 'shop-inv-row__del';
+        delBtn.textContent = '🗑 删除';
+        if (typeof isSpectator !== 'undefined' && isSpectator) delBtn.disabled = true;
+        delBtn.addEventListener('click', function() { removeInventoryItem(playerId, name); });
+        row.appendChild(nameEl); row.appendChild(stockEl); row.appendChild(delBtn);
+        shopInventoryEl.appendChild(row);
+      });
+    }
+
+    /** 删除库存商品：该商品全部数量删除（含无限库存），同时从货架移除同名商品 */
+    function removeInventoryItem(playerId, cardName) {
+      if (typeof isSpectator !== 'undefined' && isSpectator) return;
+      const stocks = playerCardStocks[playerId] || {};
+      if (!(cardName in stocks)) return;
+      delete stocks[cardName];
+      if (customShopDefs[playerId]) delete customShopDefs[playerId][cardName];
+      const shop = getShop(playerId);
+      shop.products = shop.products.filter(function(p) { return p.cardDef.name !== cardName; });
+      syncShopToPeer(playerId);
+      renderShop(playerId);
+      renderInventory(playerId);
+      broadcastSystemMsg('【系统】' + getPlayerName(playerId) + '从商店库存删除了「' + cardName + '」');
+    }
+
+    /** 添加库存商品：同名累加，不同名新加。只入库存，不直接上架，刷新时随机刷出 */
+    function addInventoryItem(playerId, cardName, qty, level) {
+      if (typeof isSpectator !== 'undefined' && isSpectator) return;
+      if (!playerCardStocks[playerId]) playerCardStocks[playerId] = {};
+      const stocks = playerCardStocks[playerId];
+      const prev = stocks[cardName];
+      if (prev != null) {
+        stocks[cardName] = (prev === Infinity) ? Infinity : (prev + qty);
+      } else {
+        stocks[cardName] = qty;
+      }
+      const lvl = (level === 1 || level === 2 || level === 3) ? level : 1;
+      if (!customShopDefs[playerId]) customShopDefs[playerId] = {};
+      customShopDefs[playerId][cardName] = { level: lvl };
+      syncShopToPeer(playerId);
+      renderShop(playerId);
+      renderInventory(playerId);
+      broadcastSystemMsg('【系统】' + getPlayerName(playerId) + '向商店库存添加了「' + cardName + '」×' + qty + '（' + lvl + '级），刷新商店时可随机刷出');
     }
 
     /** 购买商品（观众不可操作） */
@@ -509,6 +672,7 @@
         refreshCost: shop.refreshCost,
         slotCount: shop.slotCount,
         cardStocks: stocks,
+        customDefs: customShopDefs[playerId] || {},
       });
     }
 
@@ -524,6 +688,10 @@
         for (const [name, s] of Object.entries(data.cardStocks)) {
           setCardStock(data.playerId, name, s);
         }
+        stockInitialized[data.playerId] = true;   // 远端状态为准，不再补全默认库存
+      }
+      if (data.customDefs) {
+        customShopDefs[data.playerId] = data.customDefs;
       }
       if (Array.isArray(data.products)) {
         shop.products = data.products.map(p => {
@@ -553,6 +721,53 @@
       syncShopToPeer(_activeShopPlayer);
       renderShop(_activeShopPlayer);
       broadcastSystemMsg('【系统】' + getPlayerName(_activeShopPlayer) + '免费刷新了商店');
+    });
+
+    // 库存视图切换
+    if (shopInvBtn) shopInvBtn.addEventListener('click', () => {
+      if (!_activeShopPlayer) return;
+      _shopInvOpen = !_shopInvOpen;
+      _refreshShopInvBtnText();
+      const titleEl = document.getElementById('shop-dialog-title');
+      if (titleEl) titleEl.textContent = _shopInvOpen ? '神秘商店（库存）' : '神秘商店';
+      if (shopInventoryEl) shopInventoryEl.hidden = !_shopInvOpen;
+      if (shopProductsEl) shopProductsEl.style.display = _shopInvOpen ? 'none' : '';
+      if (_shopInvOpen) renderInventory(_activeShopPlayer);
+    });
+
+    // 优先刷新队列
+    if (shopPriorityBtn) shopPriorityBtn.addEventListener('click', () => {
+      if (!_activeShopPlayer) return;
+      if (typeof isSpectator !== 'undefined' && isSpectator) return;
+      if (!shopPriorityInput) return;
+      const pName = shopPriorityInput.value.trim();
+      if (!pName) { shopPriorityInput.focus(); return; }
+      const stocks = playerCardStocks[_activeShopPlayer] || {};
+      if (!(pName in stocks) || stocks[pName] <= 0) {
+        if (typeof addSystemChatMessage === 'function') addSystemChatMessage('【系统】库存里没有这张牌');
+        return;
+      }
+      addShopPriority(_activeShopPlayer, pName);
+      shopPriorityInput.value = '';
+      if (typeof addSystemChatMessage === 'function') addSystemChatMessage('【系统】已将「' + pName + '」加入优先刷新队列，下次刷新必出');
+    });
+
+    // 添加新商品
+    if (shopAddBtn) shopAddBtn.addEventListener('click', () => {
+      if (!_activeShopPlayer) return;
+      if (typeof isSpectator !== 'undefined' && isSpectator) return;
+      if (typeof openCardTextDialog === 'function') {
+        openCardTextDialog({
+          title: '添加新商品',
+          placeholder: '输入商品（牌）名字',
+          showLevel: true,
+          onConfirm: function(name, qty, level) {
+            const n = (name || '').trim();
+            if (!n) return;
+            addInventoryItem(_activeShopPlayer, n, qty, level);
+          },
+        });
+      }
     });
 
     document.addEventListener('keydown', (e) => {
