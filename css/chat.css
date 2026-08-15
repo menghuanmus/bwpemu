@@ -395,6 +395,8 @@
       outline: none;
     }
     .curse-random-bar input:focus { border-color: #f8a0d0; }
+    /* 手牌操作互斥开关排：仅手机端显示 */
+    .hand-action-toggles { display: none; }
     .btn-curse-random {
       padding: 4px 10px;
       border-radius: 4px;

@@ -1368,4 +1368,59 @@
     flex: 1;
     height: auto;
   }
+
+  /* ── 手牌/牌库弹窗：互斥开关排 + 紧凑按钮 + 灵咒栏收缩 ── */
+  .card-list-dialog {
+    width: 94%;
+    max-width: 94%;
+    max-height: 84dvh;
+  }
+  .hand-action-toggles {
+    display: flex;
+    gap: 6px;
+    margin-bottom: 8px;
+  }
+  .hand-action-toggles[hidden] { display: none; }
+  .hand-toggle-btn {
+    flex: 1;
+    padding: 8px 4px;
+    font-size: 13px;
+    font-weight: 600;
+    border-radius: 6px;
+    border: 1px solid rgba(150, 180, 220, 0.4);
+    background: rgba(30, 40, 60, 0.8);
+    color: #c0d0e0;
+    cursor: pointer;
+  }
+  .hand-toggle-btn.active {
+    background: rgba(200, 160, 60, 0.25);
+    border-color: rgba(240, 200, 60, 0.7);
+    color: #f0d860;
+  }
+  .card-list-item__actions { gap: 4px; }
+  .card-list-item__actions button {
+    padding: 5px 6px;
+    font-size: 11px;
+    white-space: nowrap;
+  }
+  .curse-random-bar { gap: 4px; padding: 5px 6px; }
+  .curse-random-bar input {
+    flex: 0 1 64px;
+    min-width: 48px;
+    font-size: 16px;   /* iOS 聚焦防缩放 */
+  }
+  .curse-random-bar .btn-curse-random,
+  .curse-random-bar .btn-curse-toggle {
+    font-size: 11px;
+    padding: 5px 8px;
+  }
+  /* iOS 输入框聚焦防页面缩放：弹窗内输入一律 ≥16px */
+  .speak-dialog textarea,
+  .speak-dialog input[type="text"] {
+    font-size: 16px;
+  }
+  #card-text-dialog-quantity,
+  #card-text-dialog-level {
+    font-size: 16px;
+  }
 }
