@@ -96,6 +96,37 @@ const BonusPanel = (() => {
       if (levelBadge) levelBadge.style.display = e.target.checked ? 'none' : '';
       syncSlotToPeer(ctx.slot);
     }
+    if (e.target.id === 'bonus-has-countdown') {
+      const baseInput = document.getElementById('bonus-base-countdown');
+      let baseVal = baseInput ? (parseInt(baseInput.value, 10) || 0) : 0;
+      if (baseVal < 1) baseVal = ctx.slot._baseCountdown || 2;
+      ctx.slot._baseCountdown = baseVal;
+      if (e.target.checked) {
+        if (typeof updateSlotCountdownBadge === 'function') updateSlotCountdownBadge(ctx.slot, String(baseVal));
+      } else {
+        if (typeof updateSlotCountdownBadge === 'function') updateSlotCountdownBadge(ctx.slot, '');
+      }
+      syncSlotToPeer(ctx.slot);
+    }
+    if (e.target.id === 'bonus-base-countdown') {
+      let v = parseInt(e.target.value, 10);
+      if (Number.isNaN(v) || v < 1) v = 2;
+      ctx.slot._baseCountdown = v;
+      // 同步修改倒计时角标中的数字
+      if (ctx.slot.querySelector('.card-badge--countdown') && typeof updateSlotCountdownBadge === 'function') {
+        updateSlotCountdownBadge(ctx.slot, String(v));
+      }
+      syncSlotToPeer(ctx.slot);
+    }
+    if (e.target.id === 'bonus-has-energy') {
+      ctx.slot._baseEnergy = 0;
+      if (e.target.checked) {
+        if (typeof updateSlotEnergyBadge === 'function') updateSlotEnergyBadge(ctx.slot, '0');
+      } else {
+        if (typeof updateSlotEnergyBadge === 'function') updateSlotEnergyBadge(ctx.slot, '');
+      }
+      syncSlotToPeer(ctx.slot);
+    }
     if (e.target.id === 'bonus-form-atk-active' || e.target.id === 'bonus-form-hp-active') {
       const newAtk = parseInt(document.getElementById('bonus-form-atk-active').value, 10) || 0;
       const newHp = parseInt(document.getElementById('bonus-form-hp-active').value, 10) || 0;
@@ -411,6 +442,10 @@ const BonusPanel = (() => {
 
   /** 手机端：Tab 分页（属性/能力/形态/效果），弹窗不整体滚动 */
   function _renderMobile(ability) {
+    const hasCountdown = !!ctx.slot.querySelector('.card-badge--countdown');
+    const hasEnergy = !!ctx.slot.querySelector('.card-badge--energy');
+    const baseCountdown = ctx.slot._baseCountdown || 2;
+
     const factionHTML = `<div class="bonus-faction-row">
       ${['苍叶','红莲','青岚','紫岩','无相'].map(function(f) {
         return '<button type="button" class="bonus-faction-btn' + (ctx.faction === f ? ' active' : '') + '">' + f + '</button>';
@@ -419,6 +454,15 @@ const BonusPanel = (() => {
     </div>`;
 
     const abilityHTML = `<textarea id="bonus-ability" class="bonus-ability-input" placeholder="${escapeHTML(ability)}" rows="3">${escapeHTML(ctx.permAbility)}</textarea>`;
+
+    const cdEnergyHTML = `<div class="bonus-cd-energy-row">
+      <label class="bonus-summon-label"><input type="checkbox" id="bonus-has-countdown" ${hasCountdown ? 'checked' : ''}> 倒计时</label>
+      <span class="bonus-cd-energy-label">基础倒计时：</span>
+      <input type="number" id="bonus-base-countdown" class="bonus-form-stat-input" value="${baseCountdown}" min="1" max="99">
+    </div>
+    <div class="bonus-cd-energy-row">
+      <label class="bonus-summon-label"><input type="checkbox" id="bonus-has-energy" ${hasEnergy ? 'checked' : ''}> 能量</label>
+    </div>`;
 
     const permHTML = `<div class="bonus-add-row">
       <input type="text" id="bonus-mod-source" placeholder="来源" maxlength="30" style="flex:3;">
@@ -484,6 +528,10 @@ const BonusPanel = (() => {
             <div class="bonus-section__label">📝 基础/觉醒能力 <span class="bonus-help-icon" title="无内容时默认为基础能力">?</span></div>
             ${abilityHTML}
           </div>
+          <div class="bonus-section">
+            <div class="bonus-section__label">📊 倒计时 / 能量</div>
+            ${cdEnergyHTML}
+          </div>
         </div>
         <div class="bonus-tab-panel${currentMobileTab === 'form' ? ' active' : ''}" data-bonus-panel="form">
           <div class="bonus-section">
@@ -508,6 +556,9 @@ const BonusPanel = (() => {
 
   /** 桌面端：两栏布局（原版） */
   function _renderDesktop(ability) {
+    const hasCountdown = !!ctx.slot.querySelector('.card-badge--countdown');
+    const hasEnergy = !!ctx.slot.querySelector('.card-badge--energy');
+    const baseCountdown = ctx.slot._baseCountdown || 2;
     return `
       <div class="bonus-info">
         <span class="bonus-info__name">「${escapeHTML(ctx.cardName)}」</span>
@@ -531,6 +582,18 @@ const BonusPanel = (() => {
           <div class="bonus-section">
             <div class="bonus-section__label">📝 基础/觉醒能力 <span class="bonus-help-icon" title="无内容时默认为基础能力">?</span></div>
             <textarea id="bonus-ability" class="bonus-ability-input" placeholder="${escapeHTML(ability)}" rows="3">${escapeHTML(ctx.permAbility)}</textarea>
+          </div>
+          <!-- 倒计时 / 能量 -->
+          <div class="bonus-section">
+            <div class="bonus-section__label">📊 倒计时 / 能量</div>
+            <div class="bonus-cd-energy-row">
+              <label class="bonus-summon-label"><input type="checkbox" id="bonus-has-countdown" ${hasCountdown ? 'checked' : ''}> 倒计时</label>
+              <span class="bonus-cd-energy-label">基础倒计时：</span>
+              <input type="number" id="bonus-base-countdown" class="bonus-form-stat-input" value="${baseCountdown}" min="1" max="99">
+            </div>
+            <div class="bonus-cd-energy-row">
+              <label class="bonus-summon-label"><input type="checkbox" id="bonus-has-energy" ${hasEnergy ? 'checked' : ''}> 能量</label>
+            </div>
           </div>
           <!-- 形态 -->
           <div class="bonus-section">

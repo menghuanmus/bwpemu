@@ -6,7 +6,7 @@
     // ================================================================
     //  全局常量
     // ================================================================
-    const APP_VERSION = 'v0.38.3';
+    const APP_VERSION = 'v0.38.4';
     const APP_TITLE = '百闻牌模拟器';
 
     /** 调试模式：0=关闭 1=开启（显示隐藏的编辑器按钮） */
@@ -17,7 +17,7 @@
      * 本地开发调试时改为 2，上传正式服时改回 1
      * 手机/远程测试：网址加 ?env=2 连测试服，?env=1 连正式服（URL 参数优先级最高）
      */
-    const SERVER_ENV_DEFAULT = 2;
+    const SERVER_ENV_DEFAULT = 1;
     let SERVER_ENV = SERVER_ENV_DEFAULT;
     try {
       const _urlEnv = new URLSearchParams(window.location.search).get('env');

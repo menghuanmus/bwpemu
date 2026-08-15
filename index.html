@@ -507,6 +507,7 @@
             <button type="button" class="dropdown-mechanic__item" id="btn-charge">⚡ 蓄力</button>
             <button type="button" class="dropdown-mechanic__item" id="btn-fate">🔀 命运抉择</button>
             <button type="button" class="dropdown-mechanic__item" id="btn-reset-stats">🔄 重置属性</button>
+            <button type="button" class="dropdown-mechanic__item" id="btn-turn-start">🔄 回合开始</button>
           </div>
         </div>
         <div class="dropdown-other" id="dropdown-other">
@@ -794,6 +795,12 @@
         <!-- 启悟手牌列表（置顶） -->
         <div class="oracle-cards-list" id="oracle-cards-list">
           <!-- JS动态渲染 -->
+        </div>
+        <!-- 操作互斥开关排：弃置 / 置入手牌 / 置入牌库 -->
+        <div class="oracle-action-toggles" id="oracle-action-toggles">
+          <button type="button" class="oracle-toggle-btn" data-oracle-mode="discard">弃置</button>
+          <button type="button" class="oracle-toggle-btn" data-oracle-mode="tohand">置入手牌</button>
+          <button type="button" class="oracle-toggle-btn" data-oracle-mode="todeck">置入牌库</button>
         </div>
         <!-- 快速置入三诫 -->
         <div class="oracle-quick-row">

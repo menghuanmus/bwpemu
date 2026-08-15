@@ -1118,7 +1118,14 @@
     display: flex;
     flex-direction: column;
   }
-  .bonus-dialog__body { flex: 1; min-height: 0; overflow: hidden; }
+  .bonus-dialog__body {
+    flex: 1;
+    min-height: 0;
+    overflow: hidden;
+    display: flex;          /* 让 Tab 区撑满弹窗，页内滚动才生效 */
+    flex-direction: column;
+  }
+  .bonus-info { flex-shrink: 0; }
 
   /* Tab 标签栏 */
   .bonus-tab-bar {
@@ -1176,7 +1183,20 @@
   .bonus-add-row input[type="number"] {
     font-size: 16px;
   }
-  .bonus-ability-input { padding: 12px; }
+  .bonus-ability-input { padding: 12px; overflow-y: auto; }
+  /* 倒计时/能量勾选行：手机端字号加大，可换行 */
+  .bonus-cd-energy-row {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .bonus-cd-energy-row .bonus-summon-label,
+  .bonus-cd-energy-label {
+    font-size: 16px;
+  }
+  .bonus-cd-energy-row input[type="number"] {
+    font-size: 16px;
+    padding: 6px 4px;
+  }
   .bonus-faction-btn {
     padding: 10px 12px;
     font-size: 15px;
@@ -1549,14 +1569,22 @@
     padding: 5px 8px;
     flex-shrink: 0;
   }
-  /* iOS 输入框聚焦防页面缩放：所有输入框 ≥16px（战场小徽章除外） */
+  /* iOS 输入框聚焦防页面缩放：所有输入框 ≥16px（小徽章用 zoom 缩小视觉） */
   input, textarea, select {
-    font-size: 16px;
+    font-size: 16px !important;
   }
-  .card-badge input,
-  .bounty-input,
-  .nightfall-input {
-    font-size: 12px;   /* 卡槽小徽章/赏金/入夜输入保持小字号 */
+  /* 卡槽小徽章输入：字号已强制 16px（防缩放），用 zoom 缩回原小视觉
+     （赏金/入夜输入基础字号 ≥16px，不受影响） */
+  .card-badge input {
+    zoom: 0.75;
+  }
+  .card-badge--name input { zoom: 0.62; }
+  .card-badge--countdown input,
+  .card-badge--energy input { zoom: 0.69; }
+  .card-badge input::placeholder { font-size: 16px; }   /* 随 zoom 缩回原大小 */
+  #oracle-card-qty {
+    font-size: 16px !important;
+    zoom: 0.75;
   }
   .speak-dialog textarea,
   .speak-dialog input[type="text"] {
@@ -1565,5 +1593,25 @@
   #card-text-dialog-quantity,
   #card-text-dialog-level {
     font-size: 16px;
+  }
+
+  /* ── 启悟弹窗：输入行自适应换行、开关排紧凑 ── */
+  .oracle-input-row {
+    flex-wrap: wrap;
+  }
+  .oracle-input-row > input {
+    flex: 1 1 auto;
+    min-width: 0;
+    max-width: 100%;
+  }
+  .oracle-qty-wrap {
+    white-space: nowrap;
+  }
+  .oracle-action-toggles {
+    gap: 6px;
+  }
+  .oracle-toggle-btn {
+    padding: 9px 4px;
+    font-size: 14px;
   }
 }

@@ -23,6 +23,7 @@
     const oracleCardsList = document.getElementById('oracle-cards-list');
 
     let _activeOraclePlayer = null;
+    let _oracleActionMode = '';   // 启悟手牌操作互斥模式：'' / discard / tohand / todeck
 
     // 拖拽状态
     let _draggingOracle = false;
@@ -193,6 +194,30 @@
         } // end if own
         oracleCardsList.appendChild(item);
       });
+      _applyOracleActionMode();
+    }
+
+    /** 启悟手牌按钮互斥显隐：默认仅使用/➕，开关激活后仅显示对应按钮 */
+    function _applyOracleActionMode() {
+      document.querySelectorAll('.oracle-card-item__actions button').forEach(b => {
+        if (b.classList.contains('oracle-act--use') || b.classList.contains('btn-card-curse-add')) {
+          b.hidden = false;
+          return;
+        }
+        if (_oracleActionMode === 'discard') b.hidden = !b.classList.contains('oracle-act--discard');
+        else if (_oracleActionMode === 'tohand') b.hidden = !b.classList.contains('oracle-act--move');
+        else if (_oracleActionMode === 'todeck') b.hidden = !b.classList.contains('oracle-act--deck');
+        else b.hidden = true;
+      });
+      document.querySelectorAll('.oracle-toggle-btn').forEach(t => {
+        t.classList.toggle('active', _oracleActionMode === t.dataset.oracleMode);
+      });
+    }
+
+    /** 互斥切换（再点一次取消） */
+    function _setOracleActionMode(mode) {
+      _oracleActionMode = (_oracleActionMode === mode) ? '' : mode;
+      _applyOracleActionMode();
     }
 
     /** 启悟相关系统消息：仅日月星诫暴露牌名，其余显示"一张牌" */
@@ -211,7 +236,7 @@
       const name = (typeof getPlayerName === 'function') ? getPlayerName(playerId) : ('玩家' + playerId);
       const verb = reason === 'use' ? '使用' : '弃置';
       const msg = '【系统】' + name + '从启悟区' + verb + '了「' + (card.name || '未知牌') + '」';
-      broadcastSystemMsg(msg);
+      broadcastSystemMsg(msg, typeof window.getFoodNote === 'function' ? window.getFoodNote(card) : null);
       // 使用动画
       if (reason === 'use' && typeof CardFlight !== 'undefined') {
         CardFlight.playUseCardAnim(playerId, card);
@@ -459,6 +484,13 @@
 
     // ---- 事件绑定 ----
     oracleCloseBtn.addEventListener('click', closeOracleDialog);
+
+    // 操作互斥开关：弃置 / 置入手牌 / 置入牌库
+    document.querySelectorAll('.oracle-toggle-btn').forEach(t => {
+      t.addEventListener('click', () => {
+        _setOracleActionMode(t.dataset.oracleMode);
+      });
+    });
 
     oracleBtnAdd.addEventListener('click', () => {
       if (_activeOraclePlayer && oracleCardInput.value.trim()) {

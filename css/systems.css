@@ -689,6 +689,15 @@
       font-size: 18px;
       padding: 6px 18px;
       flex-shrink: 0;
+      background: rgba(90, 150, 210, 0.18);
+      border-color: rgba(140, 190, 240, 0.45);
+      color: #a8c8e8;
+      border-radius: 8px;
+    }
+    .shikigami-book__header .btn-dialog-cancel:hover {
+      background: rgba(110, 170, 230, 0.3);
+      border-color: rgba(160, 205, 250, 0.7);
+      color: #d8ecff;
     }
 
     /* 派系筛选按钮 */
@@ -2243,10 +2252,11 @@
     .oracle-input-row {
       display: flex;
       gap: 8px;
+      flex-wrap: wrap;   /* 空间不足时换行，避免内容被挤出显示不全 */
     }
     .oracle-input-row input {
-      flex: 1;
-      /*max-width: 120px;*/
+      flex: 1 1 auto;
+      min-width: 0;
       padding: 8px 12px;
       border-radius: 6px;
       border: 1px solid rgba(140, 110, 220, 0.35);
@@ -2288,6 +2298,30 @@
     #oracle-card-qty::-webkit-outer-spin-button {
       -webkit-appearance: none;
       margin: 0;
+    }
+
+    /* 启悟手牌操作互斥开关排 */
+    .oracle-action-toggles {
+      display: flex;
+      gap: 8px;
+    }
+    .oracle-action-toggles[hidden] { display: none; }
+    .oracle-toggle-btn {
+      flex: 1;
+      padding: 8px 4px;
+      font-size: 14px;
+      font-weight: 600;
+      border-radius: 6px;
+      border: 1px solid rgba(140, 110, 220, 0.4);
+      background: rgba(40, 25, 70, 0.8);
+      color: #b8a8e0;
+      cursor: pointer;
+    }
+    .oracle-toggle-btn[hidden] { display: none; }
+    .oracle-toggle-btn.active {
+      background: rgba(160, 100, 240, 0.3);
+      border-color: rgba(190, 150, 250, 0.7);
+      color: #d8c8ff;
     }
 
     /* 通用启悟按钮 */

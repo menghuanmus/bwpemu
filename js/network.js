@@ -158,11 +158,11 @@
           applyRemotePlayerInfo(data.playerId, data.name, data.hp);
           break;
         case 'sysmsg':
-          addSystemChatMessage(data.text);
+          addSystemChatMessage(data.text, data.food);
           break;
         case 'sysmsg-group':
           if (data.mainMsg && Array.isArray(data.subMsgs) && typeof _renderGroupedMessage === 'function') {
-            _renderGroupedMessage({ mainMsg: data.mainMsg, subMsgs: data.subMsgs });
+            _renderGroupedMessage({ mainMsg: data.mainMsg, subMsgs: data.subMsgs, food: data.food || null });
           }
           break;
         case 'avatar-update':

@@ -614,7 +614,7 @@
         const curseInfo = (card.curses && card.curses.length) ? '（结附灵咒：' + card.curses.map(c => c.name + '×' + c.layers).join('、') + '）' : '';
         const mainMsg = `【系统】${getPlayerName(playerId)}${verb}「${card.name}」${stackInfo}${curseInfo}`;
         if (typeof startMessageGroup === 'function') {
-          startMessageGroup(mainMsg);
+          startMessageGroup(mainMsg, window.getFoodNote ? window.getFoodNote(card) : null);
         } else {
           broadcastSystemMsg(mainMsg);
         }
@@ -1651,6 +1651,19 @@
       return card && card._food;
     }
 
+    /** 生成食物卡备注（隐藏数据，随系统消息传递，不展示；供悬浮窗实时生成真实效果） */
+    window.getFoodNote = function(card) {
+      if (!isAnyFoodCard(card)) return null;
+      return {
+        name: card.name,
+        _food: true,
+        _foodType: card._foodType,
+        _foodLevel: card._foodLevel,
+        _foodEffects: card._foodEffects || [],
+        _foodIngredients: card._foodIngredients || '',
+      };
+    };
+
     /** 根据式神等级生成一张随机食材牌 */
     function generateFoodCard(level) {
       const lv = (level >= 1 && level <= 3) ? level : 1;
@@ -1711,6 +1724,8 @@
     function performCooking(slot) {
       const playerId = slot.dataset.slotPlayer;
       if (!playerId) return;
+      const state = getPlayerCardState(playerId);
+      if (!state) return;
       const cardName = (slot.querySelector('.card-name')?.value || '').trim();
       if (!cardName) return;
       const playerName = getPlayerName(playerId);
@@ -1746,7 +1761,7 @@
       const summaryMsg = `【系统】${playerName}使「${cardName}」进行了一次烹饪，获得了一张${level}级食材牌`;
       if (isMyOp) {
         // 我为自己烹饪：我看到详细，对手看到摘要
-        addSystemChatMessage(detailMsg);
+        addSystemChatMessage(detailMsg, window.getFoodNote ? window.getFoodNote(foodCard) : null);
         if (!isSoloMode && isConnected() && typeof sendToPeer === 'function') {
           sendToPeer({ type: 'sysmsg', text: summaryMsg });
         }
@@ -1793,7 +1808,7 @@
               sendToPeer({ type: 'food-card-register', card: feastDef });
             }
           }
-          addSystemChatMessage(detailFeast);
+          addSystemChatMessage(detailFeast, window.getFoodNote ? window.getFoodNote(feast) : null);
           if (!isSoloMode && isConnected() && typeof sendToPeer === 'function') {
             sendToPeer({ type: 'sysmsg', text: summaryFeast });
           }

@@ -36,13 +36,20 @@
       chatPlayerLog.scrollTop = chatPlayerLog.scrollHeight;
     }
 
-    function addSystemChatMessage(text) {
+    function addSystemChatMessage(text, food) {
       if (!chatSystemLog) return;
       try {
         const bubble = document.createElement('div');
         bubble.className = 'chat-bubble chat-bubble--system';
         // 将「卡牌名」包裹为可悬浮的高亮标签，其余文本做 HTML 转义
         bubble.innerHTML = escapeHTML(text).replace(/「(.+?)」/g, '<span class="chat-card-name">$1</span>');
+        // 隐藏备注（食材/佳肴的真实效果）：挂到同名卡牌标签上，不展示内容
+        if (food && food.name) {
+          const foodJson = JSON.stringify(food);
+          bubble.querySelectorAll('.chat-card-name').forEach(sp => {
+            if (sp.textContent === food.name) sp.dataset.food = foodJson;
+          });
+        }
         chatSystemLog.appendChild(bubble);
         chatSystemLog.scrollTop = chatSystemLog.scrollHeight;
       } catch (e) {
@@ -53,11 +60,11 @@
     // ================================================================
     //  消息分组机制：将卡牌使用后的多条效果消息整合为可展开/收缩的组
     // ================================================================
-    let _msgGroup = null; // { mainMsg, subMsgs: [] }
+    let _msgGroup = null; // { mainMsg, food, subMsgs: [] }
 
     /** 开始消息分组：主消息 + 后续 broadcast 的消息成为子条目 */
-    function startMessageGroup(mainMsg) {
-      _msgGroup = { mainMsg, subMsgs: [] };
+    function startMessageGroup(mainMsg, food) {
+      _msgGroup = { mainMsg, food: food || null, subMsgs: [] };
     }
 
     /** 结束消息分组：渲染为一条可展开的系统消息，并同步给对方 */
@@ -66,17 +73,17 @@
       const group = _msgGroup;
       _msgGroup = null;
       if (group.subMsgs.length === 0) {
-        addSystemChatMessage(group.mainMsg);
+        addSystemChatMessage(group.mainMsg, group.food);
         // 无子消息也需同步给对方
         if (!isSoloMode && isConnected() && typeof sendToPeer === 'function') {
-          sendToPeer({ type: 'sysmsg', text: group.mainMsg });
+          sendToPeer({ type: 'sysmsg', text: group.mainMsg, food: group.food || undefined });
         }
         return;
       }
       _renderGroupedMessage(group);
       // 联机同步：将分组消息发给对方
       if (!isSoloMode && isConnected() && typeof sendToPeer === 'function') {
-        sendToPeer({ type: 'sysmsg-group', mainMsg: group.mainMsg, subMsgs: group.subMsgs });
+        sendToPeer({ type: 'sysmsg-group', mainMsg: group.mainMsg, subMsgs: group.subMsgs, food: group.food || undefined });
       }
     }
 
@@ -98,6 +105,13 @@
         const mainText = document.createElement('span');
         mainText.className = 'chat-group-text';
         mainText.innerHTML = escapeHTML(group.mainMsg).replace(/「(.+?)」/g, '<span class="chat-card-name">$1</span>');
+        // 隐藏备注（食材/佳肴效果）挂到同名卡牌标签上
+        if (group.food && group.food.name) {
+          const foodJson = JSON.stringify(group.food);
+          mainText.querySelectorAll('.chat-card-name').forEach(sp => {
+            if (sp.textContent === group.food.name) sp.dataset.food = foodJson;
+          });
+        }
         mainRow.appendChild(mainText);
         wrapper.appendChild(mainRow);
 
@@ -129,7 +143,7 @@
     }
 
     /* 系统消息：本地显示 + 同步给对方（单人模式仅本地） */
-    function broadcastSystemMsg(msg) {
+    function broadcastSystemMsg(msg, food) {
       console.log('[SysMsg]', msg);
       // 如果处于消息分组中，收集为子消息（由 endMessageGroup 统一同步，不单独发送）
       if (_msgGroup) {
@@ -138,9 +152,9 @@
       }
       // 联机：同步给对方
       if (!isSoloMode && isConnected() && typeof sendToPeer === 'function') {
-        sendToPeer({ type: 'sysmsg', text: msg });
+        sendToPeer({ type: 'sysmsg', text: msg, food: food || undefined });
       }
-      addSystemChatMessage(msg);
+      addSystemChatMessage(msg, food);
     }
 
     function openSpeakDialog(playerId) {

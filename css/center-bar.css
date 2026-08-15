@@ -414,6 +414,32 @@
       text-shadow: 0 0 4px rgba(0,0,0,0.5);
     }
 
+    /* 普通倒计时到期归零：放大缩小吸引注意（0.5s，由回合开始触发） */
+    .card-badge--countdown input.turn-bounce {
+      animation: koCountBounce 0.5s ease-out;
+    }
+
+    /* 沙漏图标旋转一圈（倒计时/气绝 -1 时触发） */
+    @keyframes badge-icon-spin {
+      from { transform: rotate(0deg); }
+      to   { transform: rotate(360deg); }
+    }
+    .card-badge .badge-icon.spin-once,
+    .ko-circle .ko-icon.spin-once {
+      display: inline-block;
+      animation: badge-icon-spin 0.5s ease-in-out;
+    }
+
+    /* 灯笼徽章发光一圈（能量 +1 时触发） */
+    @keyframes energy-glow-pulse {
+      0%   { box-shadow: 0 0 2px rgba(255, 220, 120, 0.3); }
+      50%  { box-shadow: 0 0 20px 7px rgba(255, 210, 110, 0.8); }
+      100% { box-shadow: 0 0 2px rgba(255, 220, 120, 0.3); }
+    }
+    .card-badge--energy.energy-glow {
+      animation: energy-glow-pulse 0.5s ease-out;
+    }
+
     /* 气绝按钮（暗紫色） */
     .btn-ko {
       padding: 6px 12px;

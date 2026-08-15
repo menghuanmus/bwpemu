@@ -325,6 +325,8 @@
         name: slot.querySelector('.card-name').value,
         countdown: cdBadge ? (cdBadge.querySelector('input').value || '') : '',
         energy: enBadge ? (enBadge.querySelector('input').value || '') : '',
+        baseCountdown: slot._baseCountdown || 0,
+        baseEnergy: slot._baseEnergy || 0,
         ko: slot.querySelector('.ko-overlay') ? (slot.querySelector('.ko-circle input').value || '1') : '',
         curses: getSlotCurses(slot),
         awakened: slot.classList.contains('awakened'),
@@ -354,6 +356,9 @@
       updateSlotCountdownBadge(slot, state.countdown || '');
       updateSlotEnergyBadge(slot, state.energy || '');
       updateKoOverlay(slot, state.ko || '');
+      // 基础倒计时/能量数值（回合开始到期重置用）
+      if (state.baseCountdown !== undefined) slot._baseCountdown = state.baseCountdown;
+      if (state.baseEnergy !== undefined) slot._baseEnergy = state.baseEnergy;
       setSlotCurses(slot, state.curses || []);
       // 觉醒标记
       if (state.awakened) { slot.classList.add('awakened'); } else { slot.classList.remove('awakened'); }

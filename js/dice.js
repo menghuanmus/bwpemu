@@ -51,7 +51,7 @@
     const damageLineSvg = document.getElementById('damage-line-svg');
     const damageLine = document.getElementById('damage-line');
     let isTargeting = false;
-    let targetingMode = 'damage'; // 'damage' | 'heal' | 'countdown' | 'energy' | 'ko' | 'curse' | 'divine' | 'cook' | 'nightfall' | 'bounty' | 'oracle' | 'fate' | 'reset-stats' | 'charge'
+    let targetingMode = 'damage'; // 'damage' | 'heal' | 'countdown' | 'energy' | 'ko' | 'curse' | 'divine' | 'cook' | 'nightfall' | 'bounty' | 'oracle' | 'fate' | 'reset-stats' | 'charge' | 'turnstart'
     let targetingOrigin = { x: 0, y: 0 };
     const MOBILE_MQ = window.matchMedia('(max-width: 768px)');
 
@@ -71,6 +71,7 @@
       oracle:    { btn: () => btnMechanicToggle, activeText: '✨ 选择牌手…(Esc取消)', idleText: '🔧 机制 ▾', mobileActiveText: '选择牌手<br>启悟' },
       fate:      { btn: () => btnMechanicToggle, activeText: '🔀 选择牌手…(Esc取消)', idleText: '🔧 机制 ▾', mobileActiveText: '选择牌手<br>命运抉择' },
       'reset-stats': { btn: () => btnMechanicToggle, activeText: '🔄 选择式神…(Esc取消)', idleText: '🔧 机制 ▾', mobileActiveText: '选择式神<br>重置属性' },
+      turnstart:  { btn: () => btnMechanicToggle, activeText: '🔄 选择牌手…(Esc取消)', idleText: '🔧 机制 ▾', mobileActiveText: '选择牌手<br>回合开始' },
       charge:    { btn: () => btnMechanicToggle, activeText: '⚡ 选择式神…(Esc取消)', idleText: '🔧 机制 ▾', mobileActiveText: '选择式神<br>蓄力' },
       ko:        { btn: () => btnKo,             activeText: '💀 选择式神…(Esc取消)', idleText: '💀 气绝/复活', mobileActiveText: '选择式神<br>气绝/复活' },
       curse:     { btn: () => btnCurse,          activeText: '⛓️ 选择式神…(Esc取消)', idleText: '⛓️ 灵咒', mobileActiveText: '选择式神<br>结附灵咒' },
@@ -102,9 +103,6 @@
         btn.textContent = entry.activeText;
       }
       document.body.style.cursor = 'crosshair';
-      damageLineSvg.style.display = 'block';
-      const rect = btn.getBoundingClientRect();
-      targetingOrigin = { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
     }
 
     function exitTargetingMode() {
@@ -113,7 +111,6 @@
       btn.classList.remove('active');
       btn.textContent = TARGETING_BTN_MAP[targetingMode].idleText;
       document.body.style.cursor = '';
-      damageLineSvg.style.display = 'none';
     }
 
     // ---- 伤害来源 ----
@@ -498,6 +495,17 @@
       });
     }
 
+    // ---- 回合开始（选择牌手） ----
+    const btnTurnStart = document.getElementById('btn-turn-start');
+    if (btnTurnStart) {
+      btnTurnStart.addEventListener('click', (e) => {
+        dropdownMechanicMenu.hidden = true;
+        if (isTargeting) { exitTargetingMode(); return; }
+        e.stopPropagation();
+        enterTargetingMode('turnstart');
+      });
+    }
+
     // ---- 蓄力 ----
     const btnCharge = document.getElementById('btn-charge');
     if (btnCharge) {
@@ -645,14 +653,6 @@
       enterTargetingMode('curse');
     });
 
-    document.addEventListener('mousemove', (e) => {
-      if (!isTargeting) return;
-      damageLine.setAttribute('x1', targetingOrigin.x);
-      damageLine.setAttribute('y1', targetingOrigin.y);
-      damageLine.setAttribute('x2', e.clientX);
-      damageLine.setAttribute('y2', e.clientY);
-    });
-
     document.addEventListener('keydown', (e) => {
       if (e.key === 'Escape' && isTargeting) {
         exitTargetingMode();
@@ -681,8 +681,8 @@
         return;
       }
 
-      // 入夜 / 赏金 / 启悟 / 命运抉择：选择牌手头像
-      if (targetingMode === 'nightfall' || targetingMode === 'bounty' || targetingMode === 'oracle' || targetingMode === 'fate') {
+      // 入夜 / 赏金 / 启悟 / 命运抉择 / 回合开始：选择牌手头像
+      if (targetingMode === 'nightfall' || targetingMode === 'bounty' || targetingMode === 'oracle' || targetingMode === 'fate' || targetingMode === 'turnstart') {
         const avatar = e.target.closest('.player-avatar');
         if (avatar) {
           const playerId = avatar.dataset.avatarPlayer;
@@ -714,6 +714,8 @@
           } else if (targetingMode === 'fate') {
             if (typeof openFateDialog === 'function') openFateDialog(playerId);
             // 命运抉择内部已有广播
+          } else if (targetingMode === 'turnstart') {
+            applyTurnStart(playerId, myPid, isHelp);
           }
           exitTargetingMode();
           e.preventDefault();
@@ -868,20 +870,26 @@
       if (mode === 'countdown') {
         if (hasCountdown) {
           removeCountdownBadge(slot);
+          slot._baseCountdown = 0;
         } else {
-          const badge = createCountdownBadge('1');
+          const badge = createCountdownBadge('2');   // 默认基础倒计时 2
           // 确保倒计时在能量之前（CSS 兄弟选择器依赖此顺序）
           if (hasEnergy) {
             slot.insertBefore(badge, hasEnergy);
           } else {
             slot.appendChild(badge);
           }
+          // 自动勾选面板中的倒计时，基础倒计时默认 2
+          slot._baseCountdown = 2;
         }
       } else { // energy
         if (hasEnergy) {
           removeEnergyBadge(slot);
+          slot._baseEnergy = 0;
         } else {
-          slot.appendChild(createEnergyBadge('1'));
+          slot.appendChild(createEnergyBadge('0'));   // 默认能量 0
+          // 自动勾选面板中的能量，默认 0
+          slot._baseEnergy = 0;
         }
       }
       syncSlotToPeer(slot);
@@ -889,6 +897,124 @@
       const userName = localPlayerId ? getPlayerName(localPlayerId) : '玩家';
       const label = mode === 'countdown' ? '倒计时' : '能量';
       broadcastSystemMsg(`【系统】${userName}为「${cardName}」设置了${label}`);
+    }
+
+    // ---- 回合开始：气绝/倒计时递减、复活、倒计时重置、能量+1 ----
+    function applyTurnStart(playerId, operatorId, isHelp) {
+      const zone = document.querySelector('.player-zone[data-player="' + playerId + '"]');
+      if (!zone) return;
+      const myName = getPlayerName(operatorId || playerId);
+      const tgtName = getPlayerName(playerId);
+      const msg = isHelp ? `【系统】${myName}触发了${tgtName}的回合开始` : `【系统】${tgtName}触发了回合开始`;
+      // 用消息分组收集结算明细（可展开查看）
+      if (typeof startMessageGroup === 'function') {
+        startMessageGroup(msg, null);
+      } else {
+        broadcastSystemMsg(msg);
+      }
+
+      /** 普通倒计时 -1：动画 + 到期回基础值 + 明细消息 */
+      function tickCountdownOnce(slot, cardName) {
+        const cdInput = slot.querySelector('.card-badge--countdown input');
+        if (!cdInput) return;
+        const before = parseInt(cdInput.value, 10) || 0;
+        let cdV = before;
+        if (cdV > 0) {
+          cdV -= 1;
+          // 沙漏图标旋转一圈动画
+          const cdIcon = slot.querySelector('.card-badge--countdown .badge-icon');
+          if (cdIcon) {
+            cdIcon.classList.add('spin-once');
+            setTimeout(() => cdIcon.classList.remove('spin-once'), 500);
+          }
+        }
+        cdInput.value = cdV;
+        broadcastSystemMsg(`【系统】「${cardName}」倒计时 -1（${before} → ${cdV}）`);
+        if (cdV <= 0) {
+          cdInput.classList.add('turn-bounce');
+          setTimeout(() => {
+            cdInput.classList.remove('turn-bounce');
+            const base = slot._baseCountdown;
+            if (base && base > 0) {
+              if (typeof updateSlotCountdownBadge === 'function') updateSlotCountdownBadge(slot, String(base));
+            } else {
+              if (typeof updateSlotCountdownBadge === 'function') updateSlotCountdownBadge(slot, '');
+            }
+            syncSlotToPeer(slot);
+          }, 500);
+        }
+        syncSlotToPeer(slot);
+      }
+
+      const slots = zone.querySelectorAll('.card-slot');
+      slots.forEach(slot => {
+        if (!slot.classList.contains('has-image')) return;
+        const cardName = (slot.querySelector('.card-name')?.value || '').trim() || '未命名';
+
+        // 1) 气绝倒计时 -1，到 0 后 0.5 秒复活
+        const koInput = slot.querySelector('.ko-circle input');
+        if (koInput) {
+          const beforeKo = parseInt(koInput.value, 10) || 0;
+          let koV = beforeKo;
+          if (koV > 0) {
+            koV -= 1;
+            // 沙漏图标旋转一圈动画
+            const koIcon = slot.querySelector('.ko-circle .ko-icon');
+            if (koIcon) {
+              koIcon.classList.add('spin-once');
+              setTimeout(() => koIcon.classList.remove('spin-once'), 500);
+            }
+          }
+          koInput.value = koV;
+          broadcastSystemMsg(`【系统】「${cardName}」气绝倒计时 -1（${beforeKo} → ${koV}）`);
+          if (koV <= 0) {
+            setTimeout(() => {
+              const overlay = slot.querySelector('.ko-overlay');
+              if (!overlay) return;
+              overlay.remove();
+              if (typeof DamageEffects !== 'undefined' && DamageEffects.playReviveEffect) {
+                DamageEffects.playReviveEffect(slot, overlay);
+              }
+              if (typeof sendToPeer === 'function' && isConnected()) {
+                sendToPeer({ type: 'fx-revive', playerId: slot.dataset.slotPlayer, slotIndex: parseInt(slot.dataset.slotIndex, 10) });
+              }
+              syncSlotToPeer(slot);
+              broadcastSystemMsg(`【系统】「${cardName}」气绝倒计时结束，复活了`);
+              // 复活后：若拥有普通倒计时，再 -1 并作动画
+              if (slot.querySelector('.card-badge--countdown')) {
+                tickCountdownOnce(slot, cardName);
+              }
+            }, 500);
+          }
+          syncSlotToPeer(slot);
+          return;   // 气绝中的式神不加能量
+        }
+
+        // 2) 普通倒计时 -1，到 0 后放大缩小 0.5 秒，再变回基础倒计时数值
+        if (slot.querySelector('.card-badge--countdown')) {
+          tickCountdownOnce(slot, cardName);
+        }
+
+        // 3) 能量检查：仅未气绝的式神，不满 10 则 +1
+        const enInput = slot.querySelector('.card-badge--energy input');
+        if (enInput) {
+          const beforeEn = parseInt(enInput.value, 10) || 0;
+          if (beforeEn < 10) {
+            enInput.value = beforeEn + 1;
+            // 灯笼图标发光一圈动画
+            const enBadge = slot.querySelector('.card-badge--energy');
+            if (enBadge) {
+              enBadge.classList.add('energy-glow');
+              setTimeout(() => enBadge.classList.remove('energy-glow'), 500);
+            }
+            broadcastSystemMsg(`【系统】「${cardName}」能量 +1（${beforeEn} → ${beforeEn + 1}）`);
+            syncSlotToPeer(slot);
+          }
+        }
+      });
+
+      // 结束分组：统一渲染并同步给对方
+      if (typeof endMessageGroup === 'function') endMessageGroup();
     }
 
     // ---- 气绝遮罩逻辑 ----
@@ -979,6 +1105,11 @@
         }
       } else {
         createKoOverlay(slot, '3');
+        // 气绝时普通倒计时重置为基础值
+        if (slot.querySelector('.card-badge--countdown')) {
+          const baseCd = slot._baseCountdown || 2;
+          if (typeof updateSlotCountdownBadge === 'function') updateSlotCountdownBadge(slot, String(baseCd));
+        }
         // 气绝时清除形态，然后重置属性（清临时属性+恢复永久值）
         slot._formName = ''; slot._formAtk = 0; slot._formHp = 0; slot._formAbility = '';
         if (typeof renderFormBadge === 'function') renderFormBadge(slot);
