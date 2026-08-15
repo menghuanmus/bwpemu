@@ -953,6 +953,7 @@
           slot._permAtkMods = []; slot._permHpMods = [];
           slot._permAbility = ''; slot._permEffects = [];
           slot._formName = ''; slot._formAtk = 0; slot._formHp = 0; slot._formAbility = '';
+          if (typeof renderFormBadge === 'function') renderFormBadge(slot);
           slot._tempAtkMods = []; slot._tempHpMods = [];
           if (typeof setSlotCurses === 'function') setSlotCurses(slot, []);
           if (typeof updateSlotCountdownBadge === 'function') updateSlotCountdownBadge(slot, '');
@@ -980,6 +981,7 @@
         createKoOverlay(slot, '3');
         // 气绝时清除形态，然后重置属性（清临时属性+恢复永久值）
         slot._formName = ''; slot._formAtk = 0; slot._formHp = 0; slot._formAbility = '';
+        if (typeof renderFormBadge === 'function') renderFormBadge(slot);
         if (typeof resetToPermStats === 'function') resetToPermStats(slot);
         // 卡图切回基础/觉醒
         if (typeof autoUpdateSlotImage === 'function') autoUpdateSlotImage(slot);

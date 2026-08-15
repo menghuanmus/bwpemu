@@ -30,7 +30,7 @@
   display: flex; align-items: center; gap: 6px;
 }
 .preset-panel__save-btn {
-  padding: 6px 14px; font-size: 18px; font-weight: bold; cursor: pointer;
+  flex: 1; padding: 6px 14px; font-size: 18px; font-weight: bold; cursor: pointer;
   background: linear-gradient(180deg, #4a6a3a, #2a4a18);
   border: 1px solid rgba(160, 220, 120, 0.3); border-radius: 5px;
   color: #b0d080; white-space: nowrap;
@@ -45,6 +45,34 @@
   display: flex; align-items: center; justify-content: center;
 }
 .preset-panel__close:hover { background: rgba(150,180,220, 0.15); color: #80b8e0; }
+
+/* 保存按钮行 + 灯泡说明按钮 */
+.preset-panel__hintrow {
+  display: flex; align-items: center; gap: 6px;
+  padding: 8px 12px; flex-shrink: 0;
+  border-bottom: 1px solid rgba(150,180,220, 0.15);
+}
+.preset-panel__hint-btn {
+  width: 40px; height: 40px; flex-shrink: 0;
+  background: rgba(150,180,220, 0.08); border: 1px solid rgba(150,180,220, 0.25);
+  border-radius: 5px; color: #b0c0e0; font-size: 19px; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+}
+.preset-panel__hint-btn:hover { background: rgba(150,180,220, 0.18); }
+.preset-panel__hint-btn--active {
+  background: rgba(150,180,220, 0.22); border-color: rgba(180,200,240, 0.5);
+}
+
+/* 筛选折叠按钮 */
+.preset-panel__filter-toggle {
+  display: flex; align-items: center; justify-content: center; gap: 6px;
+  width: 100%; padding: 7px 12px; flex-shrink: 0;
+  background: rgba(150,180,220, 0.06); border: none;
+  border-bottom: 1px solid rgba(150,180,220, 0.15);
+  color: #8098c0; font-size: 17px; cursor: pointer;
+}
+.preset-panel__filter-toggle:hover { background: rgba(150,180,220, 0.12); color: #b0c0e0; }
+.preset-panel--filters-collapsed .preset-panel__filter-body { display: none; }
 
 /* 页签 */
 .preset-panel__tabs {

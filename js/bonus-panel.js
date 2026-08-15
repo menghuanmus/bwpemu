@@ -355,6 +355,7 @@ const BonusPanel = (() => {
     // 观众禁止打开加成弹窗（双重保险）
     if (typeof isSpectator !== 'undefined' && isSpectator) return;
     init();
+    currentMobileTab = 'stats';   // 每次打开回到属性页
     const playerId = slot.dataset.slotPlayer;
     const cardName = slot.querySelector('.card-name').value || '(未命名)';
     const playerName = typeof getPlayerName === 'function' ? getPlayerName(playerId) : '玩家' + playerId;
@@ -385,7 +386,9 @@ const BonusPanel = (() => {
   }
 
   /** 手机端 Tab 切换 */
+  let currentMobileTab = 'stats';   // 记住当前页签，重绘后不跳转
   function switchBonusTab(tabName) {
+    currentMobileTab = tabName;
     document.querySelectorAll('.bonus-tab').forEach(function(t) {
       t.classList.toggle('active', t.dataset.bonusTab === tabName);
     });
@@ -457,12 +460,12 @@ const BonusPanel = (() => {
       </div>
       <div class="bonus-tabs">
         <div class="bonus-tab-bar">
-          <button type="button" class="bonus-tab active" data-bonus-tab="stats">属性</button>
-          <button type="button" class="bonus-tab" data-bonus-tab="ability">能力</button>
-          <button type="button" class="bonus-tab" data-bonus-tab="form">形态</button>
-          <button type="button" class="bonus-tab" data-bonus-tab="effects">效果</button>
+          <button type="button" class="bonus-tab${currentMobileTab === 'stats' ? ' active' : ''}" data-bonus-tab="stats">属性</button>
+          <button type="button" class="bonus-tab${currentMobileTab === 'ability' ? ' active' : ''}" data-bonus-tab="ability">能力</button>
+          <button type="button" class="bonus-tab${currentMobileTab === 'form' ? ' active' : ''}" data-bonus-tab="form">形态</button>
+          <button type="button" class="bonus-tab${currentMobileTab === 'effects' ? ' active' : ''}" data-bonus-tab="effects">效果</button>
         </div>
-        <div class="bonus-tab-panel active" data-bonus-panel="stats">
+        <div class="bonus-tab-panel${currentMobileTab === 'stats' ? ' active' : ''}" data-bonus-panel="stats">
           <div class="bonus-section">
             <div class="bonus-section__label">⚔️ 永久属性</div>
             ${permHTML}
@@ -472,7 +475,7 @@ const BonusPanel = (() => {
             ${tempHTML}
           </div>
         </div>
-        <div class="bonus-tab-panel" data-bonus-panel="ability">
+        <div class="bonus-tab-panel${currentMobileTab === 'ability' ? ' active' : ''}" data-bonus-panel="ability">
           <div class="bonus-section">
             <div class="bonus-section__label">🎌 式神派系</div>
             ${factionHTML}
@@ -482,13 +485,13 @@ const BonusPanel = (() => {
             ${abilityHTML}
           </div>
         </div>
-        <div class="bonus-tab-panel" data-bonus-panel="form">
+        <div class="bonus-tab-panel${currentMobileTab === 'form' ? ' active' : ''}" data-bonus-panel="form">
           <div class="bonus-section">
             <div class="bonus-section__label">🎴 形态</div>
             ${formHTML}
           </div>
         </div>
-        <div class="bonus-tab-panel" data-bonus-panel="effects">
+        <div class="bonus-tab-panel${currentMobileTab === 'effects' ? ' active' : ''}" data-bonus-panel="effects">
           <div class="bonus-section">
             <div class="bonus-section__label">📋 效果记录</div>
             ${effectsHTML}

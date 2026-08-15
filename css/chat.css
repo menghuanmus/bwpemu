@@ -395,8 +395,40 @@
       outline: none;
     }
     .curse-random-bar input:focus { border-color: #f8a0d0; }
-    /* 手牌操作互斥开关排：仅手机端显示 */
-    .hand-action-toggles { display: none; }
+    /* 手牌操作互斥开关排（手机/电脑端通用，仅手牌视图显示） */
+    .hand-action-toggles {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 8px;
+    }
+    .hand-action-toggles[hidden] { display: none; }
+    .hand-toggle-btn {
+      flex: 1;
+      padding: 8px 4px;
+      font-size: 14px;
+      font-weight: 600;
+      border-radius: 6px;
+      border: 1px solid rgba(150, 180, 220, 0.4);
+      background: rgba(30, 40, 60, 0.8);
+      color: #c0d0e0;
+      cursor: pointer;
+    }
+    .hand-toggle-btn[hidden] { display: none; }
+    .hand-toggle-btn.active {
+      background: rgba(200, 160, 60, 0.25);
+      border-color: rgba(240, 200, 60, 0.7);
+      color: #f0d860;
+    }
+    #card-list-charge-toggle.active {
+      background: linear-gradient(180deg,#5a3a18,#3a1a08) !important;
+      color: #f0c840 !important;
+      border-color: rgba(240,192,64,0.7) !important;
+    }
+    #card-list-renyin-toggle.active {
+      background: linear-gradient(180deg,#7a5ac8,#5a3aa8) !important;
+      color: #e8d8ff !important;
+      border-color: rgba(180,140,240,0.7) !important;
+    }
     .btn-curse-random {
       padding: 4px 10px;
       border-radius: 4px;
@@ -536,6 +568,15 @@
 
     .btn-card-use:hover {
       background: #4d7a5a;
+    }
+
+    .btn-card-redraw {
+      background: #3d5a7a;
+      border-color: #5a7a9a;
+    }
+
+    .btn-card-redraw:hover {
+      background: #4d6a8a;
     }
 
     .btn-card-discard {

@@ -31,45 +31,43 @@
         }, true);
         console.log('[Tooltip] ✅ 已初始化，监听卡牌名悬浮');
 
-        // ── 手机端：长按卡牌名显示浮窗（单击/滑动不触发） ──
+        // ── 手机端：点击卡图空白区域显示浮窗（按钮/拖动不触发） ──
         const MQ = window.matchMedia('(max-width: 768px)');
-        let longPressTimer = null;
-        let longPressFired = false;
-        let pressX = 0, pressY = 0;
+        let pressX = 0, pressY = 0, pressMoved = false;
         document.addEventListener('pointerdown', function(e) {
-          if (!MQ.matches) return;
-          // 交互控件（按钮/输入框/徽章）不参与长按；点击它们时立即关闭已显示的浮窗
-          const isCardTarget = !_isControl(e.target) && !!_findCardName(e.target);
-          if (!isCardTarget) {
-            if (el && !el.hidden) hide();
-            return;
-          }
-          pressX = e.clientX; pressY = e.clientY;
-          longPressTimer = setTimeout(function() {
-            longPressTimer = null;
-            longPressFired = true;
-            _onMouseOver(e);
-            if (navigator.vibrate) { try { navigator.vibrate(15); } catch(_) {} }
-          }, 450);
+          pressX = e.clientX; pressY = e.clientY; pressMoved = false;
         }, true);
         document.addEventListener('pointermove', function(e) {
-          if (!MQ.matches || !longPressTimer) return;
-          // 长按期间手指移动超过阈值 → 取消（让位给拖动）
-          if (Math.hypot(e.clientX - pressX, e.clientY - pressY) > 12) {
-            clearTimeout(longPressTimer);
-            longPressTimer = null;
-          }
+          if (Math.hypot(e.clientX - pressX, e.clientY - pressY) > 10) pressMoved = true;
         }, true);
         document.addEventListener('pointerup', function(e) {
           if (!MQ.matches) return;
-          if (longPressTimer) { clearTimeout(longPressTimer); longPressTimer = null; }
-          // 浮窗已显示时：点击别处关闭
-          if (longPressFired && !_findCardName(e.target) && el && !el.hidden) hide();
-          longPressFired = false;
+          if (_isControl(e.target)) return;
+          if (pressMoved) return;   // 拖动不算点击
+          // 瞄准模式（选目标）时不弹悬浮窗
+          if (typeof isTargeting !== 'undefined' && isTargeting) return;
+          // 点击预设项：显示该式神的悬浮窗
+          const pItem = e.target.closest ? e.target.closest('.preset-item') : null;
+          if (pItem) {
+            if (_findCardName(e.target)) { _onMouseOver(e); }
+            return;
+          }
+          const slot = e.target.closest ? e.target.closest('.card-slot') : null;
+          if (slot) {
+            const art = slot.querySelector('.card-art');
+            if (art) {
+              const r = art.getBoundingClientRect();
+              if (e.clientX >= r.left && e.clientX <= r.right && e.clientY >= r.top && e.clientY <= r.bottom) {
+                if (_findCardName(e.target)) { _onMouseOver(e); }
+                return;
+              }
+            }
+          }
+          // 点击其他地方：关闭已显示的浮窗
+          if (el && !el.hidden) hide();
         }, true);
         document.addEventListener('pointercancel', function() {
-          if (longPressTimer) { clearTimeout(longPressTimer); longPressTimer = null; }
-          longPressFired = false;
+          pressMoved = false;
         }, true);
       }
 
@@ -114,6 +112,12 @@
         if (target.classList.contains('curse-badge')) {
           const nameEl = target.querySelector('.curse-badge__name');
           if (nameEl) return nameEl.textContent;
+        }
+        // 预设项（预设面板中的式神/召唤物）
+        if (target.classList.contains('preset-item__name')) return target.textContent;
+        if (target.classList.contains('preset-item')) {
+          const pn = target.querySelector('.preset-item__name');
+          if (pn) return pn.textContent;
         }
         // label 包裹的 input
         if (target.classList.contains('card-badge--name')) {

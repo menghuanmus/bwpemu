@@ -595,7 +595,7 @@
         <button class="game-toolbar-btn" id="game-btn-exit" title="退出房间">🚪 退出</button>
       </div>
       <div class="chat-section chat-section--system">
-        <div class="chat-section-title" id="sys-chat-title">📢 系统信息</div>
+        <div class="chat-section-title" id="sys-chat-title"><span id="sys-chat-title-text">📢 系统信息</span></div>
         <div class="chat-section-body" id="chat-system-log"></div>
       </div>
       <div class="chat-section chat-section--player">
@@ -652,6 +652,7 @@
         <button type="button" class="btn-curse-toggle" id="btn-curse-toggle">🔄 优先不重复</button>
       </div>
       <div class="hand-action-toggles" id="hand-action-toggles">
+        <button type="button" class="hand-toggle-btn" data-hand-mode="redraw">调度</button>
         <button type="button" class="hand-toggle-btn" data-hand-mode="discard">弃置</button>
         <button type="button" class="hand-toggle-btn" data-hand-mode="todeck">置入牌库</button>
         <button type="button" class="hand-toggle-btn" data-hand-mode="tooracle">置入启悟区</button>

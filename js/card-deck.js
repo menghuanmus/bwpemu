@@ -293,10 +293,19 @@
         discardBtn.hidden = true; // 默认隐藏，手机端由互斥开关控制，桌面端由 _applyMobileHandMode 恢复
         discardBtn.dataset.discardBtn = 'true';
         discardBtn.addEventListener('click', () => removeFromHand(playerId, card.id, 'discard'));
+        // 调度按钮：与牌库中随机一张牌交换位置
+        const redrawBtn = document.createElement('button');
+        redrawBtn.type = 'button';
+        redrawBtn.className = 'btn-card-action btn-card-redraw';
+        redrawBtn.textContent = '调度';
+        redrawBtn.hidden = true;
+        redrawBtn.dataset.redrawBtn = 'true';
+        redrawBtn.addEventListener('click', () => swapHandWithDeck(playerId, card.id));
         actions.appendChild(useBtn);
         actions.appendChild(chargeBtn);
         actions.appendChild(renyinBtn);
         actions.appendChild(discardBtn);
+        actions.appendChild(redrawBtn);
         // 置入牌库按钮
         const toDeckBtn = document.createElement('button');
         toDeckBtn.type = 'button';
@@ -488,6 +497,11 @@
       // 手机端互斥开关排：仅自己手牌显示
       const togglesRow = document.getElementById('hand-action-toggles');
       if (togglesRow) togglesRow.hidden = (type !== 'hand' || !isViewingOwnCards(playerId));
+      // 置入启悟区开关：仅在该牌手已开启启悟机制时显示
+      const toOracleToggle = document.querySelector('.hand-toggle-btn[data-hand-mode="tooracle"]');
+      if (toOracleToggle) {
+        toOracleToggle.hidden = !(type === 'hand' && isViewingOwnCards(playerId) && typeof oracleActive !== 'undefined' && oracleActive[playerId]);
+      }
       cardListTitle.textContent = title;
       // 先清除牌库汇总（防止切换视图时残留）
       document.getElementById('deck-summary-header').hidden = true;
@@ -547,6 +561,32 @@
       // 飞行动画：牌库 → 手牌
       if (typeof CardFlight !== 'undefined') {
         CardFlight.flyAndBroadcast(playerId, 'deck', 'hand');
+      }
+    }
+
+    /** 调度：手牌与牌库中随机一张牌交换（交换进牌库的牌保持被换走那张的位置） */
+    function swapHandWithDeck(playerId, cardId) {
+      if (typeof isSpectator !== 'undefined' && isSpectator) return;
+      const state = getPlayerCardState(playerId);
+      if (!state.deck.length) {
+        broadcastSystemMsg('【系统】' + getPlayerName(playerId) + '试图调度，但牌库已空');
+        return;
+      }
+      const hi = state.hand.findIndex(card => card.id === cardId);
+      if (hi === -1) return;
+      const di = Math.floor(Math.random() * state.deck.length);
+      const handCard = state.hand[hi];
+      const deckCard = state.deck[di];
+      state.deck[di] = handCard;   // 手牌放入被换走那张牌的原位置
+      state.hand[hi] = deckCard;
+      updateDeckButtons(playerId);
+      refreshOpenListDialog(playerId);
+      syncDeckState(playerId);
+      broadcastSystemMsg('【系统】' + getPlayerName(playerId) + '调度：手牌「' + handCard.name + '」与牌库「' + deckCard.name + '」交换');
+      // 调度动画：一张牌从手牌飞向牌库，一张从牌库飞向手牌（联机双方可见）
+      if (typeof CardFlight !== 'undefined') {
+        CardFlight.flyAndBroadcast(playerId, 'hand', 'deck', { duration: 0.55 });
+        CardFlight.flyAndBroadcast(playerId, 'deck', 'hand', { duration: 0.55 });
       }
     }
 
@@ -1328,43 +1368,37 @@
     const MOBILE_HAND_MQ = window.matchMedia('(max-width: 768px)');
     let _mobileHandMode = '';   // 手机端互斥模式：'' / charge / renyin / discard / todeck / tooracle
 
-    /** 按当前模式统一设置每张牌的按钮显隐（手机端互斥，桌面端恢复原独立逻辑） */
+    /** 按当前模式统一设置每张牌的按钮显隐（手机/电脑端同为互斥模式） */
     function _applyMobileHandMode() {
-      const isMobile = MOBILE_HAND_MQ.matches;
       document.querySelectorAll('.card-list-item__actions .btn-card-action, .card-list-item__actions .btn-card-move-oracle, .card-list-item__actions .btn-card-curse-add').forEach(btn => {
         if (btn.classList.contains('btn-card-use') || btn.classList.contains('btn-card-curse-add')) { btn.hidden = false; return; }
-        if (isMobile) {
-          if (_mobileHandMode === 'discard') btn.hidden = !btn.classList.contains('btn-card-discard');
-          else if (_mobileHandMode === 'todeck') btn.hidden = !btn.classList.contains('btn-card-to-deck');
-          else if (_mobileHandMode === 'tooracle') btn.hidden = !btn.classList.contains('btn-card-move-oracle');
-          else if (_mobileHandMode === 'charge') btn.hidden = !(btn.dataset.chargeBtn === 'true');
-          else if (_mobileHandMode === 'renyin') btn.hidden = !(btn.dataset.renyinBtn === 'true');
-          else btn.hidden = true;
-        } else {
-          if (btn.dataset.chargeBtn === 'true') btn.hidden = !chargeBtnsVisible;
-          else if (btn.dataset.renyinBtn === 'true') btn.hidden = !renyinBtnsVisible;
-          else btn.hidden = false;
-        }
+        if (_mobileHandMode === 'discard') btn.hidden = !btn.classList.contains('btn-card-discard');
+        else if (_mobileHandMode === 'redraw') btn.hidden = !btn.classList.contains('btn-card-redraw');
+        else if (_mobileHandMode === 'todeck') btn.hidden = !btn.classList.contains('btn-card-to-deck');
+        else if (_mobileHandMode === 'tooracle') btn.hidden = !btn.classList.contains('btn-card-move-oracle');
+        else if (_mobileHandMode === 'charge') btn.hidden = !(btn.dataset.chargeBtn === 'true');
+        else if (_mobileHandMode === 'renyin') btn.hidden = !(btn.dataset.renyinBtn === 'true');
+        else btn.hidden = true;
       });
       document.querySelectorAll('.hand-toggle-btn').forEach(b => {
-        b.classList.toggle('active', isMobile && _mobileHandMode === b.dataset.handMode);
+        b.classList.toggle('active', _mobileHandMode === b.dataset.handMode);
       });
-      if (chargeToggleBtn) chargeToggleBtn.classList.toggle('active', isMobile && _mobileHandMode === 'charge');
-      if (renyinToggleBtn) renyinToggleBtn.classList.toggle('active', isMobile && _mobileHandMode === 'renyin');
+      if (chargeToggleBtn) chargeToggleBtn.classList.toggle('active', _mobileHandMode === 'charge');
+      if (renyinToggleBtn) renyinToggleBtn.classList.toggle('active', _mobileHandMode === 'renyin');
     }
 
-    /** 手机端互斥切换（再点一次取消） */
+    /** 互斥切换（再点一次取消），手机/电脑端通用 */
     function _setHandActionMode(mode) {
       _mobileHandMode = (_mobileHandMode === mode) ? '' : mode;
       _applyMobileHandMode();
       _refreshCardListBtnTexts();
     }
 
-    /** 按钮文字：手机端去掉 emoji 图标 */
+    /** 按钮文字：手机端去掉 emoji 图标，电脑端保留 */
     function _refreshCardListBtnTexts() {
       const isMobile = MOBILE_HAND_MQ.matches;
-      if (chargeToggleBtn) chargeToggleBtn.textContent = isMobile ? ('蓄力使用' + (_mobileHandMode === 'charge' ? ' ✓' : '')) : ('🔋 蓄力使用' + (chargeBtnsVisible ? ' ✓' : ''));
-      if (renyinToggleBtn) renyinToggleBtn.textContent = isMobile ? ('连引使用' + (_mobileHandMode === 'renyin' ? ' ✓' : '')) : ('🔗 连引使用' + (renyinBtnsVisible ? ' ✓' : ''));
+      if (chargeToggleBtn) chargeToggleBtn.textContent = isMobile ? ('蓄力使用' + (_mobileHandMode === 'charge' ? ' ✓' : '')) : ('🔋 蓄力使用' + (_mobileHandMode === 'charge' ? ' ✓' : ''));
+      if (renyinToggleBtn) renyinToggleBtn.textContent = isMobile ? ('连引使用' + (_mobileHandMode === 'renyin' ? ' ✓' : '')) : ('🔗 连引使用' + (_mobileHandMode === 'renyin' ? ' ✓' : ''));
       const initBtn = document.getElementById('card-list-initial-hand-btn');
       if (initBtn) initBtn.textContent = isMobile ? '初始手牌' : '🎴 初始手牌';
       const bcr = document.getElementById('btn-curse-random');
@@ -1373,10 +1407,9 @@
       if (bct) bct.textContent = (typeof curseRandomRepeat !== 'undefined' && curseRandomRepeat) ? (isMobile ? '全随机' : '🔁 全随机') : (isMobile ? '优先不重复' : '🔄 优先不重复');
     }
 
-    // 手机端互斥开关：弃置 / 置入牌库 / 置入启悟区
+    // 互斥开关：调度 / 弃置 / 置入牌库 / 置入启悟区（手机/电脑端通用）
     document.querySelectorAll('.hand-toggle-btn').forEach(btn => {
       btn.addEventListener('click', () => {
-        if (!MOBILE_HAND_MQ.matches) return;
         if (btn.dataset.handMode === 'tooracle') {
           const pid = cardListContext ? cardListContext.playerId : (localPlayerId || '1');
           if (!(typeof oracleActive !== 'undefined' && oracleActive[pid])) {
@@ -1391,35 +1424,17 @@
     window.resetChargeToggle = function() {
       chargeBtnsVisible = false;
       _mobileHandMode = '';
-      document.querySelectorAll('[data-charge-btn]').forEach(btn => { btn.hidden = true; });
       _refreshCardListBtnTexts();
+      _applyMobileHandMode();
     };
     window.reapplyChargeToggle = function() {
-      if (chargeBtnsVisible) {
-        document.querySelectorAll('[data-charge-btn]').forEach(btn => { btn.hidden = false; });
-      }
+      _applyMobileHandMode();
     };
     if (chargeToggleBtn) {
       chargeToggleBtn.style.background = 'linear-gradient(180deg,#3a2a10,#2a1a08)';
       chargeToggleBtn.style.color = '#c0a060';
       chargeToggleBtn.style.borderColor = 'rgba(200,160,60,0.4)';
-      chargeToggleBtn.addEventListener('click', () => {
-        if (MOBILE_HAND_MQ.matches) { _setHandActionMode('charge'); return; }
-        chargeBtnsVisible = !chargeBtnsVisible;
-        document.querySelectorAll('[data-charge-btn]').forEach(btn => {
-          btn.hidden = !chargeBtnsVisible;
-        });
-        if (chargeBtnsVisible) {
-          chargeToggleBtn.style.background = 'linear-gradient(180deg,#5a3a18,#3a1a08)';
-          chargeToggleBtn.style.color = '#f0c840';
-          chargeToggleBtn.style.borderColor = 'rgba(240,192,64,0.7)';
-        } else {
-          chargeToggleBtn.style.background = 'linear-gradient(180deg,#3a2a10,#2a1a08)';
-          chargeToggleBtn.style.color = '#c0a060';
-          chargeToggleBtn.style.borderColor = 'rgba(200,160,60,0.4)';
-        }
-        _refreshCardListBtnTexts();
-      });
+      chargeToggleBtn.addEventListener('click', () => { _setHandActionMode('charge'); });
     }
 
     // 连引使用切换按钮
@@ -1429,30 +1444,14 @@
       // 初始样式
       renyinToggleBtn.style.background = 'linear-gradient(180deg,#4a3a6a,#3a2a5a)';
       renyinToggleBtn.style.color = '#c0b0e0';
-      renyinToggleBtn.addEventListener('click', () => {
-        if (MOBILE_HAND_MQ.matches) { _setHandActionMode('renyin'); return; }
-        renyinBtnsVisible = !renyinBtnsVisible;
-        document.querySelectorAll('[data-renyin-btn]').forEach(btn => {
-          btn.hidden = !renyinBtnsVisible;
-        });
-        if (renyinBtnsVisible) {
-          renyinToggleBtn.style.background = 'linear-gradient(180deg,#7a5ac8,#5a3aa8)';
-          renyinToggleBtn.style.color = '#e8d8ff';
-          renyinToggleBtn.style.borderColor = 'rgba(180,140,240,0.7)';
-        } else {
-          renyinToggleBtn.style.background = 'linear-gradient(180deg,#4a3a6a,#3a2a5a)';
-          renyinToggleBtn.style.color = '#c0b0e0';
-          renyinToggleBtn.style.borderColor = 'rgba(140,120,180,0.4)';
-        }
-        _refreshCardListBtnTexts();
-      });
+      renyinToggleBtn.addEventListener('click', () => { _setHandActionMode('renyin'); });
     }
 
     // 随机结附灵咒
     let curseRandomRepeat = false; // false=优先不重复, true=全随机
     document.getElementById('btn-curse-toggle').addEventListener('click', function() {
       curseRandomRepeat = !curseRandomRepeat;
-      this.textContent = curseRandomRepeat ? '🔁 全随机' : '🔄 优先不重复';
+      _refreshCardListBtnTexts();
     });
 
     document.getElementById('btn-curse-random').addEventListener('click', () => {

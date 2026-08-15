@@ -473,7 +473,7 @@
   /* ── 聊天栏：底部横条 ── */
   .chat-sidebar {
     width: 100%;
-    height: 132px;
+    height: 182px;   /* 原 132px，加高 50px（战场相应降低 50px） */
     flex-shrink: 0;
     flex-direction: row;
     align-items: stretch;
@@ -706,29 +706,28 @@
   .dropdown-other__item[data-action="load-game"] {
     display: none;
   }
-  /* 退出房间：红色醒目，与上面分隔 */
-  #game-btn-exit.dropdown-other__item {
-    color: #FB7185;
-    border-top: 1px solid rgba(251, 113, 133, 0.25);
-    border-radius: 0;
-    margin-top: 4px;
-    padding-top: 10px;
-  }
+  /* 塞进"其他"菜单里的设置/退出：与菜单项样式完全统一，仅退出为红字 */
   #game-btn-settings.dropdown-other__item,
   #game-btn-exit.dropdown-other__item {
     flex: none;
     display: block;
     width: 100%;
-    padding: 10px 12px;
-    font-size: 14px;
+    padding: 9px 10px;
+    font-size: 13px;
     background: transparent;
-    border-left: none;
-    border-right: none;
-    border-bottom: none;
+    border: none;
+    border-radius: 4px;
     text-align: left;
   }
   #game-btn-settings.dropdown-other__item {
     color: #d8c8a8;
+  }
+  #game-btn-exit.dropdown-other__item {
+    color: #FB7185;
+  }
+  #game-btn-settings.dropdown-other__item:hover,
+  #game-btn-exit.dropdown-other__item:hover {
+    background: rgba(190, 160, 110, 0.15);
   }
 
   /* ── 下方玩家信息列：下移到操作按钮排和聊天栏之间 ── */
@@ -1060,7 +1059,7 @@
 
   /* ── 气绝遮罩数字缩小 ── */
   .ko-circle input { font-size: 16px; }
-  .ko-circle .ko-icon { font-size: 20px; top: -8px; left: -8px; }
+  .ko-circle .ko-icon { font-size: 20px; top: -8px; left: -16px; }
 
   /* ── 蓄力光环：光点只环绕卡图虚线框 ── */
   @keyframes charge-dot-orbit {
@@ -1149,15 +1148,23 @@
     color: #f0d860;
   }
 
-  /* Tab 面板：只显示当前页，页内可滚 */
+  /* Tab 面板：只显示当前页，页内可滚（flex 撑满，内容多时可滚动） */
+  .bonus-tabs {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-height: 0;
+  }
+  .bonus-tab-bar { flex-shrink: 0; }
   .bonus-tab-panel {
     display: none;
+    flex: 1;
+    min-height: 0;
     overflow-y: auto;
-    max-height: calc(86vh - 210px);
-    max-height: calc(86dvh - 210px);
     -webkit-overflow-scrolling: touch;
   }
   .bonus-tab-panel.active { display: block; }
+  .bonus-actions { flex-shrink: 0; }
   .bonus-columns { flex-direction: column; gap: 10px; }
   .bonus-dialog__header { padding: 12px 14px 10px; }
   .bonus-dialog__title { font-size: 18px; }
@@ -1369,6 +1376,137 @@
     height: auto;
   }
 
+  /* ── 牌表侧窗：手机端压缩牌库时给牌库加灰暗遮罩、牌表可滚动 ── */
+  .deck-breakdown-panel {
+    width: 42vw;
+    max-width: 200px;
+    max-height: 70dvh;
+  }
+  .deck-breakdown__body {
+    min-height: 0;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  /* 牌表打开时：被压缩的牌库界面罩灰暗遮罩并禁止点击 */
+  #card-list-dialog-overlay:has(.deck-breakdown-panel:not([hidden])) .card-list-dialog::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    z-index: 10;
+    border-radius: inherit;
+    background: rgba(8, 12, 20, 0.72);
+  }
+
+  /* ── 式神录手机适配：派系按钮两行均分、列表横排滑动、详情下方可滚 ── */
+  .shikigami-book-dialog {
+    width: 96%;
+    height: 88dvh;
+    padding: 10px 10px;
+  }
+  .shikigami-book__header { flex-wrap: wrap; row-gap: 6px; }
+  .shikigami-book__header h3 { font-size: 18px; }
+  .shikigami-book__header .btn-dialog-cancel { font-size: 14px; padding: 6px 12px; }
+  .shikigami-book__factions {
+    order: 3;
+    width: 100%;
+    gap: 4px;
+  }
+  .book-faction-btn {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 5px 2px;
+    font-size: 12px;
+    line-height: 1.2;
+  }
+  .book-faction-btn img { margin-right: 0 !important; margin-bottom: 2px; }
+  .shikigami-book__body { flex-direction: column; gap: 6px; }
+  .shikigami-book__left { width: 100%; flex-shrink: 0; gap: 4px; }
+  .shikigami-book__list {
+    flex-direction: row;
+    overflow-x: auto;
+    overflow-y: hidden;
+    gap: 6px;
+    padding-bottom: 4px;
+    max-height: 64px;
+    -webkit-overflow-scrolling: touch;
+  }
+  .shikigami-book__item {
+    flex-shrink: 0;
+    font-size: 14px;
+    padding: 8px 14px;
+    border-radius: 14px;
+    background: rgba(15, 25, 42, 0.5);
+    border: 1px solid rgba(150, 180, 220, 0.15);
+  }
+  .shikigami-book__item--active {
+    border-color: rgba(120, 180, 240, 0.6);
+  }
+  .shikigami-book__section-header {
+    flex-shrink: 0;
+    margin: 0;
+    border-top: none;
+    padding: 8px 14px;
+    font-size: 12px;
+  }
+  .shikigami-book__right {
+    flex: 1;
+    min-height: 0;
+    padding-left: 0;
+    border-left: none;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* ── 预设面板手机适配 ── */
+  .preset-panel {
+    width: 80vw;
+    max-width: 310px;
+    left: -110vw;
+  }
+  .preset-panel--visible { left: 0; }
+  .preset-panel--drag-hidden { left: -110vw !important; transition: left 0.1s ease; }
+  .preset-ghost { box-shadow: 0 8px 24px rgba(0, 0, 0, 0.6); border-radius: 8px; }
+
+  /* 拖动支持：条目只允许浏览器管上下滚动（列表），水平拖动交给 JS，否则拖不动 */
+  .preset-item {
+    touch-action: pan-y;
+    -webkit-touch-callout: none;
+    -webkit-user-select: none;
+    user-select: none;
+  }
+  /* 拖动激活后锁住列表滚动，防止拖到一半被浏览器抢走手势导致 ghost 卡住 */
+  .preset-panel--dragging .preset-panel__list { overflow: hidden; }
+
+  /* 派系筛选按钮：横排紧凑，高度减半 */
+  .preset-faction-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 3px;
+    min-width: 0;
+    padding: 5px 2px;
+    font-size: 14px;
+  }
+  .preset-faction-btn br { display: none; }
+  .preset-faction-btn__icon {
+    width: 18px;
+    height: 18px;
+    margin: 0;
+    display: inline-block;
+  }
+
+  /* 拖拽式神/预设到槽上时的黄框（和游戏内移动式神样式一致） */
+  .card-slot.drag-over {
+    outline: none;
+    border-color: #ffd700;
+    border-style: solid;
+    box-shadow: 0 0 16px rgba(255, 215, 0, 0.35);
+    background: rgba(255, 215, 0, 0.06);
+  }
+
   /* ── 手牌/牌库弹窗：互斥开关排 + 紧凑按钮 + 灵咒栏收缩 ── */
   .card-list-dialog {
     width: 94%;
@@ -1381,6 +1519,7 @@
     margin-bottom: 8px;
   }
   .hand-action-toggles[hidden] { display: none; }
+  .hand-toggle-btn[hidden] { display: none; }
   .hand-toggle-btn {
     flex: 1;
     padding: 8px 4px;
@@ -1405,16 +1544,25 @@
   }
   .curse-random-bar { gap: 4px; padding: 5px 6px; }
   .curse-random-bar input {
-    flex: 0 1 64px;
-    min-width: 48px;
+    flex: 1 1 auto;   /* 自适应宽度，与旁边两个按钮刚好配满 */
+    min-width: 0;
     font-size: 16px;   /* iOS 聚焦防缩放 */
   }
   .curse-random-bar .btn-curse-random,
   .curse-random-bar .btn-curse-toggle {
     font-size: 11px;
     padding: 5px 8px;
+    flex-shrink: 0;
   }
-  /* iOS 输入框聚焦防页面缩放：弹窗内输入一律 ≥16px */
+  /* iOS 输入框聚焦防页面缩放：所有输入框 ≥16px（战场小徽章除外） */
+  input, textarea, select {
+    font-size: 16px;
+  }
+  .card-badge input,
+  .bounty-input,
+  .nightfall-input {
+    font-size: 12px;   /* 卡槽小徽章/赏金/入夜输入保持小字号 */
+  }
   .speak-dialog textarea,
   .speak-dialog input[type="text"] {
     font-size: 16px;

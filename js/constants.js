@@ -305,7 +305,7 @@
             btn = document.createElement('button');
             btn.type = 'button';
             btn.className = 'btn-mobile-realm';
-            btn.textContent = '🏞';
+            btn.textContent = '✨';
             btn.title = '幻境/效果';
             bar.appendChild(btn);
             btn.addEventListener('click', function(e) {

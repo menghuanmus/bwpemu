@@ -49,7 +49,7 @@
     }
 
     function updateSysChatTitle() {
-      const el = document.getElementById('sys-chat-title');
+      const el = document.getElementById('sys-chat-title-text');
       if (!el) return;
       var isMobile = (typeof window.matchMedia === 'function') && window.matchMedia('(max-width: 768px)').matches;
       var icon = isMobile ? '' : '📢 ';

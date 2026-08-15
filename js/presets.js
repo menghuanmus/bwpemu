@@ -228,36 +228,40 @@ const Presets = (() => {
     if (_panelEl) return;
     _panelEl = document.createElement('div');
     _panelEl.id = 'preset-panel';
-    _panelEl.className = 'preset-panel';
+    _panelEl.className = 'preset-panel preset-panel--filters-collapsed';
     _panelEl.innerHTML = `
       <div class="preset-panel__header">
-        <span class="preset-panel__title">📦 预设</span>
-        <div class="preset-panel__header-actions">
-          <button type="button" class="preset-panel__save-btn" id="preset-save-btn" title="从战场保存式神/召唤物">💾 从战场保存</button>
-          <button type="button" class="preset-panel__close" id="preset-panel-close">✕</button>
-        </div>
+        <span class="preset-panel__title">预设</span>
+        <button type="button" class="preset-panel__close" id="preset-panel-close">✕</button>
       </div>
-      <div class="preset-panel__hint">💡 你可以拖动式神/召唤物至战场，或是将战场上的式神/召唤物保存至临时预设</div>
+      <div class="preset-panel__hintrow">
+        <button type="button" class="preset-panel__save-btn" id="preset-save-btn" title="从战场保存式神/召唤物">从战场保存</button>
+        <button type="button" class="preset-panel__hint-btn" id="preset-hint-btn" title="使用说明">💡</button>
+      </div>
+      <div class="preset-panel__hint" id="preset-hint" style="display:none;">你可以拖动式神至战场，或保存战场上的至临时预设</div>
       <div class="preset-panel__tabs">
         <button type="button" class="preset-tab preset-tab--active" data-tab="default">官方式神</button>
         <button type="button" class="preset-tab" data-tab="git">DIY式神</button>
         <button type="button" class="preset-tab" data-tab="temp">临时预设</button>
       </div>
       <div class="preset-panel__save-picker" id="preset-save-picker" style="display:none;"></div>
-      <div class="preset-panel__filters">
-        <button type="button" class="preset-filter-btn preset-filter-btn--active" data-filter="all">全部</button>
-        <button type="button" class="preset-filter-btn" data-filter="shikigami">式神</button>
-        <button type="button" class="preset-filter-btn" data-filter="summon">召唤物</button>
-      </div>
-      <div class="preset-panel__factions" id="preset-faction-filters">
-        <button type="button" class="preset-faction-btn preset-faction-btn--active" data-faction="红莲"><img src="' + (window._IMAGE_BASE || '') + '/images/派系/红莲.png" class="preset-faction-btn__icon"><br>红莲</button>
-        <button type="button" class="preset-faction-btn preset-faction-btn--active" data-faction="紫岩"><img src="' + (window._IMAGE_BASE || '') + '/images/派系/紫岩.png" class="preset-faction-btn__icon"><br>紫岩</button>
-        <button type="button" class="preset-faction-btn preset-faction-btn--active" data-faction="青岚"><img src="' + (window._IMAGE_BASE || '') + '/images/派系/青岚.png" class="preset-faction-btn__icon"><br>青岚</button>
-        <button type="button" class="preset-faction-btn preset-faction-btn--active" data-faction="苍叶"><img src="' + (window._IMAGE_BASE || '') + '/images/派系/苍叶.png" class="preset-faction-btn__icon"><br>苍叶</button>
-        <button type="button" class="preset-faction-btn preset-faction-btn--active" data-faction="无相"><span class="preset-faction-btn__icon">🌐</span><br>无相</button>
-      </div>
-      <div class="preset-panel__filters">
-        <input type="text" class="preset-search" id="preset-search" placeholder="🔍 搜索…">
+      <button type="button" class="preset-panel__filter-toggle" id="preset-filter-toggle"><span id="preset-filter-toggle-arrow">▸</span> 筛选</button>
+      <div class="preset-panel__filter-body" id="preset-filter-body">
+        <div class="preset-panel__filters">
+          <button type="button" class="preset-filter-btn preset-filter-btn--active" data-filter="all">全部</button>
+          <button type="button" class="preset-filter-btn" data-filter="shikigami">式神</button>
+          <button type="button" class="preset-filter-btn" data-filter="summon">召唤物</button>
+        </div>
+        <div class="preset-panel__factions" id="preset-faction-filters">
+          <button type="button" class="preset-faction-btn preset-faction-btn--active" data-faction="红莲"><img src="images/派系/红莲.png" class="preset-faction-btn__icon"><br>红莲</button>
+          <button type="button" class="preset-faction-btn preset-faction-btn--active" data-faction="紫岩"><img src="images/派系/紫岩.png" class="preset-faction-btn__icon"><br>紫岩</button>
+          <button type="button" class="preset-faction-btn preset-faction-btn--active" data-faction="青岚"><img src="images/派系/青岚.png" class="preset-faction-btn__icon"><br>青岚</button>
+          <button type="button" class="preset-faction-btn preset-faction-btn--active" data-faction="苍叶"><img src="images/派系/苍叶.png" class="preset-faction-btn__icon"><br>苍叶</button>
+          <button type="button" class="preset-faction-btn preset-faction-btn--active" data-faction="无相"><span class="preset-faction-btn__icon">🌐</span><br>无相</button>
+        </div>
+        <div class="preset-panel__filters">
+          <input type="text" class="preset-search" id="preset-search" placeholder="🔍 搜索…">
+        </div>
       </div>
       <div class="preset-panel__list" id="preset-list"></div>
     `;
@@ -265,6 +269,19 @@ const Presets = (() => {
 
     // 事件
     _panelEl.querySelector('#preset-panel-close').addEventListener('click', hide);
+    // 灯泡按钮：点击显示/隐藏使用说明
+    _panelEl.querySelector('#preset-hint-btn').addEventListener('click', () => {
+      const hint = _panelEl.querySelector('#preset-hint');
+      const hintBtn = _panelEl.querySelector('#preset-hint-btn');
+      const show = hint.style.display === 'none';
+      hint.style.display = show ? '' : 'none';
+      hintBtn.classList.toggle('preset-panel__hint-btn--active', show);
+    });
+    // 筛选折叠按钮：收起/展开类型+派系+搜索
+    _panelEl.querySelector('#preset-filter-toggle').addEventListener('click', () => {
+      const collapsed = _panelEl.classList.toggle('preset-panel--filters-collapsed');
+      _panelEl.querySelector('#preset-filter-toggle-arrow').textContent = collapsed ? '▸' : '▾';
+    });
     _panelEl.querySelectorAll('.preset-tab').forEach(tab => {
       tab.addEventListener('click', () => {
         _panelEl.querySelectorAll('.preset-tab').forEach(t => t.classList.remove('preset-tab--active'));
@@ -305,6 +322,97 @@ const Presets = (() => {
     // 悬浮信息窗
     _panelEl.querySelector('#preset-list').addEventListener('mouseenter', _onPresetHover, true);
     _panelEl.querySelector('#preset-list').addEventListener('mouseleave', _onPresetLeave, true);
+
+    // ── 手机端：触摸拖动预设项到战场（面板左移隐藏，松开放置/空处取消后移回） ──
+    // 修复要点：
+    // 1. 条目用 touch-action:pan-y（见 mobile.css），水平拖动时浏览器不接管，pointermove 才能持续派发
+    // 2. 拖动激活后锁住列表滚动，避免拖到一半被浏览器抢走手势导致 ghost 卡住
+    // 3. 处理 pointercancel（浏览器接手滚动等）→ 清理并恢复面板
+    // 4. ghost 位置用 rAF + transform 更新，避免卡顿
+    const PRESET_MQ = window.matchMedia('(max-width: 768px)');
+    let _mobileDrag = null;
+    let _mobileDragRaf = null;
+    function _mobileDragReset(restorePanel) {
+      const restore = restorePanel && _mobileDrag ? _mobileDrag.wasVisible : false;
+      if (_mobileDrag && _mobileDrag.ghost) _mobileDrag.ghost.remove();
+      _mobileDrag = null;
+      if (_mobileDragRaf) { cancelAnimationFrame(_mobileDragRaf); _mobileDragRaf = null; }
+      _panelEl.classList.remove('preset-panel--drag-hidden');
+      _panelEl.classList.remove('preset-panel--dragging');
+      // 清除卡槽拖拽高亮
+      document.querySelectorAll('.card-slot.drag-over').forEach(s => s.classList.remove('drag-over'));
+      if (restore && !_panelEl.classList.contains('preset-panel--visible')) {
+        _panelEl.classList.add('preset-panel--visible');
+      }
+    }
+    _panelEl.querySelector('#preset-list').addEventListener('pointerdown', function(e) {
+      if (!PRESET_MQ.matches) return;
+      const item = e.target.closest ? e.target.closest('.preset-item') : null;
+      if (!item) return;
+      _mobileDragReset(false);
+      _mobileDrag = {
+        id: item.dataset.presetId,
+        pointerId: e.pointerId,
+        startX: e.clientX, startY: e.clientY,
+        lastX: e.clientX, lastY: e.clientY,
+        dragging: false, ghost: null,
+        wasVisible: _panelEl.classList.contains('preset-panel--visible'),
+      };
+    }, true);
+    if (!window._presetMobileDragBound) {
+      window._presetMobileDragBound = true;
+      document.addEventListener('pointermove', function(e) {
+        if (!_mobileDrag || e.pointerId !== _mobileDrag.pointerId) return;
+        if (!_mobileDrag.dragging) {
+          const dx = e.clientX - _mobileDrag.startX;
+          const dy = e.clientY - _mobileDrag.startY;
+          // 水平方向为主且超过阈值才算拖拽；上下滑动仍归列表滚动
+          if (Math.abs(dx) < 12 || Math.abs(dx) <= Math.abs(dy) * 1.1) return;
+          _mobileDrag.dragging = true;
+          _panelEl.classList.remove('preset-panel--visible');
+          _panelEl.classList.add('preset-panel--drag-hidden');
+          _panelEl.classList.add('preset-panel--dragging');
+          const ghost = document.createElement('div');
+          ghost.className = 'preset-item preset-ghost';
+          const src = document.querySelector('.preset-item[data-preset-id="' + _mobileDrag.id + '"]');
+          if (src) ghost.innerHTML = src.innerHTML;
+          ghost.style.cssText = 'position:fixed;left:0;top:0;width:80px;z-index:1600;pointer-events:none;opacity:0.92;transform:translate3d(0,0,0);will-change:transform;';
+          document.body.appendChild(ghost);
+          _mobileDrag.ghost = ghost;
+        }
+        if (!_mobileDrag.ghost) return;
+        _mobileDrag.lastX = e.clientX;
+        _mobileDrag.lastY = e.clientY;
+        if (!_mobileDragRaf) {
+          _mobileDragRaf = requestAnimationFrame(function() {
+            _mobileDragRaf = null;
+            if (!_mobileDrag || !_mobileDrag.ghost) return;
+            _mobileDrag.ghost.style.transform = 'translate3d(' + (_mobileDrag.lastX - 40) + 'px,' + (_mobileDrag.lastY - 52) + 'px,0)';
+            // 手指下的式神槽显示黄框（和游戏内移动式神一致）
+            document.querySelectorAll('.card-slot.drag-over').forEach(s => s.classList.remove('drag-over'));
+            const elUnder = document.elementFromPoint(_mobileDrag.lastX, _mobileDrag.lastY);
+            const slot = elUnder ? elUnder.closest('.card-slot') : null;
+            if (slot) slot.classList.add('drag-over');
+          });
+        }
+      }, true);
+      document.addEventListener('pointerup', function(e) {
+        if (!_mobileDrag || e.pointerId !== _mobileDrag.pointerId) return;
+        const d = _mobileDrag;
+        const wasDragging = d.dragging;
+        _mobileDragReset(false);
+        if (!wasDragging) return;   // 未拖动 = 点击，交给悬浮窗处理
+        // 放置：落点在卡槽则部署，否则视为取消；结束后面板移回
+        const elUnder = document.elementFromPoint(e.clientX, e.clientY);
+        const slot = elUnder ? elUnder.closest('.card-slot') : null;
+        if (slot) deployToSlot(d.id, slot);
+        if (d.wasVisible) _panelEl.classList.add('preset-panel--visible');
+      }, true);
+      document.addEventListener('pointercancel', function(e) {
+        if (!_mobileDrag || e.pointerId !== _mobileDrag.pointerId) return;
+        _mobileDragReset(true);   // 浏览器接管手势（如列表滚动）→ 清理并恢复面板
+      }, true);
+    }
   }
 
   function _render() {
