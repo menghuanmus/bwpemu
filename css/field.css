@@ -771,7 +771,8 @@
       display: none !important;
     }
 
-    #image-input {
+    #image-input,
+    #avatar-input {
       position: fixed;
       left: -9999px;
       width: 1px;

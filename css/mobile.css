@@ -100,38 +100,57 @@
   }
   .lobby-sidebar-user {
     flex: 1;
-    display: flex;
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    grid-template-areas: "avatar name" "avatar username";
     align-items: center;
-    gap: 10px;
+    column-gap: 8px;
+    row-gap: 2px;
     padding: 0;
     margin: 0;
     border-bottom: none;
     min-width: 0;
   }
   .lobby-sidebar-avatar {
+    grid-area: avatar;
     width: 40px; height: 40px;
     margin: 0;
     font-size: 1.2rem;
     flex-shrink: 0;
   }
   .lobby-sidebar-name {
-    font-size: 1.05rem;
+    grid-area: name;
+    font-size: 1rem;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
   }
-  .lobby-sidebar-username { font-size: 0.85rem; margin-top: 1px; }
+  .lobby-sidebar-username { grid-area: username; font-size: 0.8rem; margin-top: 0; }
 
-  /* 侧栏底部"退出登录"挪进顶部条 */
-  .lobby-sidebar-footer {
-    padding: 0;
-    border-top: none;
-    flex-shrink: 0;
-  }
+  /* 侧栏底部"退出登录"：按钮已由 JS 移到"我的"页签标题右侧 */
+  .lobby-sidebar-footer { display: none; }
   .lobby-sidebar-logout {
-    font-size: 1rem;
-    padding: 10px 12px;
     display: inline-block;
+    width: 2.8em;         /* 每排 2 字 */
+    font-size: 1rem;
+    line-height: 1.45;
+    text-align: center;
+    word-break: break-all;
+    white-space: normal;
+    padding: 6px 4px;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    border-radius: 8px;
+    border: 1px solid rgba(251, 113, 133, 0.45);
+    background: linear-gradient(180deg, rgba(125, 45, 52, 0.6), rgba(70, 22, 28, 0.6));
+    color: #f3a8ad;
+  }
+  /* "我的"页签标题：保持大标题+小标题两排，退出按钮悬浮右上角 */
+  #panel-profile .lobby-panel-header { position: relative; margin-bottom: 18px; }
+  #panel-profile .lobby-panel-header .lobby-sidebar-logout {
+    position: absolute;
+    top: 0;
+    right: 0;
   }
 
   /* 大厅内容区全宽 */
@@ -265,9 +284,12 @@
     flex-direction: column;
     height: 100vh;
     height: 100dvh;          /* 动态视口：手机地址栏收起/展开时自适应 */
+    min-height: 720px;       /* 战场固定最小高度，屏幕不够高时页面可上下滚动 */
     padding: 4px;
     gap: 4px;
   }
+  /* 小屏手机：允许页面上下滚动（body 默认锁了滚动） */
+  body { overflow-y: auto; }
 
   /* 战场占满剩余高度 */
   .board-main { flex: 1; min-height: 0; }

@@ -835,12 +835,45 @@
 @media (max-width: 700px) {
   .lobby-shell { flex-direction: column; height: auto; max-height: none; }
   .lobby-sidebar { width: 100%; flex-direction: row; align-items: center; padding: 14px 18px; }
-  .lobby-sidebar-user { border-bottom: none; padding: 0; margin: 0; display: flex; align-items: center; gap: 10px; }
-  .lobby-sidebar-avatar { width: 36px; height: 36px; margin: 0; font-size: 1rem; }
+  /* 手机端：头像左，右侧名称/账号两排 */
+  .lobby-sidebar-user {
+    border-bottom: none; padding: 0; margin: 0;
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    grid-template-areas: "avatar name" "avatar username";
+    align-items: center;
+    column-gap: 8px;
+    row-gap: 2px;
+  }
+  .lobby-sidebar-avatar { grid-area: avatar; width: 36px; height: 36px; margin: 0; font-size: 1rem; }
+  .lobby-sidebar-name { grid-area: name; font-size: 1rem; }
+  .lobby-sidebar-username { grid-area: username; margin-top: 0; font-size: 0.85rem; }
   .lobby-nav { display: flex; padding: 0; gap: 6px; }
   .lobby-nav-item { padding: 8px 12px; font-size: 1.1rem; }
+  .lobby-nav-icon { display: none; }   /* 手机端导航去掉图标，只留 2 字文字 */
   .lobby-nav-item.active { box-shadow: none; border-bottom: 2px solid #7C83FF; }
+  /* 手机端：退出登录按钮移到"我的"页签标题右侧（由 JS 移动） */
   .lobby-sidebar-footer { display: none; }
+  .lobby-sidebar-logout {
+    display: inline-block;
+    width: 2.8em;          /* 每排 2 字 */
+    font-size: 1rem;
+    line-height: 1.3;
+    text-align: center;
+    word-break: break-all;
+    white-space: normal;
+    padding: 6px 4px;
+    border: 1px solid rgba(251, 113, 133, 0.35);
+    border-radius: 8px;
+    background: rgba(251, 113, 133, 0.06);
+    color: #FB7185;
+  }
+  #panel-profile .lobby-panel-header { position: relative; margin-bottom: 20px; }
+  #panel-profile .lobby-panel-header .lobby-sidebar-logout {
+    position: absolute;
+    top: 0;
+    right: 0;
+  }
   .lobby-panel { padding: 24px; }
 }
 #game-view.active { display: block; }

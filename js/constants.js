@@ -6,7 +6,7 @@
     // ================================================================
     //  全局常量
     // ================================================================
-    const APP_VERSION = 'v0.37';
+    const APP_VERSION = 'v0.38';
     const APP_TITLE = '百闻牌模拟器';
 
     /** 调试模式：0=关闭 1=开启（显示隐藏的编辑器按钮） */
@@ -17,7 +17,7 @@
      * 本地开发调试时改为 2，上传正式服时改回 1
      * 手机/远程测试：网址加 ?env=2 连测试服，?env=1 连正式服（URL 参数优先级最高）
      */
-    const SERVER_ENV_DEFAULT = 1;
+    const SERVER_ENV_DEFAULT = 2;
     let SERVER_ENV = SERVER_ENV_DEFAULT;
     try {
       const _urlEnv = new URLSearchParams(window.location.search).get('env');
@@ -454,7 +454,22 @@
         if (typeof _refreshShopInvBtnText === 'function') _refreshShopInvBtnText();
       }
 
-      function layoutMobile() { placeSpeakBtn(); placeCursePanel(); placeToolbarButtons(); stripMobileIcons(); formatDeckButtons(); placeRealmButtons(); placeChatExpand(); placeShopButtons(); if (typeof updateAllDeckButtons === 'function') updateAllDeckButtons(); }
+      // 9) 手机端：退出登录按钮移到"我的"页签标题右侧（桌面端留在侧栏底部）
+      function placeLobbyLogout() {
+        var isMobile = MOBILE_MQ.matches;
+        var btn = document.getElementById('lobby-logout-btn');
+        if (!btn) return;
+        var footer = btn.closest('.lobby-sidebar-footer');
+        var header = document.querySelector('#panel-profile .lobby-panel-header');
+        if (!footer || !header) return;
+        if (isMobile) {
+          if (btn.parentElement !== header) header.appendChild(btn);
+        } else {
+          if (btn.parentElement === header) footer.appendChild(btn);
+        }
+      }
+
+      function layoutMobile() { placeSpeakBtn(); placeCursePanel(); placeToolbarButtons(); stripMobileIcons(); formatDeckButtons(); placeRealmButtons(); placeChatExpand(); placeShopButtons(); placeLobbyLogout(); if (typeof updateAllDeckButtons === 'function') updateAllDeckButtons(); }
       if (MOBILE_MQ.addEventListener) MOBILE_MQ.addEventListener('change', layoutMobile);
       else if (MOBILE_MQ.addListener) MOBILE_MQ.addListener(layoutMobile);
       layoutMobile();
