@@ -284,7 +284,7 @@
     flex-direction: column;
     height: 100vh;
     height: 100dvh;          /* 动态视口：手机地址栏收起/展开时自适应 */
-    min-height: 720px;       /* 战场固定最小高度，屏幕不够高时页面可上下滚动 */
+    min-height: 850px;       /* 战场固定最小高度，屏幕不够高时页面可上下滚动 */
     padding: 4px;
     gap: 4px;
   }
