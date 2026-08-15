@@ -15,8 +15,15 @@
     /**
      * 服务器环境：1=正式服  2=测试服
      * 本地开发调试时改为 2，上传正式服时改回 1
+     * 手机/远程测试：网址加 ?env=2 连测试服，?env=1 连正式服（URL 参数优先级最高）
      */
-    const SERVER_ENV = 1;
+    const SERVER_ENV_DEFAULT = 1;
+    let SERVER_ENV = SERVER_ENV_DEFAULT;
+    try {
+      const _urlEnv = new URLSearchParams(window.location.search).get('env');
+      if (_urlEnv === '2' || _urlEnv === 'test') SERVER_ENV = 2;
+      else if (_urlEnv === '1' || _urlEnv === 'prod') SERVER_ENV = 1;
+    } catch (_) { /* 旧浏览器不支持 URLSearchParams 时保持默认 */ }
 
     // 正式服关闭 console.log 输出（测试服保留）
     if (SERVER_ENV === 1) {
