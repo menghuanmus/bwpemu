@@ -366,10 +366,17 @@
         if (otherToggle) { otherToggle.removeAttribute('data-locked'); otherToggle.disabled = false; otherToggle.style.opacity = ''; otherToggle.style.cursor = ''; }
         var shikigamiBookBtn = document.querySelector('.dropdown-other__item[data-action="shikigami-book"]');
         if (shikigamiBookBtn) { shikigamiBookBtn.removeAttribute('data-locked'); shikigamiBookBtn.disabled = false; shikigamiBookBtn.style.opacity = ''; shikigamiBookBtn.style.cursor = ''; }
+        // 解锁"其他"菜单里的退出按钮（观众可以退出房间）
+        var exitBtn = document.getElementById('game-btn-exit');
+        if (exitBtn) { exitBtn.removeAttribute('data-locked'); exitBtn.disabled = false; exitBtn.style.opacity = ''; exitBtn.style.cursor = ''; }
         if (tagYour) { tagYour.hidden = true; }
         if (tagOpp) { tagOpp.hidden = true; }
         if (specRow) specRow.hidden = false;
       } else {
+        // 先解锁中间栏（清除观战锁定残留），再按玩家身份锁定战场区域
+        document.querySelectorAll('.center-dice-bar input, .center-dice-bar button, .center-dice-bar select').forEach(function(el) {
+          el.removeAttribute('data-locked'); el.disabled = false; el.style.opacity = ''; el.style.cursor = '';
+        });
         document.querySelectorAll('.player-zone[data-player="' + localPlayerId + '"]').forEach(function(zone) {
           zone.classList.remove('player-zone--locked');
           zone.removeAttribute('data-locked');
@@ -399,6 +406,10 @@
         zone.querySelectorAll('input, textarea, button, select').forEach(function(el) {
           el.removeAttribute('data-locked'); el.disabled = false; el.readOnly = false; el.style.opacity = ''; el.style.cursor = '';
         });
+      });
+      // 中间栏也要解锁（观战锁定的残留，否则进入单人/联机后中间栏仍不可用）
+      document.querySelectorAll('.center-dice-bar input, .center-dice-bar button, .center-dice-bar select').forEach(function(el) {
+        el.removeAttribute('data-locked'); el.disabled = false; el.style.opacity = ''; el.style.cursor = '';
       });
     }
 
@@ -467,7 +478,25 @@
       if (state.bounty) { ['1', '2'].forEach(function(pid) { if (state.bounty[pid]) { if (typeof playerBounty !== 'undefined') playerBounty[pid] = state.bounty[pid].amount || 0; if (typeof updateBountyInput === 'function') updateBountyInput(pid); if (typeof applyRemoteBountyToggle === 'function') applyRemoteBountyToggle(pid, !!state.bounty[pid].active); } }); }
       if (state.nightfall) { ['1', '2'].forEach(function(pid) { if (state.nightfall[pid] && state.nightfall[pid].active && typeof applyRemoteNightfall === 'function') applyRemoteNightfall(pid, true, state.nightfall[pid].value || '0'); }); }
       if (state.oracle && typeof oracleActive !== 'undefined') { ['1', '2'].forEach(function(pid) { var o = state.oracle[pid]; if (!o) return; oracleActive[pid] = !!o.active; if (typeof oracleHands !== 'undefined') oracleHands[pid] = Array.isArray(o.cards) ? o.cards : []; var btn = document.getElementById('btn-oracle-zone-' + pid); if (btn) btn.hidden = !oracleActive[pid]; }); }
-      if (state.shop && typeof getShop === 'function') { ['1', '2'].forEach(function(pid) { var s = state.shop[pid]; if (!s) return; var shop = getShop(pid); if (shop) { shop.level = s.level || 1; shop.upgradeProgress = s.upgradeProgress || 0; shop.upgradeNeeded = s.upgradeNeeded || 5; shop.refreshCost = s.refreshCost || 1; if (s.slotCount != null) shop.slotCount = s.slotCount; } }); }
+      if (state.shop && typeof getShop === 'function') {
+        ['1', '2'].forEach(function(pid) {
+          var s = state.shop[pid];
+          if (!s) return;
+          // 完整恢复：货架/库存/新加商品/优先队列（applyRemoteShop 内部已处理）
+          if (typeof applyRemoteShop === 'function') {
+            applyRemoteShop(Object.assign({ playerId: pid }, s));
+          } else {
+            var shop = getShop(pid);
+            if (shop) {
+              shop.level = s.level || 1;
+              shop.upgradeProgress = s.upgradeProgress || 0;
+              shop.upgradeNeeded = s.upgradeNeeded || 5;
+              shop.refreshCost = s.refreshCost || 1;
+              if (s.slotCount != null) shop.slotCount = s.slotCount;
+            }
+          }
+        });
+      }
       if (state.avatars) { ['1', '2'].forEach(function(pid) { if (state.avatars[pid]) setAvatarImage(pid, state.avatars[pid]); }); }
       if (state.revealedCards && typeof playerRevealedCards !== 'undefined') { ['1', '2'].forEach(function(pid) { if (state.revealedCards[pid]) playerRevealedCards[pid] = new Set(state.revealedCards[pid]); }); }
 

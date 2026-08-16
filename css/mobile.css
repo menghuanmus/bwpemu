@@ -7,6 +7,11 @@
 /* ═══════════════ 通用 ═══════════════ */
 @media (max-width: 768px) {
 
+  /* 禁用双击缩放（保留拖动/捏合缩放），防止快速点击空白处两次页面自动放大 */
+  html, body {
+    touch-action: manipulation;
+  }
+
   /* 关闭桌面端的光标光晕（手机上没鼠标） */
   .cursor-aura { display: none; }
 
@@ -217,20 +222,24 @@
     font-size: 1.05rem;
   }
 
-  /* 快捷操作区：输入框+按钮排布 */
+  /* 快捷操作区：单人+创建一行，输入框+加入一行（加入按钮占右约 1/3） */
   .lobby-quick-actions {
     display: flex;
-    flex-direction: column;
+    flex-wrap: wrap;
     gap: 10px;
   }
   .lobby-quick-actions #lobby-join-input {
     min-height: 48px;
     font-size: 1.2rem;
     letter-spacing: 0.12em;
+    order: 3;
+    flex: 1 1 58%;
+    min-width: 0;
+    width: auto;
   }
-  #lobby-solo-btn, #lobby-create-btn, #lobby-join-btn {
-    width: 100%;
-  }
+  #lobby-solo-btn { order: 1; flex: 1 1 46%; width: auto; }
+  #lobby-create-btn { order: 2; flex: 1 1 46%; width: auto; }
+  #lobby-join-btn { order: 4; flex: 0 0 30%; width: auto; }
 
   .lobby-error-msg { font-size: 1rem; }
 }
@@ -1117,6 +1126,18 @@
     overflow-y: hidden;    /* 弹窗整体不滚动，页内滚动 */
     display: flex;
     flex-direction: column;
+    overscroll-behavior: contain;   /* 滚动到底不再带动背景战场 */
+  }
+  /* 置入牌库放置按钮：手机端加大点按区域 */
+  .card-text-placement-row button {
+    min-height: 44px;
+    font-size: 14px;
+  }
+  /* "下次刷新必出"勾选行：手机端放大字号 */
+  .card-text-priority-label { font-size: 16px; }
+  .shop-priority-msg { font-size: 14px; }
+  #card-text-dialog-quantity, #card-text-dialog-level, #card-text-dialog-price {
+    font-size: 16px;
   }
   .bonus-dialog__body {
     flex: 1;
@@ -1494,6 +1515,21 @@
   }
   /* 拖动激活后锁住列表滚动，防止拖到一半被浏览器抢走手势导致 ghost 卡住 */
   .preset-panel--dragging .preset-panel__list { overflow: hidden; }
+
+  /* 占卜卡牌：触摸拖拽排序（弹窗已拦截滚动穿透，这里完全交给 JS） */
+  .divine-card-item {
+    touch-action: none;
+    -webkit-touch-callout: none;
+    -webkit-user-select: none;
+    user-select: none;
+  }
+  /* 占卜弹窗：内容多时弹窗内滚动，滚动到底不再带动背景 */
+  .divine-dialog {
+    max-height: 85dvh;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+  }
 
   /* 派系筛选按钮：横排紧凑，高度减半 */
   .preset-faction-btn {

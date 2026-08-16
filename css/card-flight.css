@@ -148,7 +148,8 @@
   white-space: nowrap;
 }
 #card-text-dialog-quantity,
-#card-text-dialog-level {
+#card-text-dialog-level,
+#card-text-dialog-price {
   width: 60px;
   padding: 5px 8px;
   border-radius: 4px;
@@ -164,12 +165,15 @@
 #card-text-dialog-quantity::-webkit-inner-spin-button,
 #card-text-dialog-quantity::-webkit-outer-spin-button,
 #card-text-dialog-level::-webkit-inner-spin-button,
-#card-text-dialog-level::-webkit-outer-spin-button {
+#card-text-dialog-level::-webkit-outer-spin-button,
+#card-text-dialog-price::-webkit-inner-spin-button,
+#card-text-dialog-price::-webkit-outer-spin-button {
   -webkit-appearance: none;
   margin: 0;
 }
 #card-text-dialog-quantity:focus,
-#card-text-dialog-level:focus {
+#card-text-dialog-level:focus,
+#card-text-dialog-price:focus {
   outline: none;
   border-color: rgba(200, 160, 80, 0.7);
 }

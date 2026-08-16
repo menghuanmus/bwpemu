@@ -2056,6 +2056,19 @@
       font-size: 18px;
       color: #8090a0;
     }
+    .shop-dialog__upgrade-wrap {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+      min-width: 0;
+    }
+    /* 优先队列操作提示（成功/失败，红字，在升级进度右边） */
+    .shop-priority-msg {
+      font-size: 14px;
+      color: #FB7185;
+      font-weight: 600;
+    }
     .shop-dialog__refresh-btn {
       padding: 10px 22px;
       border-radius: 6px;

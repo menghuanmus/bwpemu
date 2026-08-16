@@ -35,6 +35,14 @@ const BonusPanel = (() => {
     `;
     document.body.appendChild(overlay);
     overlay.querySelector('.bonus-dialog__close').addEventListener('click', close);
+    // 手机端：拦截弹窗外滑动，防止滚动穿透到战场（弹窗内正常滚动）
+    if (!window._bonusOverlayTouchBound) {
+      window._bonusOverlayTouchBound = true;
+      overlay.addEventListener('touchmove', function(e) {
+        if (e.target.closest && e.target.closest('.bonus-dialog')) return;
+        e.preventDefault();
+      }, { passive: false });
+    }
     overlay.addEventListener('click', (e) => {
       if (e.target === overlay) {
         const picker = document.getElementById('bonus-keyword-picker');
@@ -355,6 +363,13 @@ const BonusPanel = (() => {
       if (forms[i].name === formName) { found = forms[i]; break; }
     }
     if (!found) return;
+    // 先记录旧形态下的手动差值（结附前）
+    var curAtk = parseInt(ctx.slot.querySelector('.card-attack').value, 10) || 0;
+    var curHp = parseInt(ctx.slot.querySelector('.card-hp').value, 10) || 0;
+    var oldFullAtk = typeof calcFullAtk === 'function' ? calcFullAtk(ctx.slot) : curAtk;
+    var oldFullHp = typeof calcFullHp === 'function' ? calcFullHp(ctx.slot) : curHp;
+    var manualAtk = curAtk - oldFullAtk;
+    var manualHp = curHp - oldFullHp;
     // 填入形态数据
     ctx.formName = found.name;
     ctx.formAtk = found.attack || 0;
@@ -365,13 +380,10 @@ const BonusPanel = (() => {
     ctx.slot._formHp = ctx.formHp;
     ctx.slot._formAbility = ctx.formAbility;
     if (typeof recordPermBase === 'function') recordPermBase(ctx.slot);
-    var curAtk = parseInt(ctx.slot.querySelector('.card-attack').value, 10) || 0;
-    var oldFullAtk = typeof calcFullAtk === 'function' ? calcFullAtk(ctx.slot) : curAtk;
-    var manualAtk = curAtk - oldFullAtk;
-    var newFullAtk = (typeof calcFullAtk === 'function' ? calcFullAtk(ctx.slot) : ctx.formAtk) + manualAtk;
+    var newFullAtk = typeof calcFullAtk === 'function' ? calcFullAtk(ctx.slot) : ctx.formAtk;
     var newFullHp = typeof calcFullHp === 'function' ? calcFullHp(ctx.slot) : ctx.formHp;
-    ctx.slot.querySelector('.card-attack').value = newFullAtk || '';
-    ctx.slot.querySelector('.card-hp').value = newFullHp || '';
+    ctx.slot.querySelector('.card-attack').value = (newFullAtk + manualAtk) || '';
+    ctx.slot.querySelector('.card-hp').value = (newFullHp + manualHp) || '';
     syncSlotToPeer(ctx.slot);
     if (typeof autoUpdateSlotImage === 'function') autoUpdateSlotImage(ctx.slot);
     syncSlotToPeer(ctx.slot);  // 换图后再同步一次，让对方也看到新卡图
@@ -810,16 +822,20 @@ const BonusPanel = (() => {
   }
 
   function handleLoseForm() {
+    // 先记录旧形态下的手动差值（失去前）
+    var curAtk = parseInt(ctx.slot.querySelector('.card-attack').value, 10) || 0;
+    var curHp = parseInt(ctx.slot.querySelector('.card-hp').value, 10) || 0;
+    var oldFullAtk = typeof calcFullAtk === 'function' ? calcFullAtk(ctx.slot) : curAtk;
+    var oldFullHp = typeof calcFullHp === 'function' ? calcFullHp(ctx.slot) : curHp;
+    var manualAtk = curAtk - oldFullAtk;
+    var manualHp = curHp - oldFullHp;
     ctx.formName = ''; ctx.formAtk = 0; ctx.formHp = 0; ctx.formAbility = '';
     ctx.slot._formName = ''; ctx.slot._formAtk = 0; ctx.slot._formHp = 0; ctx.slot._formAbility = '';
     if (typeof recordPermBase === 'function') recordPermBase(ctx.slot);
-    var curAtk = parseInt(ctx.slot.querySelector('.card-attack').value, 10) || 0;
-    var oldFullAtk = typeof calcFullAtk === 'function' ? calcFullAtk(ctx.slot) : curAtk;
-    var manualAtk = curAtk - oldFullAtk;
-    var newFullAtk = (typeof calcFullAtk === 'function' ? calcFullAtk(ctx.slot) : 0) + manualAtk;
+    var newFullAtk = typeof calcFullAtk === 'function' ? calcFullAtk(ctx.slot) : 0;
     var newFullHp = typeof calcFullHp === 'function' ? calcFullHp(ctx.slot) : 0;
-    ctx.slot.querySelector('.card-attack').value = newFullAtk || '';
-    ctx.slot.querySelector('.card-hp').value = newFullHp || '';
+    ctx.slot.querySelector('.card-attack').value = (newFullAtk + manualAtk) || '';
+    ctx.slot.querySelector('.card-hp').value = (newFullHp + manualHp) || '';
     syncSlotToPeer(ctx.slot);
     if (typeof autoUpdateSlotImage === 'function') autoUpdateSlotImage(ctx.slot);
     if (typeof renderFormBadge === 'function') renderFormBadge(ctx.slot);

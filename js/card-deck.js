@@ -139,8 +139,8 @@
       updateDeckButtons('2');
     }
 
-    function openCardTextDialog({ title, placeholder, multiline, onConfirm, hideQuantity, showLevel }) {
-      cardTextContext = { onConfirm };
+    function openCardTextDialog({ title, placeholder, multiline, onConfirm, hideQuantity, showLevel, deckPlacement, priorityOption, priceOption, rawQuantity }) {
+      cardTextContext = { onConfirm, deckPlacement: !!deckPlacement, rawQuantity: !!rawQuantity };
       cardTextTitle.textContent = title;
       cardTextInput.value = '';
       cardTextInput.placeholder = placeholder;
@@ -155,6 +155,24 @@
       if (levelRow) levelRow.hidden = !showLevel;
       const levelEl = document.getElementById('card-text-dialog-level');
       if (levelEl) levelEl.value = '1';
+      // 隐藏/显示"下次刷新必出"勾选行（仅商店添加商品使用）
+      const priorityRow = document.getElementById('card-text-priority-row');
+      if (priorityRow) priorityRow.hidden = !priorityOption;
+      const priorityCheck = document.getElementById('card-text-priority-check');
+      if (priorityCheck) priorityCheck.checked = false;
+      // 隐藏/显示"商品价格"行（仅商店添加商品使用）
+      const priceRow = document.getElementById('card-text-price-row');
+      if (priceRow) priceRow.hidden = !priceOption;
+      const priceEl = document.getElementById('card-text-dialog-price');
+      if (priceEl) priceEl.value = '0';
+      // 商店添加商品：数量支持 -1=无限，显示提示字
+      const qtyHint = document.getElementById('card-text-qty-hint');
+      if (qtyHint) qtyHint.hidden = !rawQuantity;
+      // 置入牌库模式：隐藏 确定/取消，显示三个放置按钮
+      const actionsRow = document.getElementById('card-text-dialog-actions');
+      const placementRow = document.getElementById('card-text-placement-row');
+      if (actionsRow) actionsRow.hidden = !!deckPlacement;
+      if (placementRow) placementRow.hidden = !deckPlacement;
       cardTextInput.focus();
     }
 
@@ -167,18 +185,44 @@
       if (qtyRow) qtyRow.style.display = '';
       const levelRow = document.querySelector('.card-text-level-row');
       if (levelRow) levelRow.hidden = true;
+      // 恢复 确定/取消 按钮行
+      const actionsRow = document.getElementById('card-text-dialog-actions');
+      const placementRow = document.getElementById('card-text-placement-row');
+      if (actionsRow) actionsRow.hidden = false;
+      if (placementRow) placementRow.hidden = true;
+      // 隐藏"下次刷新必出"勾选行并取消勾选
+      const priorityRow = document.getElementById('card-text-priority-row');
+      if (priorityRow) priorityRow.hidden = true;
+      const priorityCheck = document.getElementById('card-text-priority-check');
+      if (priorityCheck) priorityCheck.checked = false;
+      // 隐藏"商品价格"行
+      const priceRow = document.getElementById('card-text-price-row');
+      if (priceRow) priceRow.hidden = true;
+      // 隐藏"-1则库存无限"提示字
+      const qtyHint = document.getElementById('card-text-qty-hint');
+      if (qtyHint) qtyHint.hidden = true;
     }
 
     function confirmCardTextDialog() {
       if (!cardTextContext) return;
       const value = cardTextInput.value;
       const qtyEl = document.getElementById('card-text-dialog-quantity');
-      let qty = parseInt(qtyEl ? qtyEl.value : '1', 10);
-      if (isNaN(qty) || qty < 1) qty = 1;
+      let qty;
+      if (cardTextContext.rawQuantity) {
+        qty = qtyEl ? qtyEl.value : '1';   // 原始值，由商店逻辑解析（-1=无限等）
+      } else {
+        qty = parseInt(qtyEl ? qtyEl.value : '1', 10);
+        if (isNaN(qty) || qty < 1) qty = 1;
+      }
       const levelEl = document.getElementById('card-text-dialog-level');
       let level = parseInt(levelEl ? levelEl.value : '1', 10);
       if (level !== 1 && level !== 2 && level !== 3) level = 1;
-      cardTextContext.onConfirm(value, qty, level);
+      const priorityCheck = document.getElementById('card-text-priority-check');
+      const priority = !!(priorityCheck && priorityCheck.checked);
+      const priceEl = document.getElementById('card-text-dialog-price');
+      let price = parseInt(priceEl ? priceEl.value : '0', 10);
+      if (isNaN(price) || price < 0) price = 0;
+      cardTextContext.onConfirm(value, qty, level, priority, price);
       closeCardTextDialog();
     }
 
@@ -630,18 +674,22 @@
             for (const slot of slots) {
               if (slot.querySelector('.card-name')?.value === dbCard.owner) {
                 const oldForm = slot._formName || '';
+                // 先记录旧形态下的手动差值（结附前）
+                const curAtk0 = parseInt(slot.querySelector('.card-attack')?.value, 10) || 0;
+                const curHp0 = parseInt(slot.querySelector('.card-hp')?.value, 10) || 0;
+                const oldFullAtk0 = typeof calcFullAtk === 'function' ? calcFullAtk(slot) : curAtk0;
+                const oldFullHp0 = typeof calcFullHp === 'function' ? calcFullHp(slot) : curHp0;
+                const manualAtk0 = curAtk0 - oldFullAtk0;
+                const manualHp0 = curHp0 - oldFullHp0;
                 slot._formName = dbCard.name;
                 slot._formAtk = dbCard.attack || 0;
                 slot._formHp = dbCard.hp || 0;
                 slot._formAbility = dbCard.effect || '';
                 if (typeof recordPermBase === 'function') recordPermBase(slot);
-                const curAtk = parseInt(slot.querySelector('.card-attack')?.value, 10) || 0;
-                const oldFullAtk = typeof calcFullAtk === 'function' ? calcFullAtk(slot) : curAtk;
-                const manualAtk = curAtk - oldFullAtk;
-                const newFullAtk = (typeof calcFullAtk === 'function' ? calcFullAtk(slot) : 0) + manualAtk;
-                const newFullHp = typeof calcFullHp === 'function' ? calcFullHp(slot) : 0;
-                if (slot.querySelector('.card-attack')) slot.querySelector('.card-attack').value = newFullAtk || '';
-                if (slot.querySelector('.card-hp')) slot.querySelector('.card-hp').value = newFullHp || '';
+                const newFullAtk0 = typeof calcFullAtk === 'function' ? calcFullAtk(slot) : 0;
+                const newFullHp0 = typeof calcFullHp === 'function' ? calcFullHp(slot) : 0;
+                if (slot.querySelector('.card-attack')) slot.querySelector('.card-attack').value = (newFullAtk0 + manualAtk0) || '';
+                if (slot.querySelector('.card-hp')) slot.querySelector('.card-hp').value = (newFullHp0 + manualHp0) || '';
                 syncSlotToPeer(slot);
                 if (typeof autoUpdateSlotImage === 'function') autoUpdateSlotImage(slot);
                 const replaceMsg = oldForm ? `（替换了原有形态「${oldForm}」）` : '';
@@ -874,6 +922,18 @@
     const divineMain = document.getElementById('divine-main');
     const divineTopList = document.getElementById('divine-top-list');
     const divineBottomList = document.getElementById('divine-bottom-list');
+    // 手机端：拦截占卜弹窗上的滑动，防止滚动穿透到背后的战场
+    if (!window._divineOverlayTouchBound) {
+      window._divineOverlayTouchBound = true;
+      const divineOverlayEl = document.getElementById('divine-dialog-overlay');
+      if (divineOverlayEl) {
+        divineOverlayEl.addEventListener('touchmove', function(e) {
+          // 弹窗内部允许滚动（弹窗自身可滚），弹窗外区域拦截，防止带动战场
+          if (e.target.closest && e.target.closest('.divine-dialog')) return;
+          e.preventDefault();
+        }, { passive: false });
+      }
+    }
     const divineActions = document.getElementById('divine-actions');
     const divineTitle = document.getElementById('divine-dialog-title');
 
@@ -940,6 +1000,9 @@
       divineXRow.hidden = true;
       divineMain.hidden = false;
       divineActions.hidden = false;
+      // 已展示占卜牌后：取消按钮置灰，只能点「确认占卜」
+      const divineCancelBtn = document.getElementById('divine-cancel');
+      if (divineCancelBtn) divineCancelBtn.disabled = true;
       divineTitle.textContent = `🔮 占卜 ${clampedX} — ${getPlayerName(playerId)}`;
       renderDivineLists();
       const opId = divineContext.operatorId;
@@ -1108,6 +1171,99 @@
       renderDivineLists();
     }
 
+    // ── 手机端：触摸拖动占卜卡牌排序（HTML5 拖拽在触屏上不可用） ──
+    const DIVINE_MQ = window.matchMedia('(max-width: 768px)');
+    let _divineDrag = null;
+    let _divineDragRaf = null;
+    function _divineDragClear() {
+      if (_divineDrag && _divineDrag.ghost) _divineDrag.ghost.remove();
+      _divineDrag = null;
+      if (_divineDragRaf) { cancelAnimationFrame(_divineDragRaf); _divineDragRaf = null; }
+      document.querySelectorAll('.divine-card-item--dragging').forEach(x => x.classList.remove('divine-card-item--dragging'));
+      document.querySelectorAll('.divine-card-item--drag-before, .divine-card-item--drag-after, .divine-card-item--drag-over').forEach(x => {
+        x.classList.remove('divine-card-item--drag-before', 'divine-card-item--drag-after', 'divine-card-item--drag-over');
+      });
+      document.querySelectorAll('.divine-section__body--drag-over').forEach(x => x.classList.remove('divine-section__body--drag-over'));
+    }
+    divineMain.addEventListener('pointerdown', function(e) {
+      if (!DIVINE_MQ.matches) return;
+      const item = e.target.closest ? e.target.closest('.divine-card-item') : null;
+      if (!item) return;
+      _divineDragClear();
+      _divineDrag = {
+        srcId: item.dataset.cardId, srcGroup: item.dataset.group,
+        pointerId: e.pointerId, dragging: false, ghost: null,
+        startX: e.clientX, startY: e.clientY, lastX: e.clientX, lastY: e.clientY,
+      };
+    }, true);
+    if (!window._divineMobileDragBound) {
+      window._divineMobileDragBound = true;
+      document.addEventListener('pointermove', function(e) {
+        if (!_divineDrag || e.pointerId !== _divineDrag.pointerId) return;
+        if (!_divineDrag.dragging) {
+          if (Math.hypot(e.clientX - _divineDrag.startX, e.clientY - _divineDrag.startY) < 10) return;
+          _divineDrag.dragging = true;
+          const src = document.querySelector('.divine-card-item[data-card-id="' + _divineDrag.srcId + '"]');
+          if (src) {
+            src.classList.add('divine-card-item--dragging');
+            const ghost = src.cloneNode(true);
+            ghost.classList.remove('divine-card-item--dragging', 'divine-card-item--drag-before', 'divine-card-item--drag-after', 'divine-card-item--drag-over');
+            ghost.style.cssText = 'position:fixed;left:0;top:0;width:' + src.offsetWidth + 'px;z-index:2500;pointer-events:none;opacity:0.92;transform:translate3d(0,0,0);will-change:transform;';
+            document.body.appendChild(ghost);
+            _divineDrag.ghost = ghost;
+          }
+        }
+        if (!_divineDrag.ghost) return;
+        _divineDrag.lastX = e.clientX;
+        _divineDrag.lastY = e.clientY;
+        if (!_divineDragRaf) {
+          _divineDragRaf = requestAnimationFrame(function() {
+            _divineDragRaf = null;
+            if (!_divineDrag || !_divineDrag.ghost) return;
+            _divineDrag.ghost.style.transform = 'translate3d(' + (_divineDrag.lastX + 10) + 'px,' + (_divineDrag.lastY + 10) + 'px,0)';
+            // 高亮插入位置（黄线）
+            document.querySelectorAll('.divine-card-item--drag-before, .divine-card-item--drag-after, .divine-card-item--drag-over, .divine-section__body--drag-over').forEach(x => {
+              x.classList.remove('divine-card-item--drag-before', 'divine-card-item--drag-after', 'divine-card-item--drag-over', 'divine-section__body--drag-over');
+            });
+            const el = document.elementFromPoint(_divineDrag.lastX, _divineDrag.lastY);
+            const item = el ? el.closest('.divine-card-item') : null;
+            if (item && item.dataset.cardId !== _divineDrag.srcId) {
+              const r = item.getBoundingClientRect();
+              item.classList.add(_divineDrag.lastY < r.top + r.height / 2 ? 'divine-card-item--drag-before' : 'divine-card-item--drag-after');
+            } else if (el && el.closest('.divine-section__body')) {
+              el.closest('.divine-section__body').classList.add('divine-section__body--drag-over');
+            }
+          });
+        }
+      }, true);
+      document.addEventListener('pointerup', function(e) {
+        if (!_divineDrag || e.pointerId !== _divineDrag.pointerId) return;
+        const d = _divineDrag;
+        const wasDragging = d.dragging;
+        _divineDragClear();
+        if (!wasDragging) return;
+        // 放置：落点在卡牌上则插入，否则跨组追加到空白组末尾
+        const el = document.elementFromPoint(e.clientX, e.clientY);
+        const item = el ? el.closest('.divine-card-item') : null;
+        const srcIdNum = parseInt(d.srcId, 10);   // dataset 存的是字符串，排序函数按数字比较
+        if (item && item.dataset.cardId !== d.srcId) {
+          const r = item.getBoundingClientRect();
+          const insertBefore = e.clientY < r.top + r.height / 2;
+          handleDivineDrop(srcIdNum, d.srcGroup, item.dataset.group, parseInt(item.dataset.cardId, 10), insertBefore);
+        } else {
+          const body = el ? el.closest('.divine-section__body') : null;
+          if (body) {
+            const dstGroup = body === divineTopList ? 'top' : 'bottom';
+            handleDivineDropToEnd(srcIdNum, d.srcGroup, dstGroup);
+          }
+        }
+      }, true);
+      document.addEventListener('pointercancel', function(e) {
+        if (!_divineDrag || e.pointerId !== _divineDrag.pointerId) return;
+        _divineDragClear();
+      }, true);
+    }
+
     // 初始化两个拖放区域（允许跨组拖拽到空白处）
     setupDivineDropZone(divineTopList, 'top');
     setupDivineDropZone(divineBottomList, 'bottom');
@@ -1166,18 +1322,11 @@
       }
     }
 
-    /** 关闭占卜对话框（cancel=true 时清除已揭示卡牌） */
+    /** 关闭占卜对话框（cancel=true 仅提示取消，不删除已揭示记录） */
     function closeDivineDialog(cancel) {
       if (divineContext) {
         const playerName = getPlayerName(divineContext.playerId);
-        // 取消占卜时移除本次揭示的卡牌ID
-        if (cancel) {
-          const viewerId = getViewerPlayerId();
-          const allDivined = [...(divineContext.topGroup || []), ...(divineContext.bottomGroup || [])];
-          allDivined.forEach(c => {
-            if (playerRevealedCards[viewerId]) playerRevealedCards[viewerId].delete(c.id);
-          });
-        }
+        // 已占卜揭示的牌保持可见（只要不洗牌库，被看过的牌应一直带标签）
         divineContext = null;
         if (cancel) broadcastSystemMsg(`【系统】${playerName}取消了占卜`);
       }
@@ -1185,6 +1334,9 @@
       divineXRow.hidden = false;
       divineMain.hidden = true;
       divineActions.hidden = true;
+      // 恢复取消按钮（下次打开占卜输入时可取消）
+      const divineCancelBtn = document.getElementById('divine-cancel');
+      if (divineCancelBtn) divineCancelBtn.disabled = false;
       // 清空弹窗内容，下次打开是干净的
       divineTopList.innerHTML = '';
       divineBottomList.innerHTML = '';
@@ -1277,18 +1429,22 @@
       }
     }
 
-    function addToDeck(playerId, text, qty) {
+    function addToDeck(playerId, text, qty, placement) {
       const name = text.trim();
       if (!name) return;
       const count = Math.max(1, qty || 1);
       const deck = getPlayerCardState(playerId).deck;
       for (let i = 0; i < count; i++) {
-        insertCardAtRandomPosition(deck, createCard(name));
+        const card = createCard(name);
+        if (placement === 'top') deck.unshift(card);
+        else if (placement === 'bottom') deck.push(card);
+        else insertCardAtRandomPosition(deck, card);
       }
       updateDeckButtons(playerId);
       refreshOpenListDialog(playerId);
       syncDeckState(playerId);
-      broadcastSystemMsg(`【系统】${getPlayerName(playerId)}将${count}张「${name}」置入了牌库`);
+      const placeLabel = placement === 'top' ? '牌库顶' : (placement === 'bottom' ? '牌库底' : '牌库随机位置');
+      broadcastSystemMsg(`【系统】${getPlayerName(playerId)}将${count}张「${name}」置入了${placeLabel}`);
       // 飞行动画
       if (typeof CardFlight !== 'undefined') {
         const addDeckBtn = CardFlight.getPlayerBtn(playerId, 'addDeck');
@@ -1337,7 +1493,8 @@
             title: `${playerName} 置入牌库`,
             placeholder: '输入卡牌名称…',
             multiline: false,
-            onConfirm: (text, qty) => addToDeck(playerId, text, qty),
+            deckPlacement: true,
+            onConfirm: (text, qty, level, placement) => addToDeck(playerId, text, qty, placement),
           });
           break;
         case 'shuffle-deck':
@@ -1360,6 +1517,20 @@
 
     document.getElementById('card-text-dialog-cancel').addEventListener('click', closeCardTextDialog);
     document.getElementById('card-text-dialog-confirm').addEventListener('click', confirmCardTextDialog);
+    // 置入牌库放置按钮（顶/底/随机）与取消
+    document.querySelectorAll('.card-text-placement-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        if (!cardTextContext || !cardTextContext.deckPlacement) return;
+        const value = cardTextInput.value;
+        if (!value.trim()) { closeCardTextDialog(); return; }
+        const qtyEl = document.getElementById('card-text-dialog-quantity');
+        let qty = parseInt(qtyEl ? qtyEl.value : '1', 10);
+        if (isNaN(qty) || qty < 1) qty = 1;
+        cardTextContext.onConfirm(value, qty, 1, btn.dataset.placement);
+        closeCardTextDialog();
+      });
+    });
+    document.querySelector('.card-text-placement-cancel').addEventListener('click', closeCardTextDialog);
     document.getElementById('card-list-dialog-close').addEventListener('click', closeCardListDialog);
 
     // 蓄力使用切换按钮

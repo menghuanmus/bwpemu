@@ -53,7 +53,7 @@
             return;
           }
           // 手牌/牌库/牌表/聊天等列表中的卡牌名：点击显示悬浮窗
-          const nameHit = e.target.closest ? e.target.closest('.card-list-item__name, .breakdown-card-row__name, .deck-group__name, .chat-card-name, .charge-card-name') : null;
+          const nameHit = e.target.closest ? e.target.closest('.card-list-item__name, .breakdown-card-row__name, .deck-group__name, .chat-card-name, .charge-card-name, .divine-card-item__name') : null;
           if (nameHit) {
             if (_findCardName(e.target)) { _onMouseOver(e); }
             return;
@@ -105,6 +105,8 @@
           // 对手牌库中的已揭示卡牌，去掉"（已占卜）"后缀
           return target.textContent.replace(/（已占卜）$/, '');
         }
+        // 占卜界面中的卡牌名
+        if (target.classList.contains('divine-card-item__name')) return target.textContent;
         if (target.classList.contains('chat-card-name')) {
           // 系统消息中的食材/佳肴：通过隐藏备注实时生成真实效果
           if (target.dataset.food) {

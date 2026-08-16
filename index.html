@@ -138,14 +138,14 @@
             </div>
           </div>
           <div class="lobby-quick-actions">
-            <button class="lobby-create-btn" id="lobby-solo-btn" style="background:linear-gradient(135deg,#6366F1,#8B5CF6);margin-bottom:8px;">
+            <button class="lobby-create-btn" id="lobby-solo-btn" style="background:linear-gradient(135deg,#6366F1,#8B5CF6);">
               <span class="btn-spinner"></span><span class="btn-text">单人模式</span>
             </button>
             <input type="text" id="lobby-join-input" placeholder="输入房间号加入" maxlength="6" autocomplete="off">
             <button class="lobby-join-btn" id="lobby-join-btn">
               <span class="btn-spinner"></span><span class="btn-text">加入</span>
             </button>
-            <button class="lobby-create-btn" id="lobby-create-btn">
+            <button class="lobby-create-btn" id="lobby-create-btn" style="background:linear-gradient(135deg,#6366F1,#8B5CF6);">
               <span class="btn-spinner"></span><span class="btn-text">创建房间</span>
             </button>
           </div>
@@ -625,15 +625,31 @@
         <span class="card-text-quantity-label">置入数量：</span>
         <input type="text" id="card-text-dialog-quantity" value="1" inputmode="numeric" aria-label="置入数量">
         <span class="card-text-quantity-label">张</span>
+        <span class="card-text-quantity-label" id="card-text-qty-hint" hidden>（-1则库存无限）</span>
       </div>
       <div class="card-text-level-row" hidden>
         <span class="card-text-quantity-label">商品等级：</span>
         <input type="text" id="card-text-dialog-level" value="1" inputmode="numeric" aria-label="商品等级">
         <span class="card-text-quantity-label">级（1~3，其他数字默认 1 级）</span>
       </div>
-      <div class="speak-dialog-actions">
+      <div class="card-text-price-row" id="card-text-price-row" hidden>
+        <span class="card-text-quantity-label">商品价格：</span>
+        <input type="text" id="card-text-dialog-price" value="0" inputmode="numeric" aria-label="商品价格">
+        <span class="card-text-quantity-label">💰（不填默认 0）</span>
+      </div>
+      <div class="card-text-priority-row" id="card-text-priority-row" hidden>
+        <label class="card-text-priority-label"><input type="checkbox" id="card-text-priority-check"> 下次刷新必出</label>
+      </div>
+      <div class="speak-dialog-actions" id="card-text-dialog-actions">
         <button type="button" class="btn-dialog-cancel" id="card-text-dialog-cancel">取消</button>
         <button type="button" class="btn-dialog-confirm" id="card-text-dialog-confirm">确定</button>
+      </div>
+      <!-- 置入牌库模式：三个放置按钮（顶/底/随机 + 取消） -->
+      <div class="card-text-placement-row" id="card-text-placement-row" hidden>
+        <button type="button" class="btn-dialog-confirm card-text-placement-btn" data-placement="top">置入牌库顶</button>
+        <button type="button" class="btn-dialog-confirm card-text-placement-btn" data-placement="bottom">置入牌库底</button>
+        <button type="button" class="btn-dialog-confirm card-text-placement-btn" data-placement="random">置入牌库随机位置</button>
+        <button type="button" class="btn-dialog-cancel card-text-placement-cancel">取消</button>
       </div>
     </div>
   </div>
@@ -769,15 +785,18 @@
         <!-- 额外栏位（如黄金羽），默认隐藏 -->
       </div>
       <div class="shop-dialog__footer">
-        <span class="shop-dialog__upgrade-hint" id="shop-upgrade-hint">再消耗5💰后商店升级</span>
+        <div class="shop-dialog__upgrade-wrap">
+          <span class="shop-dialog__upgrade-hint" id="shop-upgrade-hint">再消耗5💰后商店升级</span>
+          <span class="shop-priority-msg" id="shop-priority-msg"></span>
+        </div>
         <div class="shop-dialog__footer-btns">
           <button type="button" class="shop-dialog__free-refresh-btn" id="shop-free-refresh-btn" title="免费刷新用于每回合开始时的自动刷新，以及一些牌给予的免费刷新效果">🔄 免费刷新</button>
           <button type="button" class="shop-dialog__refresh-btn" id="shop-refresh-btn">🔄 刷新 1💰</button>
         </div>
       </div>
       <div class="shop-dialog__manage-row">
-        <input type="text" class="shop-priority-input" id="shop-priority-input" placeholder="输入优先刷新的牌名" maxlength="30">
-        <button type="button" class="shop-priority-btn" id="shop-priority-btn">确定优先</button>
+        <input type="text" class="shop-priority-input" id="shop-priority-input" placeholder="下次刷新必出卡牌" maxlength="30">
+        <button type="button" class="shop-priority-btn" id="shop-priority-btn">确定必出</button>
         <button type="button" class="shop-dialog__inv-btn" id="shop-inv-btn">📦 查看库存</button>
         <button type="button" class="shop-dialog__add-btn" id="shop-add-btn">＋ 添加商品</button>
       </div>

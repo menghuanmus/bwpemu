@@ -301,6 +301,7 @@
       gap: 10px;
       margin-top: 14px;
     }
+    .speak-dialog-actions[hidden] { display: none !important; }
 
     .speak-dialog-actions button {
       padding: 8px 18px;
@@ -310,6 +311,47 @@
       border: 1px solid transparent;
     }
 
+    /* 置入牌库放置按钮：顶/底一排，随机/取消一排 */
+    .card-text-placement-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      margin-top: 14px;
+    }
+    .card-text-placement-row[hidden] { display: none; }
+    .card-text-placement-row button {
+      padding: 10px 6px;
+      font-size: 13px;
+      border-radius: 6px;
+      cursor: pointer;
+      border: 1px solid transparent;
+      white-space: nowrap;
+    }
+
+    /* "下次刷新必出"勾选行（仅商店添加商品弹窗显示） */
+    .card-text-priority-row {
+      margin-top: 10px;
+    }
+    .card-text-priority-row[hidden] { display: none; }
+    .card-text-priority-label {
+      font-size: 14px;
+      color: #c0c8d8;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      cursor: pointer;
+    }
+
+    /* "商品价格"输入行（仅商店添加商品弹窗显示） */
+    .card-text-price-row {
+      margin-top: 10px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    .card-text-price-row[hidden] { display: none; }
+
     .btn-dialog-cancel {
       background: rgba(60, 70, 90, 0.8);
       border-color: #5a7090;
@@ -318,6 +360,10 @@
 
     .btn-dialog-cancel:hover {
       background: rgba(70, 80, 100, 0.9);
+    }
+    .btn-dialog-cancel:disabled {
+      opacity: 0.45;
+      cursor: not-allowed;
     }
 
     .btn-dialog-confirm {
