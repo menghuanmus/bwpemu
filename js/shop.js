@@ -15,6 +15,27 @@
       '2': { level: 1, products: [], upgradeProgress: 0, upgradeNeeded: 5, refreshCost: 1, refreshPriority: [], slotCount: DEFAULT_SLOT_COUNT },
     };
 
+    /** 醉仙引效果：使用后回一张到库存，并加入优先队列（下次刷新必出） */
+    window.applyZuiXianYin = function(playerId) {
+      if (typeof isSpectator !== 'undefined' && isSpectator) return;
+      const name = '醉仙引';
+      if (!playerCardStocks[playerId]) playerCardStocks[playerId] = {};
+      const stocks = playerCardStocks[playerId];
+      const prev = stocks[name];
+      if (prev == null) {
+        stocks[name] = 1;
+        const db = (typeof CardDB !== 'undefined' && CardDB.isReady()) ? CardDB.lookup(name) : null;
+        const lvl = (db && db.level) ? db.level : 1;
+        if (!customShopDefs[playerId]) customShopDefs[playerId] = {};
+        if (!customShopDefs[playerId][name]) customShopDefs[playerId][name] = { level: lvl, price: getCardPrice(name) };
+      } else if (prev !== Infinity) {
+        stocks[name] = prev + 1;
+      }
+      addShopPriority(playerId, name);
+      syncShopToPeer(playerId);
+      broadcastSystemMsg('【系统】「醉仙引」返回了商店库存，下次刷新必出');
+    };
+
     /** 添加卡牌到优先刷新队列（如醉仙引效果） */
     function addShopPriority(playerId, cardName) {
       const shop = getShop(playerId);
@@ -123,11 +144,10 @@
       return map[cardName] || 2;
     }
     function getCardDefaultStock(cardName) {
-      const inf = ['离火疾行符','胧月三闪','潮时纸鸢','六环破界杖','预制好的佳肴','醉仙引','射日长弓'];
-      const one = ['疾斩赤扇','宿命罗盘','玄甲'];
-      if (inf.includes(cardName)) return Infinity;
-      if (one.includes(cardName)) return 1;
-      return 2; // 丹青律令, 九节灵笛, 生命精华, 瞬华凝露, 共鸣回廊, 渊鸣鼓
+      // 1/2级商店牌统一库存 2（含生命精华），3级统一库存 1
+      const db = (typeof CardDB !== 'undefined' && CardDB.isReady()) ? CardDB.lookup(cardName) : null;
+      const lvl = (db && db.level) ? db.level : 1;
+      return lvl >= 3 ? 1 : 2;
     }
 
     // DOM引用
@@ -292,9 +312,11 @@
       _toggleBounty(playerId, active);
     }
 
-    /** 初始化商店 */
+    /** 初始化商店：仅首次（否则会把等级/进度/优先队列重置） */
     function initShop(playerId, level) {
       const shop = getShop(playerId);
+      if (shop._inited) return;
+      shop._inited = true;
       shop.level = level || 1;
       shop.refreshCost = 1; // 所有等级刷新均1赏金
       shop.upgradeProgress = 0;
@@ -386,7 +408,8 @@
       if (shopProductsEl) shopProductsEl.style.display = '';
       if (shopPriorityInput) shopPriorityInput.value = '';
       const shop = getShop(playerId);
-      if (!shop.products.length && typeof CardDB !== 'undefined' && CardDB.isReady()) {
+      // 只初始化一次（首次打开或每局第一次打开）；之后不再重置等级/进度
+      if (typeof CardDB !== 'undefined' && CardDB.isReady()) {
         initShop(playerId, 1);
       }
       renderShop(playerId);
@@ -714,6 +737,7 @@
     function applyRemoteShop(data) {
       if (!data.playerId) return;
       const shop = getShop(data.playerId);
+      shop._inited = true;   // 远端有状态：本地不再重新初始化
       shop.level = data.level || 1;
       shop.upgradeProgress = data.upgradeProgress || 0;
       shop.upgradeNeeded = data.upgradeNeeded || 5;

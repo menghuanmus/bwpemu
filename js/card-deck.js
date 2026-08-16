@@ -652,6 +652,11 @@
       syncDeckState(playerId);
       const verb = action === 'use' ? (window._chargeCompleting ? '完成了蓄力，使用了' : '使用了') : '弃置了';
 
+      // 醉仙引：使用后回一张到商店库存并加入优先队列
+      if (action === 'use' && card.name === '醉仙引' && typeof window.applyZuiXianYin === 'function') {
+        window.applyZuiXianYin(playerId);
+      }
+
       // 使用幻境牌时，自动添加到幻境/效果面板
       if (action === 'use') {
         const stackInfo = (card._maxStack > 0) ? `（${card._stack || 1}/${card._maxStack}）` : '';
