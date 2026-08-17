@@ -67,6 +67,12 @@
     if (socket) { socket.disconnect(); socket = null; }
     socket = io(window._SERVER_HOST, { path: window._SERVER_PATH, transports: ['websocket', 'polling'], reconnection: true, reconnectionDelay: 1000, reconnectionAttempts: Infinity });
     window._gameSocket = socket;
+    // 断开瞬间：界面上立刻显示断线状态（之前要等重连成功才有反馈）
+    socket.on('disconnect', function() {
+      if (typeof setConnStatus === 'function' && !AUTH_VIEW.classList.contains('active')) {
+        setConnStatus(false, '已断开，正在重连…');
+      }
+    });
     // 断线后 Socket.IO 自动重连成功：恢复登录并自动回到对局/房间
     socket.on('connect', function() {
       if (!_everAuthed) return;
@@ -859,14 +865,11 @@
   }
 
   // ═══ 切后台回来 / 断线自动重连 ═══
-  function _doReconnect() {
+  function _forceReconnect(token) {
     if (_reconnectBusy) return;
-    if (AUTH_VIEW.classList.contains('active')) return;
-    const token = _getToken();
-    if (!token) return;
-    if (socket && socket.connected) return;   // 连接正常，无需处理
     _reconnectBusy = true;
     showLoading('正在重连…');
+    if (socket) { try { socket.disconnect(); } catch (_) {} socket = null; window._gameSocket = null; }
     connect();                                 // 重建连接
     socket.once('connect', function() {
       socket.emit('token-login', { token: token }, function(res) {
@@ -876,11 +879,30 @@
     });
     // 兜底：12 秒还没连上则取消弹窗
     setTimeout(function() {
-      if (socket && !socket.connected) {
+      if (!socket || !socket.connected) {
         _reconnectBusy = false;
         hideLoading();
       }
     }, 12000);
+  }
+
+  function _doReconnect() {
+    if (_reconnectBusy) return;
+    if (AUTH_VIEW.classList.contains('active')) return;
+    const token = _getToken();
+    if (!token) return;
+    if (!socket || !socket.connected) { _forceReconnect(token); return; }
+    // 看着在线也可能已“假死”（手机切后台时连接早被服务器掐断，页面还不知道）：发探测确认
+    let answered = false;
+    const probeTimer = setTimeout(function() {
+      if (!answered) _forceReconnect(token);   // 2.5 秒没回应 → 强制重连
+    }, 2500);
+    socket.emit('list-rooms', {}, function(res) {
+      answered = true;
+      clearTimeout(probeTimer);
+      if (res && res.rooms) return;            // 连接健康，无需处理
+      _forceReconnect(token);
+    });
   }
 
   document.addEventListener('visibilitychange', function() {
