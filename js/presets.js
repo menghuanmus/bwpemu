@@ -189,6 +189,8 @@ const Presets = (() => {
         tempHpMods: p.tempHpMods || [],
         slotType: p.type,
         slotFaction: p.faction,
+        baseAtk: p.attack,
+        baseHp: p.hp,
       });
     }
 

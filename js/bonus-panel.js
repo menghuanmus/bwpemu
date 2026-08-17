@@ -64,6 +64,18 @@ const BonusPanel = (() => {
     _delegationReady = true;
   }
 
+  /** 护甲/战力 − / + 按钮：增减数值并同步战场徽章 */
+  function _stepStatus(slot, key, delta) {
+    let v = (slot[key] || 0) + delta;
+    if (v > 99) v = 99;
+    if (v < -99) v = -99;
+    slot[key] = v;
+    const input = document.getElementById(key === '_armor' ? 'bonus-armor' : 'bonus-power');
+    if (input) input.value = v;
+    if (typeof updateStatusBadges === 'function') updateStatusBadges(slot);
+    if (typeof syncSlotToPeer === 'function') syncSlotToPeer(slot);
+  }
+
   function handleBodyClick(e) {
     if (!ctx) return;
     if (e.target.classList.contains('bonus-tab')) {
@@ -77,6 +89,10 @@ const BonusPanel = (() => {
     if (e.target.id === 'bonus-add-mod') { handleAddMod(); return; }
     if (e.target.id === 'bonus-add-effect') { handleAddEffect(); return; }
     if (e.target.id === 'bonus-add-temp') { handleAddTemp(); return; }
+    if (e.target.id === 'bonus-power-minus') { _stepStatus(ctx.slot, '_power', -1); return; }
+    if (e.target.id === 'bonus-power-plus') { _stepStatus(ctx.slot, '_power', 1); return; }
+    if (e.target.id === 'bonus-armor-minus') { _stepStatus(ctx.slot, '_armor', -1); return; }
+    if (e.target.id === 'bonus-armor-plus') { _stepStatus(ctx.slot, '_armor', 1); return; }
     if (e.target.id === 'bonus-equip-form') { handleEquipForm(); return; }
     if (e.target.id === 'bonus-lose-form') { handleLoseForm(); return; }
     if (e.target.id === 'bonus-close-btn') close();
@@ -133,6 +149,32 @@ const BonusPanel = (() => {
       } else {
         if (typeof updateSlotEnergyBadge === 'function') updateSlotEnergyBadge(ctx.slot, '');
       }
+      syncSlotToPeer(ctx.slot);
+    }
+    if (e.target.id === 'bonus-base-atk') {
+      const raw = e.target.value.trim();
+      const v = raw === '' ? null : parseInt(raw, 10);
+      ctx.slot._baseAtk = (Number.isNaN(v) || v < 0) ? null : v;
+      syncSlotToPeer(ctx.slot);
+    }
+    if (e.target.id === 'bonus-base-hp') {
+      const raw = e.target.value.trim();
+      const v = raw === '' ? null : parseInt(raw, 10);
+      ctx.slot._baseHp = (Number.isNaN(v) || v < 0) ? null : v;
+      syncSlotToPeer(ctx.slot);
+    }
+    if (e.target.id === 'bonus-armor') {
+      let v = parseInt(e.target.value, 10);
+      if (Number.isNaN(v)) v = 0;
+      ctx.slot._armor = v;
+      if (typeof updateStatusBadges === 'function') updateStatusBadges(ctx.slot);
+      syncSlotToPeer(ctx.slot);
+    }
+    if (e.target.id === 'bonus-power') {
+      let v = parseInt(e.target.value, 10);
+      if (Number.isNaN(v)) v = 0;
+      ctx.slot._power = v;
+      if (typeof updateStatusBadges === 'function') updateStatusBadges(ctx.slot);
       syncSlotToPeer(ctx.slot);
     }
     if (e.target.id === 'bonus-form-atk-active' || e.target.id === 'bonus-form-hp-active') {
@@ -452,6 +494,36 @@ const BonusPanel = (() => {
     }
   }
 
+  /** 基础攻/命 + 护甲/战力输入区（属性页签顶部） */
+  function _baseStatHTML() {
+    const baseAtk = ctx.slot._baseAtk !== undefined && ctx.slot._baseAtk !== null ? ctx.slot._baseAtk : '';
+    const baseHp = ctx.slot._baseHp !== undefined && ctx.slot._baseHp !== null ? ctx.slot._baseHp : '';
+    const armor = ctx.slot._armor || 0;
+    const power = ctx.slot._power || 0;
+    return `<div class="bonus-base-stats">
+      <div class="bonus-base-row">
+        <span class="bonus-base-label">基础攻击：</span>
+        <input type="number" id="bonus-base-atk" class="bonus-form-stat-input" value="${baseAtk}" min="0" max="99" placeholder="未设置">
+        <span class="bonus-base-label">基础生命：</span>
+        <input type="number" id="bonus-base-hp" class="bonus-form-stat-input" value="${baseHp}" min="0" max="99" placeholder="未设置">
+      </div>
+      <div class="bonus-base-row">
+        <span class="bonus-base-label">战力：</span>
+        <button type="button" class="bonus-stepper-btn" id="bonus-power-minus" title="战力−1">−</button>
+        <input type="number" id="bonus-power" class="bonus-form-stat-input" value="${power}" min="-99" max="99" placeholder="0">
+        <button type="button" class="bonus-stepper-btn" id="bonus-power-plus" title="战力+1">＋</button>
+        <span class="bonus-base-note">（负数则为乏力）</span>
+      </div>
+      <div class="bonus-base-row">
+        <span class="bonus-base-label">护甲：</span>
+        <button type="button" class="bonus-stepper-btn" id="bonus-armor-minus" title="护甲−1">−</button>
+        <input type="number" id="bonus-armor" class="bonus-form-stat-input" value="${armor}" min="-99" max="99" placeholder="0">
+        <button type="button" class="bonus-stepper-btn" id="bonus-armor-plus" title="护甲+1">＋</button>
+        <span class="bonus-base-note">（负数则为破甲）</span>
+      </div>
+    </div>`;
+  }
+
   /** 手机端：Tab 分页（属性/能力/形态/效果），弹窗不整体滚动 */
   function _renderMobile(ability) {
     const hasCountdown = !!ctx.slot.querySelector('.card-badge--countdown');
@@ -522,6 +594,10 @@ const BonusPanel = (() => {
           <button type="button" class="bonus-tab${currentMobileTab === 'effects' ? ' active' : ''}" data-bonus-tab="effects">效果</button>
         </div>
         <div class="bonus-tab-panel${currentMobileTab === 'stats' ? ' active' : ''}" data-bonus-panel="stats">
+          <div class="bonus-section">
+            <div class="bonus-section__label">📏 基础属性与状态</div>
+            ${_baseStatHTML()}
+          </div>
           <div class="bonus-section">
             <div class="bonus-section__label">⚔️ 永久属性</div>
             ${permHTML}
@@ -616,6 +692,11 @@ const BonusPanel = (() => {
         </div>
         <!-- 右栏 -->
         <div class="bonus-col">
+          <!-- 基础属性与状态 -->
+          <div class="bonus-section">
+            <div class="bonus-section__label">📏 基础属性与状态</div>
+            ${_baseStatHTML()}
+          </div>
           <!-- 永久属性 -->
           <div class="bonus-section">
             <div class="bonus-section__label">⚔️ 永久属性</div>

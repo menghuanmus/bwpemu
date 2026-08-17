@@ -704,6 +704,38 @@
       padding-top: 5px;
     }
 
+    /* 护甲/战力状态徽章（有值才显示，图片底+可编辑输入框，位于攻击/生命徽章上方） */
+    .card-status-badge {
+      z-index: 102;
+      bottom: 30px;
+      border-radius: 0;
+      border: none;
+      background: center/contain no-repeat transparent;
+    }
+    .card-status-badge[hidden] { display: none; }
+    .card-status-badge--armor {
+      right: -15px;
+      width: 48px;
+      height: 48px;
+    }
+    .card-status-badge--power {
+      left: -15px;
+      width: 42px;
+      height: 42px;
+    }
+    .card-status-badge--power-pos { background-image: url('https://bwpemu.top/images/属性/战力.png'); }
+    .card-status-badge--power-neg { background-image: url('https://bwpemu.top/images/属性/乏力.png'); }
+    .card-status-badge--armor-pos { background-image: url('https://bwpemu.top/images/属性/护甲.png'); }
+    .card-status-badge--armor-neg { background-image: url('https://bwpemu.top/images/属性/破甲.png'); }
+    .card-status-badge input {
+      font-size: 20px;
+      color: #fff;
+      text-shadow: 0 0 4px rgba(0, 0, 0, 0.9), 0 1px 2px rgba(0, 0, 0, 0.8);
+      text-align: center;
+      width: 100%;
+      padding-top: 5px;
+    }
+
     /* 下方：长方形（名称） */
     .card-badge--name {
       bottom: 0;

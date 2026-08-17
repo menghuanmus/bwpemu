@@ -778,19 +778,65 @@
   }
 
   // ═══ 自动登录 ═══
+  /** 处理 token-login 结果：登录 / 恢复对局 / 恢复等待房 / 回大厅 */
+  function handleTokenLogin(res, silent) {
+    hideLoading();
+    if (!res || res.error) {
+      if (!silent) { localStorage.removeItem(TK_KEY); showAuth(false); }
+      return;
+    }
+    window._gameUsername = res.username; window._gameNickname = res.nickname;
+    window._gameAvatar = res.avatar || '';
+    // 断线重连：恢复进行中的对局
+    if (res.joined && res.rejoined) {
+      if (res.state && typeof applyFullState === 'function') applyFullState(res.state);
+      if (typeof enterGame === 'function') enterGame(res);
+      return;
+    }
+    // 恢复等待/准备房
+    if (res.roomStatus === 'ready' || res.roomStatus === 'waiting') {
+      if (typeof showReadyRoom === 'function') showReadyRoom(res);
+      return;
+    }
+    // 无对局可恢复：回大厅
+    if (typeof showLobby === 'function') showLobby(res.nickname);
+  }
+
   function autoLogin() {
     var token = localStorage.getItem(TK_KEY);
     if (!token) { showAuth(false); return; }
     showLoading('恢复登录…');
     connect();
     socket.emit('token-login', { token: token }, function(res) {
-      hideLoading();
-      if (res.error) { localStorage.removeItem(TK_KEY); showAuth(false); return; }
-      window._gameUsername = res.username; window._gameNickname = res.nickname;
-      window._gameAvatar = res.avatar || '';
-      showLobby(res.nickname);
+      handleTokenLogin(res, false);
     });
   }
+
+  // ═══ 切后台回来自动重连（正在重连弹窗 → 恢复对局 → 弹窗消失） ═══
+  let _reconnectBusy = false;
+  document.addEventListener('visibilitychange', function() {
+    if (document.visibilityState !== 'visible') return;
+    if (!socket || socket.connected) return;      // 连接正常，无需处理
+    const token = localStorage.getItem(TK_KEY);
+    if (!token) return;                            // 未登录
+    if (_reconnectBusy) return;                    // 已在重连中
+    _reconnectBusy = true;
+    showLoading('正在重连…');
+    connect();                                     // 重建连接
+    socket.once('connect', function() {
+      socket.emit('token-login', { token: token }, function(res) {
+        _reconnectBusy = false;
+        handleTokenLogin(res, true);               // 恢复对局或回大厅，弹窗随之消失
+      });
+    });
+    // 兜底：12 秒还没连上则取消弹窗
+    setTimeout(function() {
+      if (socket && !socket.connected) {
+        _reconnectBusy = false;
+        hideLoading();
+      }
+    }, 12000);
+  });
 
   autoLogin();
 })();

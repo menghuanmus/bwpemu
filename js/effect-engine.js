@@ -655,9 +655,13 @@
             } else if (target.slot) {
               const hpInput = target.slot.querySelector('.card-hp');
               const hpBefore = hpInput ? (parseInt(hpInput.value, 10) || 0) : 0;
-              _healCard(target.slot, resolvedParams.value || 1);
+              const healed = _healCard(target.slot, resolvedParams.value || 1);
               const hpAfter = hpInput ? (parseInt(hpInput.value, 10) || 0) : 0;
-              broadcastSystemMsg(srcLabel + '为「' + tgtName + '」恢复了' + (resolvedParams.value || 1) + '点生命 ❤️' + hpBefore + '→' + hpAfter);
+              if (healed > 0) {
+                broadcastSystemMsg(srcLabel + '为「' + tgtName + '」恢复了' + healed + '点生命 ❤️' + hpBefore + '→' + hpAfter);
+              } else {
+                broadcastSystemMsg('「' + tgtName + '」生命已满，无法继续恢复');
+              }
             }
             break;
 
@@ -1025,17 +1029,20 @@
       function _dealDamageToCard(slot, amount) {
         const hpInput = slot.querySelector('.card-hp');
         if (!hpInput) return;
-        const currentHp = parseInt(hpInput.value, 10) || 0;
-        const newHp = Math.max(0, currentHp - amount);
-        hpInput.value = newHp || '';
+        // 护甲抵伤 / 破甲加伤 结算（已扣血）
+        const deal = (typeof window.dealDamageToSlot === 'function')
+          ? window.dealDamageToSlot(slot, amount)
+          : null;
+        const finalDmg = deal ? deal.final : amount;
+        const newHp = deal ? deal.newHp : 0;
         // 【特效】伤害动画
         if (typeof DamageEffects !== 'undefined') {
-          DamageEffects.playDamage(slot, amount, 'damage');
+          DamageEffects.playDamage(slot, finalDmg, 'damage');
         }
         syncSlotToPeer(slot);
         // 【联机同步】通知对方播放伤害动画
         if (typeof sendToPeer === 'function' && isConnected()) {
-          sendToPeer({ type: 'card-damage', playerId: slot.dataset.slotPlayer, slotIndex: parseInt(slot.dataset.slotIndex, 10), dmg: amount });
+          sendToPeer({ type: 'card-damage', playerId: slot.dataset.slotPlayer, slotIndex: parseInt(slot.dataset.slotIndex, 10), dmg: finalDmg });
         }
         // 若生命归零且未气绝，触发气绝
         if (newHp <= 0 && !slot.querySelector('.ko-overlay')) {
@@ -1063,18 +1070,22 @@
 
       function _healCard(slot, amount) {
         const hpInput = slot.querySelector('.card-hp');
-        if (!hpInput) return;
-        const currentHp = parseInt(hpInput.value, 10) || 0;
-        hpInput.value = currentHp + amount;
-        // 【特效】治疗动画
-        if (typeof DamageEffects !== 'undefined') {
-          DamageEffects.playDamage(slot, amount, 'heal');
+        if (!hpInput) return 0;
+        // 治疗上限：基础+永久+临时（最多回到上限）
+        const heal = (typeof window.healSlot === 'function')
+          ? window.healSlot(slot, amount)
+          : null;
+        const actual = heal ? heal.actual : amount;
+        // 【特效】治疗动画（有实际恢复才播放）
+        if (actual > 0 && typeof DamageEffects !== 'undefined') {
+          DamageEffects.playDamage(slot, actual, 'heal');
         }
         syncSlotToPeer(slot);
         // 【联机同步】通知对方播放治疗动画
         if (typeof sendToPeer === 'function' && isConnected()) {
-          sendToPeer({ type: 'card-heal', playerId: slot.dataset.slotPlayer, slotIndex: parseInt(slot.dataset.slotIndex, 10), amount });
+          sendToPeer({ type: 'card-heal', playerId: slot.dataset.slotPlayer, slotIndex: parseInt(slot.dataset.slotIndex, 10), amount: actual });
         }
+        return actual;
       }
 
       function _healPlayer(playerId, amount) {

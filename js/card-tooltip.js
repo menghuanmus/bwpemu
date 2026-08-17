@@ -64,7 +64,8 @@
             if (art) {
               const r = art.getBoundingClientRect();
               if (e.clientX >= r.left && e.clientX <= r.right && e.clientY >= r.top && e.clientY <= r.bottom) {
-                if (_findCardName(e.target)) { _onMouseOver(e); }
+                // 有名字或有卡图（含数据库里没有的式神）都显示悬浮窗
+                if (_findCardName(e.target) || slot.classList.contains('has-image')) { _onMouseOver(e); }
                 return;
               }
             }
@@ -153,14 +154,20 @@
       function _onMouseOver(e) {
         const target = e.target;
         const name = _findCardName(target);
+        const slot = target.closest ? target.closest('.card-slot') : null;
 
-        if (!name) { hide(); return; }
+        // 没名字但有卡图的卡槽（数据库里没有的式神）：也允许显示
+        if (!name && !(slot && slot.classList.contains('has-image'))) { hide(); return; }
         // 食材牌/佳肴：用内嵌的食物数据
         let card;
         if (typeof name === 'object' && name._foodData) {
           card = _buildFoodCardInfo(name._foodData);
         } else {
-          card = CardDB.lookup(name);
+          card = name ? CardDB.lookup(name) : null;
+          // 数据库没有的式神：用卡槽当前设置（名字/基础数值/能力来自式神管理）
+          if (!card && slot) {
+            card = _buildSlotCardInfo(slot, typeof name === 'string' ? name : '');
+          }
         }
         if (!card) { hide(); return; }
         currentCard = card;
@@ -182,6 +189,24 @@
           clearTimeout(timer);
           hide();
         }
+      }
+
+      /** 数据库没有的式神：用卡槽当前设置（式神管理里的名字/基础/能力）拼出信息 */
+      function _buildSlotCardInfo(slot, name) {
+        const isSummon = slot.dataset.slotType === 'summon';
+        const baseAtk = (slot._baseAtk !== undefined && slot._baseAtk !== null) ? slot._baseAtk : null;
+        const baseHp = (slot._baseHp !== undefined && slot._baseHp !== null) ? slot._baseHp : null;
+        return {
+          type: isSummon ? 'summon' : 'shikigami',
+          name: name || '无',
+          faction: slot.dataset.slotFaction || '无相',
+          attack: '无',
+          hp: '无',
+          effect: slot._permAbility || '',
+          _slotInfo: true,
+          _baseAtk: baseAtk,
+          _baseHp: baseHp,
+        };
       }
 
       function _buildFoodCardInfo(foodData) {
@@ -292,11 +317,33 @@
         if (card.owner) statsHTML += `<span class="stat stat--owner">👤 ${card.owner}</span>`;
         switch (card.type) {
           case 'shikigami':
-          case 'summon':
-            if (card.faction) statsHTML += `<span class="stat stat--faction"><img src="images/派系/${card.faction}.png" style="width:20px;height:20px;vertical-align:middle;image-rendering:auto;" alt="${card.faction}"> ${card.faction}</span>`;
-            statsHTML += `<span class="stat stat--atk"><img src="images/属性/攻击.png" class="tip-stat-icon" alt="攻"> ${card.attack}</span>`;
-            statsHTML += `<span class="stat stat--hp"><img src="images/属性/生命.png" class="tip-stat-icon" alt="命"> ${card.hp}</span>`;
+          case 'summon': {
+            if (card.faction) {
+              if (card.faction === '无相') {
+                statsHTML += `<span class="stat stat--faction">🌐 无相</span>`;
+              } else {
+                statsHTML += `<span class="stat stat--faction"><img src="images/派系/${card.faction}.png" style="width:20px;height:20px;vertical-align:middle;image-rendering:auto;" alt="${card.faction}"> ${card.faction}</span>`;
+              }
+            }
+            if (card._slotInfo) {
+              // 数据库没有的式神：攻/命直接显示基础数值（实时值战场上看得到），未填则写“无”
+              statsHTML += `<span class="stat stat--atk"><img src="images/属性/攻击.png" class="tip-stat-icon" alt="攻"> ${card._baseAtk === null ? '无' : card._baseAtk}</span>`;
+              statsHTML += `<span class="stat stat--hp"><img src="images/属性/生命.png" class="tip-stat-icon" alt="命"> ${card._baseHp === null ? '无' : card._baseHp}</span>`;
+            } else {
+              // 卡槽悬浮窗显示实时值（本局当前攻/命），非卡槽场景用数据库原值
+              let rtAtk = card.attack;
+              let rtHp = card.hp;
+              if (currentSlot) {
+                const aInput = currentSlot.querySelector('.card-attack');
+                const hInput = currentSlot.querySelector('.card-hp');
+                rtAtk = aInput ? (aInput.value || 0) : card.attack;
+                rtHp = hInput ? (hInput.value || 0) : card.hp;
+              }
+              statsHTML += `<span class="stat stat--atk"><img src="images/属性/攻击.png" class="tip-stat-icon" alt="攻"> ${rtAtk}</span>`;
+              statsHTML += `<span class="stat stat--hp"><img src="images/属性/生命.png" class="tip-stat-icon" alt="命"> ${rtHp}</span>`;
+            }
             break;
+          }
           case 'spell':
             statsHTML += `<span class="stat">⭐ Lv.${card.level}</span>`;
             if (card.atkBonus > 0) statsHTML += `<span class="stat stat--atk"><img src="images/属性/攻击.png" class="tip-stat-icon" alt="攻"> +${card.atkBonus}</span>`;
@@ -340,6 +387,8 @@
         } else {
           effectText = card.effect || card.ability || '';
         }
+        // 数据库没有的式神：能力未填写则显示“无”
+        if (card._slotInfo && !effectText) effectText = '无';
         const safeText = escapeHTML(effectText).replace(/\n/g, '<br>');
         effectEl.innerHTML = safeText;
         effectEl.style.display = effectText ? '' : 'none';

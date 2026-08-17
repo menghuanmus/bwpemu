@@ -23,6 +23,12 @@
       </label>
       <div class="card-badge card-badge--awakened-frame"></div>
       <button type="button" class="card-badge card-badge--bonus" title="加成" aria-label="加成弹窗">💠</button>
+      <label class="card-badge card-status-badge card-status-badge--power" title="战力/乏力" hidden>
+        <input type="text" class="card-power" placeholder="战" aria-label="战力/乏力">
+      </label>
+      <label class="card-badge card-status-badge card-status-badge--armor" title="护甲/破甲" hidden>
+        <input type="text" class="card-armor" placeholder="甲" aria-label="护甲/破甲">
+      </label>
       <label class="card-badge card-badge--attack" title="攻击">
         <input type="text" class="card-attack" placeholder="攻" aria-label="攻击">
       </label>
@@ -343,6 +349,10 @@
         slotType: slot.dataset.slotType || 'shikigami',
         slotFaction: slot.dataset.slotFaction || '',
         chargedCount: (slot._chargedCards || []).length,
+        baseAtk: slot._baseAtk !== undefined ? slot._baseAtk : 0,
+        baseHp: slot._baseHp !== undefined ? slot._baseHp : 0,
+        armor: slot._armor || 0,
+        power: slot._power || 0,
       };
     }
 
@@ -378,6 +388,13 @@
       // 类型 / 派系
       if (state.slotType) slot.dataset.slotType = state.slotType;
       if (state.slotFaction) slot.dataset.slotFaction = state.slotFaction;
+      // 基础攻/命（玩家在式神管理中设置，用于重置/复活）
+      if (state.baseAtk !== undefined) slot._baseAtk = state.baseAtk;
+      if (state.baseHp !== undefined) slot._baseHp = state.baseHp;
+      // 护甲/战力状态（正=护甲/战力，负=破甲/乏力）
+      if (state.armor !== undefined) slot._armor = state.armor;
+      if (state.power !== undefined) slot._power = state.power;
+      updateStatusBadges(slot);
       // 蓄力数量：智能合并真实卡牌（cardId≠-1）和 placeholder
       if (typeof state.chargedCount === 'number') {
         if (!slot._chargedCards) slot._chargedCards = [];
@@ -445,6 +462,8 @@
           c.getContext('2d').drawImage(img, 0, 0, w, h);
           var dataUrl = c.toDataURL('image/jpeg', 0.8);
           setSlotImage(slot, dataUrl);
+          // 初次上传卡图且未设派系：默认归入无相
+          if (!slot.dataset.slotFaction) slot.dataset.slotFaction = '无相';
           syncSlotToPeer(slot);
         };
         img.src = ev.target.result;
@@ -597,6 +616,78 @@
         cd.style.right = '0';
       } else if (en) {
         en.style.right = '0';
+      }
+    }
+
+    /** 护甲/破甲伤害结算：护甲抵伤、破甲加伤并消耗。返回 { final, absorb, extra, newHp }（已扣血） */
+    window.dealDamageToSlot = function(slot, amount) {
+      const hpInput = slot.querySelector('.card-hp');
+      const currentHp = hpInput ? (parseInt(hpInput.value, 10) || 0) : 0;
+      let armor = slot._armor || 0;
+      let final = amount, absorb = 0, extra = 0;
+      if (armor > 0) {
+        absorb = Math.min(armor, amount);
+        armor -= absorb;
+        final = amount - absorb;
+      } else if (armor < 0) {
+        extra = Math.abs(armor);
+        final = amount + extra;
+        armor = 0;
+      }
+      slot._armor = armor;
+      if (typeof updateStatusBadges === 'function') updateStatusBadges(slot);
+      const newHp = Math.max(0, currentHp - final);
+      if (hpInput) hpInput.value = newHp || '';
+      return { final: final, absorb: absorb, extra: extra, newHp: newHp };
+    };
+
+    /** 治疗结算：最多恢复到上限（基础+永久+临时），不会超过上限。返回 { actual, newHp, cap }（已加血） */
+    window.healSlot = function(slot, amount) {
+      const hpInput = slot.querySelector('.card-hp');
+      const currentHp = hpInput ? (parseInt(hpInput.value, 10) || 0) : 0;
+      const cap = (typeof calcFullHp === 'function') ? calcFullHp(slot) : currentHp;
+      const newHp = Math.min(currentHp + amount, Math.max(currentHp, cap));
+      const actual = newHp - currentHp;
+      if (hpInput) hpInput.value = newHp || '';
+      return { actual: actual, newHp: newHp, cap: cap };
+    };
+
+    /** 更新护甲/战力状态徽章（0 时隐藏；正=护甲/战力，负=破甲/乏力；图片底+可编辑输入框） */
+    function updateStatusBadges(slot) {
+      if (!slot) return;
+      const armor = slot._armor || 0;
+      const power = slot._power || 0;
+      const armorEl = slot.querySelector('.card-status-badge--armor');
+      const powerEl = slot.querySelector('.card-status-badge--power');
+      if (armorEl) {
+        const inp = armorEl.querySelector('input');
+        if (armor > 0) {
+          armorEl.className = 'card-badge card-status-badge card-status-badge--armor card-status-badge--armor-pos';
+          armorEl.hidden = false;
+          if (inp) inp.value = armor;
+        } else if (armor < 0) {
+          armorEl.className = 'card-badge card-status-badge card-status-badge--armor card-status-badge--armor-neg';
+          armorEl.hidden = false;
+          if (inp) inp.value = Math.abs(armor);
+        } else {
+          armorEl.hidden = true;
+          if (inp) inp.value = '';
+        }
+      }
+      if (powerEl) {
+        const inp = powerEl.querySelector('input');
+        if (power > 0) {
+          powerEl.className = 'card-badge card-status-badge card-status-badge--power card-status-badge--power-pos';
+          powerEl.hidden = false;
+          if (inp) inp.value = power;
+        } else if (power < 0) {
+          powerEl.className = 'card-badge card-status-badge card-status-badge--power card-status-badge--power-neg';
+          powerEl.hidden = false;
+          if (inp) inp.value = Math.abs(power);
+        } else {
+          powerEl.hidden = true;
+          if (inp) inp.value = '';
+        }
       }
     }
 
@@ -895,6 +986,18 @@
 
     /* 卡牌徽章输入框变化 → 同步到对方（change 事件在失焦时触发） */
     document.addEventListener('change', (e) => {
+      // 护甲/战力徽章：直接改数值（正=护甲/战力，负=破甲/乏力，0=清除）
+      if (e.target.classList.contains('card-armor') || e.target.classList.contains('card-power')) {
+        const slot = e.target.closest('.card-slot');
+        if (slot) {
+          const val = parseInt(e.target.value, 10) || 0;
+          if (e.target.classList.contains('card-armor')) slot._armor = val;
+          else slot._power = val;
+          updateStatusBadges(slot);
+          syncSlotToPeer(slot);
+        }
+        return;
+      }
       // 卡牌徽章
       if (e.target.closest('.card-badge')) {
         const slot = e.target.closest('.card-slot');
@@ -1022,13 +1125,15 @@
       }
     }
 
-    /** 获取有效基础（有形态→形态值，无→CardDB原始值） */
+    /** 获取有效基础（有形态→形态值，玩家设的基础→基础值，无→CardDB原始值） */
     function effectiveBaseAtk(slot) {
       if (slot._formName) return slot._formAtk || 0;
+      if (slot._baseAtk !== undefined && slot._baseAtk !== null) return slot._baseAtk;
       return slot._permBaseAtk !== undefined ? slot._permBaseAtk : 0;
     }
     function effectiveBaseHp(slot) {
       if (slot._formName) return slot._formHp || 0;
+      if (slot._baseHp !== undefined && slot._baseHp !== null) return slot._baseHp;
       return slot._permBaseHp !== undefined ? slot._permBaseHp : 0;
     }
 

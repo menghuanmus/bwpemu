@@ -89,6 +89,44 @@
   display: flex; gap: 10px; align-items: center;
 }
 
+/* 基础属性与状态输入区 */
+.bonus-base-stats {
+  margin-bottom: 4px;
+}
+.bonus-base-row {
+  display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+  margin-bottom: 6px;
+}
+.bonus-base-label {
+  font-size: 14px; color: #c0a060; white-space: nowrap;
+}
+.bonus-base-stats input[type="number"] {
+  width: 56px;
+}
+.bonus-base-hint {
+  font-size: 12px; color: #a09070; line-height: 1.5;
+}
+
+/* 护甲/战力 - + 按钮（与面板其他按钮同风格） */
+.bonus-stepper-btn {
+  min-width: 40px;
+  padding: 7px 0;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: bold;
+  cursor: pointer;
+  border: 1px solid rgba(220,180,80,0.3);
+  background: linear-gradient(180deg, #6a5a2a, #4a3a18);
+  color: #f0d080;
+  line-height: 1;
+  box-sizing: border-box;
+}
+.bonus-stepper-btn:hover { background: linear-gradient(180deg, #8a7a3a, #6a5a28); }
+.bonus-stepper-btn:active { background: linear-gradient(180deg, #4a3a18, #6a5a2a); }
+.bonus-base-note {
+  font-size: 12px; color: #a09070; white-space: nowrap;
+}
+
 /* 倒计时/能量勾选行 */
 .bonus-cd-energy-row {
   display: flex; align-items: center; gap: 10px;

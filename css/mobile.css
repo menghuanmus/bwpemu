@@ -1066,6 +1066,39 @@
     height: 16px;
   }
 
+  /* 护甲/战力状态徽章：图片底小徽章，贴攻击/生命小徽章上方 */
+  .card-status-badge {
+    bottom: calc(var(--info-h) + 24px);
+  }
+  .card-status-badge--armor {
+    right: -4px;
+    width: 24px;
+    height: 24px;
+  }
+  .card-status-badge--power {
+    left: -4px;
+    width: 22px;
+    height: 22px;
+  }
+  .card-status-badge input {
+    font-size: 11px;
+    padding-top: 1px;
+  }
+
+  /* ── 式神管理：基础属性与状态输入区 ── */
+  .bonus-base-row {
+    gap: 6px;
+  }
+  .bonus-base-label { font-size: 15px; }
+  .bonus-base-stats input[type="number"] { font-size: 16px; padding: 6px 4px; }
+  .bonus-base-hint { font-size: 12px; }
+  .bonus-stepper-btn {
+    font-size: 18px;
+    min-width: 44px;
+    padding: 8px 0;
+  }
+  .bonus-base-note { font-size: 12px; }
+
   /* ── 气绝遮罩数字缩小 ── */
   .ko-circle input { font-size: 16px; }
   .ko-circle .ko-icon { font-size: 20px; top: -8px; left: -16px; }

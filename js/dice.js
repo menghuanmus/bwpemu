@@ -946,12 +946,37 @@
         syncSlotToPeer(slot);
       }
 
+      /** 能量 +1（不满 10）：发光动画 + 明细消息 */
+      function tickEnergyOnce(slot, cardName) {
+        const enInput = slot.querySelector('.card-badge--energy input');
+        if (!enInput) return;
+        const beforeEn = parseInt(enInput.value, 10) || 0;
+        if (beforeEn < 10) {
+          enInput.value = beforeEn + 1;
+          // 灯笼图标发光一圈动画
+          const enBadge = slot.querySelector('.card-badge--energy');
+          if (enBadge) {
+            enBadge.classList.add('energy-glow');
+            setTimeout(() => enBadge.classList.remove('energy-glow'), 500);
+          }
+          broadcastSystemMsg(`【系统】「${cardName}」能量 +1（${beforeEn} → ${beforeEn + 1}）`);
+          syncSlotToPeer(slot);
+        }
+      }
+
       const slots = zone.querySelectorAll('.card-slot');
       slots.forEach(slot => {
         if (!slot.classList.contains('has-image')) return;
         const cardName = (slot.querySelector('.card-name')?.value || '').trim() || '未命名';
 
-        // 1) 气绝倒计时 -1，到 0 后 0.5 秒复活
+        // 0) 回合开始：护甲/破甲/战力/乏力 全部清零
+        if (slot._armor || slot._power) {
+          slot._armor = 0;
+          slot._power = 0;
+          if (typeof updateStatusBadges === 'function') updateStatusBadges(slot);
+          broadcastSystemMsg(`【系统】「${cardName}」的护甲/战力状态已清零`);
+          syncSlotToPeer(slot);
+        }
         const koInput = slot.querySelector('.ko-circle input');
         if (koInput) {
           const beforeKo = parseInt(koInput.value, 10) || 0;
@@ -980,10 +1005,19 @@
               }
               syncSlotToPeer(slot);
               broadcastSystemMsg(`【系统】「${cardName}」气绝倒计时结束，复活了`);
-              // 复活后：若拥有普通倒计时，再 -1 并作动画
+              // 复活回满血（基础+永久+临时）
+              if (typeof calcFullAtk === 'function' && typeof calcFullHp === 'function') {
+                const atkIn = slot.querySelector('.card-attack');
+                const hpIn = slot.querySelector('.card-hp');
+                if (atkIn) atkIn.value = calcFullAtk(slot) || '';
+                if (hpIn) hpIn.value = calcFullHp(slot) || '';
+                syncSlotToPeer(slot);
+              }
+              // 复活后：普通倒计时 -1、能量 +1 照常结算
               if (slot.querySelector('.card-badge--countdown')) {
                 tickCountdownOnce(slot, cardName);
               }
+              tickEnergyOnce(slot, cardName);
             }, 500);
           }
           syncSlotToPeer(slot);
@@ -996,21 +1030,7 @@
         }
 
         // 3) 能量检查：仅未气绝的式神，不满 10 则 +1
-        const enInput = slot.querySelector('.card-badge--energy input');
-        if (enInput) {
-          const beforeEn = parseInt(enInput.value, 10) || 0;
-          if (beforeEn < 10) {
-            enInput.value = beforeEn + 1;
-            // 灯笼图标发光一圈动画
-            const enBadge = slot.querySelector('.card-badge--energy');
-            if (enBadge) {
-              enBadge.classList.add('energy-glow');
-              setTimeout(() => enBadge.classList.remove('energy-glow'), 500);
-            }
-            broadcastSystemMsg(`【系统】「${cardName}」能量 +1（${beforeEn} → ${beforeEn + 1}）`);
-            syncSlotToPeer(slot);
-          }
-        }
+        tickEnergyOnce(slot, cardName);
       });
 
       // 结束分组：统一渲染并同步给对方
@@ -1096,6 +1116,13 @@
         // 先摘除气绝遮罩（避免同步残留），保留引用播动画
         const koOverlay = slot.querySelector('.ko-overlay');
         if (koOverlay) koOverlay.remove();
+        // 复活回满血（基础+永久+临时）
+        if (typeof calcFullAtk === 'function' && typeof calcFullHp === 'function') {
+          const atkIn = slot.querySelector('.card-attack');
+          const hpIn = slot.querySelector('.card-hp');
+          if (atkIn) atkIn.value = calcFullAtk(slot) || '';
+          if (hpIn) hpIn.value = calcFullHp(slot) || '';
+        }
         if (typeof DamageEffects !== 'undefined' && DamageEffects.playReviveEffect) {
           DamageEffects.playReviveEffect(slot, koOverlay);
         }
@@ -1201,20 +1228,25 @@
     }
 
     function applyDamageToCard(slot, dmg) {
-      const hpInput = slot.querySelector('.card-hp');
-      const currentHp = parseInt(hpInput.value, 10) || 0;
-      const newHp = Math.max(0, currentHp - dmg);
-      hpInput.value = newHp || '';
+      // 护甲抵伤 / 破甲加伤 结算（已扣血）
+      const deal = (typeof window.dealDamageToSlot === 'function')
+        ? window.dealDamageToSlot(slot, dmg)
+        : null;
+      const finalDmg = deal ? deal.final : dmg;
+      const newHp = deal ? deal.newHp : 0;
       // 【特效】伤害动画
       if (typeof DamageEffects !== 'undefined') {
-        DamageEffects.playDamage(slot, dmg, 'damage');
+        DamageEffects.playDamage(slot, finalDmg, 'damage');
       }
       const cardName = slot.querySelector('.card-name').value || '未命名卡牌';
-      broadcastSystemMsg(`【系统】${getDamageSourceLabel()}对「${cardName}」造成了${dmg}点伤害`);
+      let dmgMsg = `【系统】${getDamageSourceLabel()}对「${cardName}」造成了${finalDmg}点伤害`;
+      if (deal && deal.absorb > 0) dmgMsg += `（护甲抵消${deal.absorb}）`;
+      if (deal && deal.extra > 0) dmgMsg += `（破甲额外${deal.extra}）`;
+      broadcastSystemMsg(dmgMsg);
       // 【联机】同步状态 + 播放伤害动画
       syncSlotToPeer(slot);
       if (isConnected() && typeof sendToPeer === 'function') {
-        sendToPeer({ type: 'card-damage', playerId: slot.dataset.slotPlayer, slotIndex: parseInt(slot.dataset.slotIndex, 10), dmg });
+        sendToPeer({ type: 'card-damage', playerId: slot.dataset.slotPlayer, slotIndex: parseInt(slot.dataset.slotIndex, 10), dmg: finalDmg });
       }
       // 通知效果引擎
       if (typeof EventBus !== 'undefined') {
@@ -1226,7 +1258,7 @@
             slot: slot,
             type: 'shikigami'
           },
-          amount: dmg
+          amount: finalDmg
         });
         // 如果生命归零且未气绝，进入气绝状态（重置攻防+倒计时）
         if (newHp <= 0 && !slot.querySelector('.ko-overlay')) {
@@ -1236,20 +1268,25 @@
     }
 
     function applyHealToCard(slot, amount) {
-      const hpInput = slot.querySelector('.card-hp');
-      const currentHp = parseInt(hpInput.value, 10) || 0;
-      const newHp = currentHp + amount;
-      hpInput.value = newHp || '';
-      // 【特效】治疗动画
-      if (typeof DamageEffects !== 'undefined') {
-        DamageEffects.playDamage(slot, amount, 'heal');
+      // 治疗上限：基础+永久+临时（最多回到上限）
+      const heal = (typeof window.healSlot === 'function')
+        ? window.healSlot(slot, amount)
+        : null;
+      const actual = heal ? heal.actual : amount;
+      // 【特效】治疗动画（有实际恢复才播放）
+      if (actual > 0 && typeof DamageEffects !== 'undefined') {
+        DamageEffects.playDamage(slot, actual, 'heal');
       }
       const cardName = slot.querySelector('.card-name').value || '未命名卡牌';
-      broadcastSystemMsg(`【系统】${getDamageSourceLabel()}为「${cardName}」恢复了${amount}点生命`);
+      if (actual > 0) {
+        broadcastSystemMsg(`【系统】${getDamageSourceLabel()}为「${cardName}」恢复了${actual}点生命`);
+      } else {
+        broadcastSystemMsg(`【系统】「${cardName}」生命已满（上限${heal ? heal.cap : '未知'}），无法继续恢复`);
+      }
       // 【联机】同步状态 + 播放治疗动画
       syncSlotToPeer(slot);
       if (isConnected() && typeof sendToPeer === 'function') {
-        sendToPeer({ type: 'card-heal', playerId: slot.dataset.slotPlayer, slotIndex: parseInt(slot.dataset.slotIndex, 10), amount });
+        sendToPeer({ type: 'card-heal', playerId: slot.dataset.slotPlayer, slotIndex: parseInt(slot.dataset.slotIndex, 10), amount: actual });
       }
       // 通知效果引擎
       if (typeof EventBus !== 'undefined') {
@@ -1261,7 +1298,7 @@
             slot: slot,
             type: 'shikigami'
           },
-          amount: amount
+          amount: actual
         });
       }
     }
