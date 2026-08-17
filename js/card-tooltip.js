@@ -162,7 +162,7 @@
         if (!name && !_slotHasContent(slot)) { hide(); return; }
         // 食材牌/佳肴：用内嵌的食物数据
         let card;
-        if (typeof name === 'object' && name._foodData) {
+        if (name && typeof name === 'object' && name._foodData) {
           card = _buildFoodCardInfo(name._foodData);
         } else {
           card = name ? CardDB.lookup(name) : null;

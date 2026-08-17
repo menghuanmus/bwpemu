@@ -8,9 +8,15 @@
   const TK_KEY = 'bwpemu_token';
   const UN_KEY = 'bwpemu_username';
   const NN_KEY = 'bwpemu_nickname';
+  // 会话级（本次标签页内）登录凭证：不勾“自动登录”也保存，保证切后台回来能自动重连
+  const SK_KEY = 'bwpemu_token_sess';
+  const SK_UN = 'bwpemu_username_sess';
+  const SK_NN = 'bwpemu_nickname_sess';
 
   var socket = null;
   var roomRefreshTimer = null;
+  var _everAuthed = false;      // 是否曾登录成功过（用于判断重连后是否自动恢复）
+  var _reconnectBusy = false;   // 是否正在自动重连
 
   // DOM
   var $ = function(id) { return document.getElementById(id); };
@@ -35,6 +41,18 @@
     if (!reg) $('login-username').focus(); else $('reg-username').focus();
   }
 
+  // ═══ 登录凭证存取 ═══
+  function _getToken() {
+    return localStorage.getItem(TK_KEY) || sessionStorage.getItem(SK_KEY);
+  }
+  function _getUname() {
+    return localStorage.getItem(UN_KEY) || sessionStorage.getItem(SK_UN) || '';
+  }
+  function _clearLoginInfo() {
+    localStorage.removeItem(TK_KEY); localStorage.removeItem(UN_KEY); localStorage.removeItem(NN_KEY);
+    sessionStorage.removeItem(SK_KEY); sessionStorage.removeItem(SK_UN); sessionStorage.removeItem(SK_NN);
+  }
+
   // ═══ 鼠标光晕（登录/大厅） ═══
   document.addEventListener('mousemove', function(e) {
     var av = $('auth-cursor-aura'), lv = $('lobby-cursor-aura'), rv = $('ready-cursor-aura');
@@ -49,6 +67,19 @@
     if (socket) { socket.disconnect(); socket = null; }
     socket = io(window._SERVER_HOST, { path: window._SERVER_PATH, transports: ['websocket', 'polling'], reconnection: true, reconnectionDelay: 1000, reconnectionAttempts: Infinity });
     window._gameSocket = socket;
+    // 断线后 Socket.IO 自动重连成功：恢复登录并自动回到对局/房间
+    socket.on('connect', function() {
+      if (!_everAuthed) return;
+      if (_reconnectBusy) return;
+      if (AUTH_VIEW.classList.contains('active')) return;
+      const token = _getToken();
+      if (!token) return;
+      _reconnectBusy = true;
+      socket.emit('token-login', { token: token }, function(res) {
+        _reconnectBusy = false;
+        handleTokenLogin(res, true);
+      });
+    });
   }
 
   // ═══ 登录 ═══
@@ -62,11 +93,15 @@
       if (res.error) { $('login-error').textContent = res.error; return; }
       if ($('login-remember').checked) {
         localStorage.setItem(TK_KEY, res.token); localStorage.setItem(UN_KEY, res.username); localStorage.setItem(NN_KEY, res.nickname);
+        sessionStorage.setItem(SK_KEY, res.token); sessionStorage.setItem(SK_UN, res.username); sessionStorage.setItem(SK_NN, res.nickname);
       } else {
+        // 没勾“自动登录”也存到会话里，保证切后台回来能自动重连
         localStorage.removeItem(TK_KEY); localStorage.removeItem(UN_KEY); localStorage.removeItem(NN_KEY);
+        sessionStorage.setItem(SK_KEY, res.token); sessionStorage.setItem(SK_UN, res.username); sessionStorage.setItem(SK_NN, res.nickname);
       }
       window._gameUsername = res.username; window._gameNickname = res.nickname;
       window._gameAvatar = res.avatar || '';
+      _everAuthed = true;
       showLobby(res.nickname);
     });
   });
@@ -100,7 +135,7 @@
     showView(LOBBY_VIEW);
     // 回到大厅时彻底清空上一局的战场数据，防止新房间继承旧状态
     if (typeof resetGameState === 'function') resetGameState();
-    var uname = localStorage.getItem(UN_KEY) || window._gameUsername || '';
+    var uname = _getUname() || window._gameUsername || '';
     $('lobby-nickname').textContent = nickname;
     $('lobby-avatar').innerHTML = ''; $('lobby-avatar').textContent = nickname.charAt(0).toUpperCase();
     $('lobby-username').textContent = '@' + uname;
@@ -131,11 +166,11 @@
     if (!rooms || !rooms.length) { if (emptyEl) emptyEl.style.display = ''; listEl.innerHTML = ''; window._cachedRoomList = []; return; }
     if (emptyEl) emptyEl.style.display = 'none';
     window._cachedRoomList = rooms;  // 缓存供密码检查用
-    var myUname = (typeof window._gameUsername !== 'undefined' && window._gameUsername) ? window._gameUsername : (localStorage.getItem(UN_KEY) || '');
+    var myUname = (typeof window._gameUsername !== 'undefined' && window._gameUsername) ? window._gameUsername : _getUname();
     // 可重连的房间置顶
     rooms.sort(function(a, b) {
-      var aMine = a.players.some(function(p) { return p.offline && p.username === myUname; });
-      var bMine = b.players.some(function(p) { return p.offline && p.username === myUname; });
+      var aMine = a.players.some(function(p) { return p.offline && p.username === myUname; }) || ((a.participants || []).indexOf(myUname) !== -1);
+      var bMine = b.players.some(function(p) { return p.offline && p.username === myUname; }) || ((b.participants || []).indexOf(myUname) !== -1);
       if (aMine && !bMine) return -1;
       if (!aMine && bMine) return 1;
       return 0;
@@ -145,12 +180,13 @@
       var online = r.onlineCount || r.players.filter(function(p) { return !p.offline; }).length;
       var full = online >= 2;
       var myOffline = r.players.some(function(p) { return p.offline && p.username === myUname; });
+      var canReconnect = myOffline || ((r.participants || []).indexOf(myUname) !== -1);
       var allOffline = online === 0;
       var roomStatus = r.status || 'playing';
       var status, statusCls;
       if (r.solo) { status = '单人'; statusCls = 'playing'; }
-      else if (roomStatus === 'playing') { status = '对战中'; statusCls = 'playing'; }
-      else if (myOffline) { status = '可重连'; statusCls = 'waiting'; }
+      else if (roomStatus === 'playing' && !canReconnect) { status = '对战中'; statusCls = 'playing'; }
+      else if (canReconnect) { status = '可重连'; statusCls = 'waiting'; }
       else if (roomStatus === 'ready') { status = '等待开始'; statusCls = 'waiting'; }
       else { status = '等待加入'; statusCls = 'waiting'; }
       html += '<div class="room-list-item" data-room="' + r.room + '">' +
@@ -158,9 +194,9 @@
         '<div class="room-list-info"><span class="room-list-status ' + statusCls + '">' + status + '</span>' +
         '<span class="room-list-players">' + (r.solo ? (online + '/1') : (online + '/2')) + ' ' + r.players.map(function(p) { return p.nickname + (p.offline ? '（断线）' : ''); }).join('、') + '</span></div>' +
         '<div class="room-list-actions">';
-      if (r.solo && myOffline) html += '<button class="room-list-join-btn" data-room="' + r.room + '">重连</button>';
+      if (r.solo && canReconnect) html += '<button class="room-list-join-btn" data-room="' + r.room + '">重连</button>';
       else if (!r.solo) {
-        if (myOffline) html += '<button class="room-list-join-btn" data-room="' + r.room + '">重连</button>';
+        if (canReconnect && (myOffline || (roomStatus === 'playing' && online < 2))) html += '<button class="room-list-join-btn" data-room="' + r.room + '">重连</button>';
         else if (roomStatus !== 'playing' && !full) html += '<button class="room-list-join-btn" data-room="' + r.room + '">加入</button>';
       }
       if (roomStatus === 'playing') html += '<button class="room-list-spec-btn" data-room="' + r.room + '">观战</button>';
@@ -585,7 +621,7 @@
       setBtn($('delete-modal-confirm'), false);
       if (res.error) { $('delete-error').textContent = res.error; return; }
       $('delete-modal').classList.remove('active');
-      localStorage.removeItem(TK_KEY); localStorage.removeItem(UN_KEY); localStorage.removeItem(NN_KEY);
+      _clearLoginInfo();
       window._gameUsername = null; window._gameNickname = null; window._gameAvatar = null;
       if (socket) { socket.disconnect(); socket = null; }
       showAuth(false);
@@ -598,7 +634,7 @@
 
   // ═══ 退出 ═══
   $('lobby-logout-btn').addEventListener('click', function() {
-    localStorage.removeItem(TK_KEY); localStorage.removeItem(UN_KEY); localStorage.removeItem(NN_KEY);
+    _clearLoginInfo();
     window._gameUsername = null; window._gameNickname = null;
     window._roomPassword = '';
     if (socket) { socket.disconnect(); socket = null; }
@@ -778,15 +814,25 @@
   }
 
   // ═══ 自动登录 ═══
-  /** 处理 token-login 结果：登录 / 恢复对局 / 恢复等待房 / 回大厅 */
+  /** 处理 token-login 结果：登录 / 恢复对局 / 恢复单人房 / 恢复等待房 / 回大厅 */
   function handleTokenLogin(res, silent) {
     hideLoading();
     if (!res || res.error) {
-      if (!silent) { localStorage.removeItem(TK_KEY); showAuth(false); }
+      // 登录失效：清掉本地登录信息，回登录页并给出提示
+      _clearLoginInfo();
+      showAuth(false);
+      $('login-error').textContent = (res && res.error) ? res.error : '登录状态失效，请重新登录';
       return;
     }
+    _everAuthed = true;
     window._gameUsername = res.username; window._gameNickname = res.nickname;
     window._gameAvatar = res.avatar || '';
+    // 断线重连：恢复单人房
+    if (res.solo) {
+      if (res.state && typeof applyFullState === 'function') applyFullState(res.state);
+      if (typeof enterGame === 'function') enterGame(res);
+      return;
+    }
     // 断线重连：恢复进行中的对局
     if (res.joined && res.rejoined) {
       if (res.state && typeof applyFullState === 'function') applyFullState(res.state);
@@ -803,7 +849,7 @@
   }
 
   function autoLogin() {
-    var token = localStorage.getItem(TK_KEY);
+    var token = _getToken();
     if (!token) { showAuth(false); return; }
     showLoading('恢复登录…');
     connect();
@@ -812,21 +858,20 @@
     });
   }
 
-  // ═══ 切后台回来自动重连（正在重连弹窗 → 恢复对局 → 弹窗消失） ═══
-  let _reconnectBusy = false;
-  document.addEventListener('visibilitychange', function() {
-    if (document.visibilityState !== 'visible') return;
-    if (!socket || socket.connected) return;      // 连接正常，无需处理
-    const token = localStorage.getItem(TK_KEY);
-    if (!token) return;                            // 未登录
-    if (_reconnectBusy) return;                    // 已在重连中
+  // ═══ 切后台回来 / 断线自动重连 ═══
+  function _doReconnect() {
+    if (_reconnectBusy) return;
+    if (AUTH_VIEW.classList.contains('active')) return;
+    const token = _getToken();
+    if (!token) return;
+    if (socket && socket.connected) return;   // 连接正常，无需处理
     _reconnectBusy = true;
     showLoading('正在重连…');
-    connect();                                     // 重建连接
+    connect();                                 // 重建连接
     socket.once('connect', function() {
       socket.emit('token-login', { token: token }, function(res) {
         _reconnectBusy = false;
-        handleTokenLogin(res, true);               // 恢复对局或回大厅，弹窗随之消失
+        handleTokenLogin(res, true);           // 恢复对局或回大厅，弹窗随之消失
       });
     });
     // 兜底：12 秒还没连上则取消弹窗
@@ -836,6 +881,15 @@
         hideLoading();
       }
     }, 12000);
+  }
+
+  document.addEventListener('visibilitychange', function() {
+    if (document.visibilityState !== 'visible') return;
+    _doReconnect();
+  });
+  // 从后台缓存页恢复（手机浏览器 bfcache）也触发重连检查
+  window.addEventListener('pageshow', function(e) {
+    if (e.persisted) _doReconnect();
   });
 
   autoLogin();
