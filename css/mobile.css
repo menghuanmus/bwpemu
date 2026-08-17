@@ -935,9 +935,10 @@
     transform: translate(25%, -25%);
     border-width: 1.5px;
   }
-  .card-badge--countdown { right: 0; }
+  .card-badge--countdown { right: 4px !important; }
+  .card-badge--energy { right: 4px !important; }
   /* JS 内联样式 right:48px 会覆盖，手机上用 !important 紧挨倒计时 */
-  .card-badge--countdown ~ .card-badge--energy { right: 24px !important; }
+  .card-badge--countdown ~ .card-badge--energy { right: 28px !important; }
   .card-badge--countdown .badge-icon,
   .card-badge--energy .badge-icon {
     top: -6px;

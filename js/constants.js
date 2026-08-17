@@ -6,7 +6,7 @@
     // ================================================================
     //  全局常量
     // ================================================================
-    const APP_VERSION = 'v0.39.4';
+    const APP_VERSION = 'v0.4';
     const APP_TITLE = '百闻牌模拟器';
 
     /** 调试模式：0=关闭 1=开启（显示隐藏的编辑器按钮） */
@@ -504,3 +504,49 @@
     }
     // 脚本加载时自动执行（位于 </body> 前，DOM 已就绪）
     initDebugMode();
+
+    // ================================================================
+    //  版本更新检测：页面加载后 / 切回前台时，对比服务器最新版本号，
+    //  发现新版本 → 倒计时 3 秒自动刷新（刷新后自动登录并坐回对局）
+    // ================================================================
+    (function() {
+      let _verChecked = false;
+      let _verOverlay = false;
+
+      function _checkVersion() {
+        if (_verChecked || _verOverlay) return;
+        _verChecked = true;
+        try {
+          fetch('js/constants.js?t=' + Date.now(), { cache: 'no-store' })
+            .then(function(r) { if (!r.ok) throw new Error('http ' + r.status); return r.text(); })
+            .then(function(txt) {
+              const m = txt.match(/APP_VERSION\s*=\s*'([^']+)'/);
+              if (m && m[1] && m[1] !== APP_VERSION) _showUpdate(m[1]);
+            })
+            .catch(function() { _verChecked = false; });  // 网络失败，下次再试
+        } catch (e) { _verChecked = false; }
+      }
+
+      function _showUpdate(newVer) {
+        _verOverlay = true;
+        if (document.getElementById('version-update-overlay')) return;
+        const ov = document.createElement('div');
+        ov.id = 'version-update-overlay';
+        ov.style.cssText = 'position:fixed;inset:0;z-index:99999;background:rgba(8,10,18,0.85);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;color:#fff;font-size:22px;font-weight:700;';
+        ov.innerHTML = '<div>✨ 发现新版本 ' + escapeHTML(newVer) + '</div><div style="font-size:16px;color:#e8c86a;" id="version-update-count">3 秒后自动更新…</div>';
+        document.body.appendChild(ov);
+        let n = 3;
+        const timer = setInterval(function() {
+          n--;
+          const el = document.getElementById('version-update-count');
+          if (n <= 0) { clearInterval(timer); window.location.reload(); }
+          else if (el) el.textContent = n + ' 秒后自动更新…';
+        }, 1000);
+      }
+
+      window.addEventListener('load', function() { setTimeout(_checkVersion, 1500); });
+      document.addEventListener('visibilitychange', function() {
+        if (document.visibilityState === 'visible') { _verChecked = false; setTimeout(_checkVersion, 300); }
+      });
+    })();
+
