@@ -29,6 +29,8 @@
           if (window.matchMedia('(max-width: 768px)').matches) return;
           _onMouseOut(e);
         }, true);
+        // 点击悬浮窗本身：关闭悬浮窗
+        el.addEventListener('click', function() { hide(); });
         console.log('[Tooltip] ✅ 已初始化，监听卡牌名悬浮');
 
         // ── 手机端：点击卡图空白区域显示浮窗（按钮/拖动不触发） ──
@@ -64,8 +66,8 @@
             if (art) {
               const r = art.getBoundingClientRect();
               if (e.clientX >= r.left && e.clientX <= r.right && e.clientY >= r.top && e.clientY <= r.bottom) {
-                // 有名字或有卡图（含数据库里没有的式神）都显示悬浮窗
-                if (_findCardName(e.target) || slot.classList.contains('has-image')) { _onMouseOver(e); }
+                // 有名字或卡槽有内容（含未命名的式神）都显示悬浮窗
+                if (_findCardName(e.target) || _slotHasContent(slot)) { _onMouseOver(e); }
                 return;
               }
             }
@@ -156,8 +158,8 @@
         const name = _findCardName(target);
         const slot = target.closest ? target.closest('.card-slot') : null;
 
-        // 没名字但有卡图的卡槽（数据库里没有的式神）：也允许显示
-        if (!name && !(slot && slot.classList.contains('has-image'))) { hide(); return; }
+        // 没名字但卡槽有内容的式神（未命名自定义式神）：也允许显示
+        if (!name && !_slotHasContent(slot)) { hide(); return; }
         // 食材牌/佳肴：用内嵌的食物数据
         let card;
         if (typeof name === 'object' && name._foodData) {
@@ -191,6 +193,19 @@
         }
       }
 
+      /** 卡槽是否有内容（图/名字/攻命/基础值），空槽不算 */
+      function _slotHasContent(slot) {
+        if (!slot) return false;
+        if (slot.classList.contains('has-image')) return true;
+        const nameEl = slot.querySelector('.card-name');
+        const atkEl = slot.querySelector('.card-attack');
+        const hpEl = slot.querySelector('.card-hp');
+        if ((nameEl && nameEl.value) || (atkEl && atkEl.value) || (hpEl && hpEl.value)) return true;
+        if (slot._baseAtk !== undefined && slot._baseAtk !== null) return true;
+        if (slot._baseHp !== undefined && slot._baseHp !== null) return true;
+        return false;
+      }
+
       /** 数据库没有的式神：用卡槽当前设置（式神管理里的名字/基础/能力）拼出信息 */
       function _buildSlotCardInfo(slot, name) {
         const isSummon = slot.dataset.slotType === 'summon';
@@ -198,7 +213,7 @@
         const baseHp = (slot._baseHp !== undefined && slot._baseHp !== null) ? slot._baseHp : null;
         return {
           type: isSummon ? 'summon' : 'shikigami',
-          name: name || '无',
+          name: name || '暂未命名',
           faction: slot.dataset.slotFaction || '无相',
           attack: '无',
           hp: '无',

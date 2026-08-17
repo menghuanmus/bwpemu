@@ -33,13 +33,13 @@ const Charge = (() => {
   //  辅助函数
   // ================================================================
 
-  /** 获取己方战场上的式神卡槽（有名字的） */
+  /** 获取己方战场上的式神卡槽（有名字或有卡图；未命名的也算） */
   function getOwnShikigamiSlots(playerId) {
     const zone = document.querySelector(`.player-zone[data-player="${playerId}"]`);
     if (!zone) return [];
     return Array.from(zone.querySelectorAll('.card-slot')).filter(s => {
       const name = (s.querySelector('.card-name') || {}).value || '';
-      return name.trim() && s.dataset.slotType !== 'summon';
+      return (name.trim() || s.classList.contains('has-image')) && s.dataset.slotType !== 'summon';
     });
   }
 
@@ -141,7 +141,7 @@ const Charge = (() => {
       chargedBy: playerId,
     });
 
-    const shikigamiName = (slot.querySelector('.card-name') || {}).value || '未知式神';
+    const shikigamiName = (slot.querySelector('.card-name') || {}).value || '暂未命名';
     broadcastCharge(playerId, shikigamiName, card.name);
 
     // 卡牌飞行动画：从来源位置飞到式神卡槽
@@ -207,13 +207,13 @@ const Charge = (() => {
     // 构建列表：己方 + 分割线 + 对方
     const slotItems = [];
     ownSlots.forEach(s => {
-      const name = (s.querySelector('.card-name') || {}).value || '未知';
+      const name = (s.querySelector('.card-name') || {}).value || '暂未命名';
       slotItems.push({ name, slot: s, isOwn: true });
     });
     if (oppSlots.length > 0) {
       slotItems.push({ name: '── 对方式神 ──', slot: null, isDivider: true });
       oppSlots.forEach(s => {
-        const name = (s.querySelector('.card-name') || {}).value || '未知';
+        const name = (s.querySelector('.card-name') || {}).value || '暂未命名';
         slotItems.push({ name, slot: s, isOwn: false });
       });
     }
@@ -233,7 +233,9 @@ const Charge = (() => {
               return '<div style="text-align:center;color:#908060;font-size:12px;padding:4px 0;border-top:1px solid rgba(200,160,60,0.2);">' + item.name + '</div>';
             }
             const label = item.isOwn ? item.name : item.name;
-            return '<button type="button" class="charge-btn charge-btn--complete" data-slot-player="' + item.slot.dataset.slotPlayer + '" data-slot-name="' + escapeHTML(item.name) + '" style="width:100%;text-align:center;">' + escapeHTML(label) + '</button>';
+            const slotIdx = item.slot ? item.slot.dataset.slotIndex : '';
+            const slotPlayer = item.slot ? item.slot.dataset.slotPlayer : '';
+            return '<button type="button" class="charge-btn charge-btn--complete" data-slot-player="' + slotPlayer + '" data-slot-idx="' + slotIdx + '" style="width:100%;text-align:center;">' + escapeHTML(label) + '</button>';
           }).join('')}
         </div>
       </div>
@@ -247,10 +249,12 @@ const Charge = (() => {
     selectOverlay.querySelector('.charge-dialog__close').addEventListener('click', closeIt);
     selectOverlay.querySelectorAll('.charge-btn--complete').forEach(btn => {
       btn.addEventListener('click', () => {
-        const name = btn.dataset.slotName;
         const slotPlayer = btn.dataset.slotPlayer;
-        // 根据式神名和所属玩家找卡槽
-        const slot = findSlotByName(slotPlayer, name);
+        const slotIdx = parseInt(btn.dataset.slotIdx, 10);
+        // 用卡槽编号直接定位（未命名式神也能准确选中）
+        const slot = (typeof getSlotByIndex === 'function')
+          ? getSlotByIndex(slotPlayer, slotIdx)
+          : null;
         if (slot) {
           const handBtn = (typeof CardFlight !== 'undefined') ? CardFlight.getPlayerBtn(playerId, 'hand') : null;
           addChargeToSlot(slot, card, playerId, handBtn);

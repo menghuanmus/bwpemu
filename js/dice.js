@@ -761,7 +761,13 @@
             e.stopPropagation();
             return;
           }
-          if (slot.classList.contains('has-image')) {
+          const slotHasContent = slot.classList.contains('has-image') ||
+            !!((slot.querySelector('.card-name') || {}).value) ||
+            !!((slot.querySelector('.card-attack') || {}).value) ||
+            !!((slot.querySelector('.card-hp') || {}).value);
+          // 蓄力允许对未命名的式神使用（只要有内容），其他模式仍需有卡图
+          const canTarget = slot.classList.contains('has-image') || (targetingMode === 'charge' && slotHasContent);
+          if (canTarget) {
             if (targetingMode === 'ko') {
             applyKoToCard(slot);
           } else if (targetingMode === 'reset-stats') {
@@ -777,14 +783,7 @@
             }
           } else if (targetingMode === 'charge') {
             const playerId = localPlayerId || '1';
-            const shikigamiName = slot.querySelector('.card-name').value.trim();
-            if (!shikigamiName) {
-              exitTargetingMode();
-              e.preventDefault();
-              e.stopPropagation();
-              return;
-            }
-            // 先退出瞄准，再弹窗输入卡牌名
+            // 未命名的式神也可以蓄力，不校验名字
             exitTargetingMode();
             const savedSlot = slot;
             const savedPlayerId = playerId;
