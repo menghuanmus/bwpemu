@@ -215,6 +215,12 @@
       return `观众${spectatorNameCounter || 1}`;
     }
 
+    /** 外部设置观众显示名（进入观战时默认为登录昵称） */
+    window.setSpectatorDisplayName = function(name) {
+      spectatorCustomName = (name || '').trim();
+      if (specNameInput && !specNameInput.value.trim() && spectatorCustomName) specNameInput.value = spectatorCustomName;
+    };
+
     document.getElementById('speak-dialog-cancel').addEventListener('click', closeSpeakDialog);
     document.getElementById('speak-dialog-confirm').addEventListener('click', confirmSpeak);
 

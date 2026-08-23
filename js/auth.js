@@ -715,6 +715,7 @@
       // 观众名默认使用登录昵称
       var si = document.getElementById('spectator-name-input');
       if (si) si.value = window._gameNickname || '观众';
+      if (typeof window.setSpectatorDisplayName === 'function') window.setSpectatorDisplayName(window._gameNickname || '');
       addSystemChatMessage('【系统】已进入观战模式');
     } else if (res.ok || res.room) {
       isHost = true; isSpectator = false; localPlayerId = '1'; isSoloMode = false;

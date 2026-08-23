@@ -2906,6 +2906,9 @@
       graveFilters = { use: true, discard: true };
       graveActionMode = '';
       graveReorder = false;
+      // 观众：可查看，操作区置灰禁点
+      if (typeof isSpectator !== 'undefined' && isSpectator) graveOverlay.classList.add('spec-view');
+      else graveOverlay.classList.remove('spec-view');
       graveOverlay.querySelectorAll('.grave-filter-btn').forEach(b => b.classList.add('active'));
       document.getElementById('grave-dialog-title').textContent = `🪦 ${getPlayerName(playerId)} 的坟场`;
       _graveUpdateActionUI();

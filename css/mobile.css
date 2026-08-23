@@ -1080,7 +1080,7 @@
     left: -4px;
     width: 24px;
     height: 24px;
-    bottom: calc(var(--info-h) + 33px);
+    bottom: calc(var(--info-h) + 21px);
   }
 
   /* ── 坟场：手机端入口按钮（与幻境按钮同大小的小圆钮）、弹窗加大触控 ── */

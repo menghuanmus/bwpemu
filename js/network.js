@@ -192,6 +192,7 @@
             isSpectator = true; localPlayerId = '0';
             addSystemChatMessage('【系统】房间已满，自动切换为观战模式');
             applyPermissionLock();
+            if (typeof window.setSpectatorDisplayName === 'function') window.setSpectatorDisplayName(window._gameNickname || '');
           }
           break;
         case 'card-damage':
@@ -362,6 +363,14 @@
         // 观众只能发言 + 改自己的观众名 + 看式神录
         var speakBtn = document.getElementById('btn-speak-unified');
         if (speakBtn) { speakBtn.removeAttribute('data-locked'); speakBtn.disabled = false; speakBtn.style.opacity = ''; speakBtn.style.cursor = ''; }
+        // 观众可以打开坟场查看（坟场内部操作已对观众禁止）
+        document.querySelectorAll('.btn-deck--grave').forEach(function(el) {
+          el.removeAttribute('data-locked'); el.disabled = false; el.style.opacity = ''; el.style.cursor = '';
+        });
+        // 观众可以打开幻境/效果面板查看（内部输入框保持只读，添加按钮已隐藏）
+        document.querySelectorAll('.btn-mobile-realm').forEach(function(el) {
+          el.removeAttribute('data-locked'); el.disabled = false; el.style.opacity = ''; el.style.cursor = '';
+        });
         var specNameInput = document.getElementById('spectator-name-input');
         if (specNameInput) { specNameInput.removeAttribute('data-locked'); specNameInput.readOnly = false; specNameInput.style.opacity = ''; }
         // 解锁"其他"下拉开关 + 式神录按钮（其余下拉项保持灰置）

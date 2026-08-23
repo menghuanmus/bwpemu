@@ -2979,6 +2979,8 @@
     }
     /* 换位模式：禁用触摸滚动，保证拖动换位可用 */
     .grave-overlay.reorder-mode .grave-item { touch-action: none; }
+    /* 观众视角：坟场操作区置灰禁点（可查看、可筛选用途） */
+    .grave-overlay.spec-view .grave-actions { opacity: 0.35; pointer-events: none; }
     .grave-empty {
       text-align: center;
       color: #806f50;
