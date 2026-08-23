@@ -722,6 +722,7 @@
       left: -15px;
       width: 46px;
       height: 46px;
+      bottom: 34px;
     }
     .card-status-badge--power-pos { background-image: url('https://bwpemu.top/images/属性/战力.png'); }
     .card-status-badge--power-neg { background-image: url('https://bwpemu.top/images/属性/乏力.png'); }

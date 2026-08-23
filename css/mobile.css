@@ -1080,6 +1080,7 @@
     left: -4px;
     width: 24px;
     height: 24px;
+    bottom: calc(var(--info-h) + 28px);
   }
   .card-status-badge input {
     font-size: 11px;

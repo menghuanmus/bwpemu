@@ -89,6 +89,12 @@
   display: flex; gap: 10px; align-items: center;
 }
 
+/* 觉醒勾选 + 快捷觉醒按钮行 */
+.bonus-awaken-row {
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  margin-bottom: 6px;
+}
+
 /* 基础属性与状态输入区 */
 .bonus-base-stats {
   margin-bottom: 4px;

@@ -102,16 +102,26 @@ const BonusPanel = (() => {
     if (e.target.classList.contains('bonus-keyword-btn')) { handleQuickKeyword(e.target.textContent); return; }
     if (e.target.classList.contains('bonus-faction-btn')) { handleFactionClick(e.target); return; }
     if (e.target.id === 'bonus-quick-form') { toggleFormPicker(); return; }
+    if (e.target.id === 'bonus-quick-awaken') { handleQuickAwaken(); return; }
     if (e.target.classList.contains('bonus-form-btn')) { handleQuickForm(e.target.dataset.formName); return; }
   }
 
   function handleBodyChange(e) {
     if (!ctx) return;
     if (typeof isSpectator !== 'undefined' && isSpectator) return;
-    if (e.target.id === 'bonus-ability') {
+    if (e.target.id === 'bonus-is-awakened') {
+      if (e.target.checked) { ctx.slot.classList.add('awakened'); }
+      else { ctx.slot.classList.remove('awakened'); }
+      syncSlotToPeer(ctx.slot);
+      render();   // 重绘，切换基础/觉醒能力输入框和等级框样式
+    }
+    if (e.target.id === 'bonus-base-ability') {
+      ctx.slot._baseAbility = e.target.value;
+      syncSlotToPeer(ctx.slot);
+    }
+    if (e.target.id === 'bonus-awaken-ability') {
       ctx.permAbility = e.target.value;
       ctx.slot._permAbility = ctx.permAbility;
-      if (ctx.permAbility) ctx.slot.classList.add('awakened');
       syncSlotToPeer(ctx.slot);
     }
     if (e.target.id === 'bonus-is-summon') {
@@ -408,6 +418,39 @@ const BonusPanel = (() => {
     }
   }
 
+  function handleQuickAwaken() {
+    if (!ctx) return;
+    const name = ctx.cardName;
+    if (!name || name === '(未命名)') { broadcastBonusMsg('未找到觉醒牌', ''); return; }
+    const all = (typeof CardDB !== 'undefined' && typeof CardDB.getAll === 'function') ? CardDB.getAll() : [];
+    const awaken = all.find(c => c.awakened && c.owner === name && (c.type === 'spell' || c.type === '法术' || c.type === 'realm'));
+    if (!awaken) { broadcastBonusMsg('未找到觉醒牌', ''); return; }
+    const wasAwakened = ctx.slot.classList.contains('awakened');
+    // 自动勾选觉醒 + 写入觉醒能力
+    ctx.slot.classList.add('awakened');
+    const rawEffect = awaken.effect || '';
+    const awIdx = rawEffect.indexOf('觉醒：');
+    ctx.permAbility = awIdx >= 0 ? rawEffect.slice(awIdx + 3).trim() : rawEffect;
+    ctx.slot._permAbility = ctx.permAbility;
+    // 法术觉醒牌：自动加永久属性（没有加攻/命则不加）
+    if (!wasAwakened && (awaken.type === 'spell' || awaken.type === '法术' || awaken.type === 'realm') && (awaken.atkBonus || awaken.hpBonus)) {
+      const awakenSource = awaken.name.includes('觉醒') ? awaken.name : `${awaken.name}（觉醒）`;
+      const oldAtk = typeof calcPermAtk === 'function' ? calcPermAtk(ctx.slot) : 0;
+      const oldHp = typeof calcPermHp === 'function' ? calcPermHp(ctx.slot) : 0;
+      ctx.permAtkMods.push({ source: awakenSource, value: awaken.atkBonus || 0, layers: 1 });
+      ctx.permHpMods.push({ source: awakenSource, value: awaken.hpBonus || 0, layers: 1 });
+      ctx.slot._permAtkMods = ctx.permAtkMods;
+      ctx.slot._permHpMods = ctx.permHpMods;
+      if (typeof applyPermStats === 'function') applyPermStats(ctx.slot, oldAtk, oldHp);
+      ctx.permAtk = typeof calcPermAtk === 'function' ? calcPermAtk(ctx.slot) : 0;
+      ctx.permHp = typeof calcPermHp === 'function' ? calcPermHp(ctx.slot) : 0;
+    }
+    syncSlotToPeer(ctx.slot);
+    if (typeof autoUpdateSlotImage === 'function') autoUpdateSlotImage(ctx.slot);
+    broadcastBonusMsg('快捷觉醒了', awaken.name);
+    render();
+  }
+
   function handleQuickForm(formName) {
     if (!formName || !ctx) return;
     var forms = _findShikigamiForms(ctx.cardName);
@@ -485,13 +528,12 @@ const BonusPanel = (() => {
 
   function render() {
     const body = document.getElementById('bonus-body');
-    const ability = ctx.permAbility || (ctx.dbCard ? (ctx.dbCard.ability || '') : '');
 
     // 手机端：Tab 分页结构；桌面端：两栏结构
     if (window.matchMedia('(max-width: 768px)').matches) {
-      body.innerHTML = _renderMobile(ability);
+      body.innerHTML = _renderMobile();
     } else {
-      body.innerHTML = _renderDesktop(ability);
+      body.innerHTML = _renderDesktop();
     }
   }
 
@@ -526,10 +568,14 @@ const BonusPanel = (() => {
   }
 
   /** 手机端：Tab 分页（属性/能力/形态/效果），弹窗不整体滚动 */
-  function _renderMobile(ability) {
+  function _renderMobile() {
     const hasCountdown = !!ctx.slot.querySelector('.card-badge--countdown');
     const hasEnergy = !!ctx.slot.querySelector('.card-badge--energy');
     const baseCountdown = ctx.slot._baseCountdown || 2;
+    const awakened = ctx.slot.classList.contains('awakened');
+    const baseAbilitySaved = ctx.slot._baseAbility !== undefined ? ctx.slot._baseAbility : '';
+    const basePlaceholder = ctx.dbCard ? (ctx.dbCard.ability || '') : '';
+    const awakenAbility = ctx.slot._permAbility || '';
 
     const factionHTML = `<div class="bonus-faction-row">
       ${['苍叶','红莲','青岚','紫岩','无相'].map(function(f) {
@@ -538,7 +584,12 @@ const BonusPanel = (() => {
       <label class="bonus-summon-label"><input type="checkbox" id="bonus-is-summon" ${ctx.slot.dataset.slotType === 'summon' ? 'checked' : ''}> 召唤物</label>
     </div>`;
 
-    const abilityHTML = `<textarea id="bonus-ability" class="bonus-ability-input" placeholder="${escapeHTML(ability)}" rows="3">${escapeHTML(ctx.permAbility)}</textarea>`;
+    const abilityHTML = `<div class="bonus-awaken-row">
+        <label class="bonus-summon-label"><input type="checkbox" id="bonus-is-awakened" ${awakened ? 'checked' : ''}> 觉醒</label>
+        <button type="button" id="bonus-quick-awaken" class="bonus-btn--keyword">+快捷觉醒</button>
+      </div>
+      <textarea id="bonus-base-ability" class="bonus-ability-input" placeholder="${escapeHTML(basePlaceholder)}" rows="3" ${awakened ? 'style="display:none;"' : ''}>${escapeHTML(baseAbilitySaved)}</textarea>
+      <textarea id="bonus-awaken-ability" class="bonus-ability-input" placeholder="觉醒能力" rows="3" ${awakened ? '' : 'style="display:none;"'}>${escapeHTML(awakenAbility)}</textarea>`;
 
     const cdEnergyHTML = `<div class="bonus-cd-energy-row">
       <label class="bonus-summon-label"><input type="checkbox" id="bonus-has-countdown" ${hasCountdown ? 'checked' : ''}> 倒计时</label>
@@ -614,7 +665,7 @@ const BonusPanel = (() => {
             ${factionHTML}
           </div>
           <div class="bonus-section">
-            <div class="bonus-section__label">📝 基础/觉醒能力 <span class="bonus-help-icon" title="无内容时默认为基础能力">?</span></div>
+            <div class="bonus-section__label">📝 基础能力</div>
             ${abilityHTML}
           </div>
           <div class="bonus-section">
@@ -644,10 +695,14 @@ const BonusPanel = (() => {
   }
 
   /** 桌面端：两栏布局（原版） */
-  function _renderDesktop(ability) {
+  function _renderDesktop() {
     const hasCountdown = !!ctx.slot.querySelector('.card-badge--countdown');
     const hasEnergy = !!ctx.slot.querySelector('.card-badge--energy');
     const baseCountdown = ctx.slot._baseCountdown || 2;
+    const awakened = ctx.slot.classList.contains('awakened');
+    const baseAbilitySaved = ctx.slot._baseAbility !== undefined ? ctx.slot._baseAbility : '';
+    const basePlaceholder = ctx.dbCard ? (ctx.dbCard.ability || '') : '';
+    const awakenAbility = ctx.slot._permAbility || '';
     return `
       <div class="bonus-info">
         <span class="bonus-info__name">「${escapeHTML(ctx.cardName)}」</span>
@@ -667,10 +722,15 @@ const BonusPanel = (() => {
               <label class="bonus-summon-label"><input type="checkbox" id="bonus-is-summon" ${ctx.slot.dataset.slotType === 'summon' ? 'checked' : ''}> 召唤物</label>
             </div>
           </div>
-          <!-- 基础/觉醒能力 -->
+          <!-- 基础能力 -->
           <div class="bonus-section">
-            <div class="bonus-section__label">📝 基础/觉醒能力 <span class="bonus-help-icon" title="无内容时默认为基础能力">?</span></div>
-            <textarea id="bonus-ability" class="bonus-ability-input" placeholder="${escapeHTML(ability)}" rows="3">${escapeHTML(ctx.permAbility)}</textarea>
+            <div class="bonus-section__label">📝 基础能力</div>
+            <div class="bonus-awaken-row">
+              <label class="bonus-summon-label"><input type="checkbox" id="bonus-is-awakened" ${awakened ? 'checked' : ''}> 觉醒</label>
+              <button type="button" id="bonus-quick-awaken" class="bonus-btn--keyword">+快捷觉醒</button>
+            </div>
+            <textarea id="bonus-base-ability" class="bonus-ability-input" placeholder="${escapeHTML(basePlaceholder)}" rows="3" ${awakened ? 'style="display:none;"' : ''}>${escapeHTML(baseAbilitySaved)}</textarea>
+            <textarea id="bonus-awaken-ability" class="bonus-ability-input" placeholder="觉醒能力" rows="3" ${awakened ? '' : 'style="display:none;"'}>${escapeHTML(awakenAbility)}</textarea>
           </div>
           <!-- 倒计时 / 能量 -->
           <div class="bonus-section">

@@ -346,6 +346,7 @@
         formAbility: slot._formAbility || '',
         tempAtkMods: slot._tempAtkMods || [],
         tempHpMods: slot._tempHpMods || [],
+        baseAbility: slot._baseAbility || '',
         slotType: slot.dataset.slotType || 'shikigami',
         slotFaction: slot.dataset.slotFaction || '',
         chargedCount: (slot._chargedCards || []).length,
@@ -382,6 +383,8 @@
       slot._formAtk = state.formAtk || 0;
       slot._formHp = state.formHp || 0;
       slot._formAbility = state.formAbility || '';
+      // 基础能力（觉醒能力仍在 _permAbility）
+      if (state.baseAbility !== undefined) slot._baseAbility = state.baseAbility;
       // 临时属性
       slot._tempAtkMods = state.tempAtkMods || [];
       slot._tempHpMods = state.tempHpMods || [];
@@ -1257,16 +1260,7 @@
       syncSlotToPeer(slot);
     }
     function updateAwakenedMark(slot) {
-      const allSources = [
-        ...(slot._permAtkMods || []).map(m => m.source),
-        ...(slot._permHpMods || []).map(m => m.source)
-      ];
-      const hasAwakening = allSources.some(s => s && s.includes('觉醒'));
-      if (hasAwakening) {
-        slot.classList.add('awakened');
-      } else {
-        slot.classList.remove('awakened');
-      }
+      // 觉醒状态由“式神管理勾选框 / 使用觉醒牌”直接控制（slot.awakened class），不再根据属性来源自动切换
     }
 
     /* ================================================================
@@ -1277,7 +1271,7 @@
       // 1) 卡槽：重建初始结构，清掉形态/灵咒/蓄力/气绝等动态内容
       document.querySelectorAll('.card-slot').forEach(slot => {
         slot.innerHTML = CARD_INNER_HTML;
-        ['_formName', '_formAtk', '_formHp', '_formAbility', '_permAbility',
+        ['_formName', '_formAtk', '_formHp', '_formAbility', '_permAbility', '_baseAbility',
          '_permAtkMods', '_permHpMods', '_permEffects',
          '_tempAtkMods', '_tempHpMods', '_chargedCards'].forEach(function(k) { delete slot[k]; });
         slot.classList.remove('has-image', 'charging', 'awakened');

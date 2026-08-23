@@ -217,7 +217,7 @@
           faction: slot.dataset.slotFaction || '无相',
           attack: '无',
           hp: '无',
-          effect: slot._permAbility || '',
+          effect: slot.classList.contains('awakened') ? (slot._permAbility || '') : ((slot._baseAbility !== undefined && slot._baseAbility !== null) ? slot._baseAbility : ''),
           _slotInfo: true,
           _baseAtk: baseAtk,
           _baseHp: baseHp,
@@ -367,7 +367,7 @@
                 const parts = [];
                 if (dA !== 0) parts.push(`<img src="images/属性/攻击.png" class="tip-stat-icon" alt="攻">${dA > 0 ? '+' : ''}${dA}`);
                 if (dH !== 0) parts.push(`<img src="images/属性/生命.png" class="tip-stat-icon" alt="命">${dH > 0 ? '+' : ''}${dH}`);
-                statsHTML += `<span class="stat stat--dmg">变动：${parts.join(' ')}</span>`;
+                statsHTML += `<span class="stat stat--dmg" style="flex-basis:100%;">变动：${parts.join(' ')}</span>`;
               }
             } else {
               // 手牌/牌库等非卡槽场景：数据库原值
@@ -413,9 +413,15 @@
         // 效果/能力描述
         const effectEl = el.querySelector('.card-tooltip__effect');
         let effectText = '';
-        // 觉醒替换能力优先
-        if (currentSlot && currentSlot._permAbility) {
-          effectText = currentSlot._permAbility;
+        // 觉醒状态且有觉醒能力 → 显示觉醒能力；否则显示玩家填的基础能力；再退到数据库能力
+        if (currentSlot) {
+          if (currentSlot.classList.contains('awakened') && currentSlot._permAbility) {
+            effectText = currentSlot._permAbility;
+          } else if (currentSlot._baseAbility !== undefined && currentSlot._baseAbility !== null && currentSlot._baseAbility !== '') {
+            effectText = currentSlot._baseAbility;
+          } else {
+            effectText = card.ability || card.effect || '';
+          }
         } else {
           effectText = card.effect || card.ability || '';
         }
@@ -434,19 +440,19 @@
             parts.push(`<div class="card-tooltip__perm-head">🎴 形态：${escapeHTML(currentSlot._formName)} <span><img src="images/属性/攻击.png" class="tip-stat-icon" alt="攻"> ${currentSlot._formAtk || 0}</span> <span><img src="images/属性/生命.png" class="tip-stat-icon" alt="命"> ${currentSlot._formHp || 0}</span></div>`);
             if (currentSlot._formAbility) parts.push(`<div class="card-tooltip__perm-item">${escapeHTML(currentSlot._formAbility)}</div>`);
           }
-          // 2. 永久属性
+          // 2. 永久属性（同来源不同数值的项目全部展示）
           const permAtk = typeof calcPermAtk === 'function' ? calcPermAtk(currentSlot) : 0;
           const permHp = typeof calcPermHp === 'function' ? calcPermHp(currentSlot) : 0;
           const mods = currentSlot._permAtkMods || [];
           const hpMods = currentSlot._permHpMods || [];
-          const allPermSources = new Set();
-          mods.forEach(m => { if (m.source) allPermSources.add(m.source); });
-          hpMods.forEach(m => { if (m.source) allPermSources.add(m.source); });
-          if (allPermSources.size > 0) {
+          const permCount = Math.max(mods.length, hpMods.length);
+          if (permCount > 0) {
             let s = `<div class="card-tooltip__perm-head">⚔️ 永久属性</div>`;
-            allPermSources.forEach(src => {
-              const am = mods.find(m => m.source === src);
-              const hm = hpMods.find(m => m.source === src);
+            for (let i = 0; i < permCount; i++) {
+              const am = mods[i] || null;
+              const hm = hpMods[i] || null;
+              const src = (am && am.source) || (hm && hm.source) || '';
+              if (!src) continue;
               const layers = (am && am.layers) || (hm && hm.layers) || 1;
               const layersText = layers > 1 ? ` ×${layers}` : '';
               s += `<div class="card-tooltip__perm-item"><span>${escapeHTML(src)}${layersText}：</span>`;
@@ -454,20 +460,20 @@
               if (am && hm) s += '、';
               if (hm) s += `<span style="color:#e04848;">生命${(hm.value || 0) >= 0 ? '+' : ''}${hm.value || 0}</span>`;
               s += '</div>';
-            });
+            }
             parts.push(s);
           }
-          // 3. 临时属性
+          // 3. 临时属性（同来源不同数值的项目全部展示）
           const tempMods = currentSlot._tempAtkMods || [];
           const tempHpMods = currentSlot._tempHpMods || [];
-          const allTempSources = new Set();
-          tempMods.forEach(m => { if (m.source) allTempSources.add(m.source); });
-          tempHpMods.forEach(m => { if (m.source) allTempSources.add(m.source); });
-          if (allTempSources.size > 0) {
+          const tempCount = Math.max(tempMods.length, tempHpMods.length);
+          if (tempCount > 0) {
             let s = '<div class="card-tooltip__perm-head">⏳ 临时属性</div>';
-            allTempSources.forEach(src => {
-              const am = tempMods.find(m => m.source === src);
-              const hm = tempHpMods.find(m => m.source === src);
+            for (let i = 0; i < tempCount; i++) {
+              const am = tempMods[i] || null;
+              const hm = tempHpMods[i] || null;
+              const src = (am && am.source) || (hm && hm.source) || '';
+              if (!src) continue;
               const layers = (am && am.layers) || (hm && hm.layers) || 1;
               const layersText = layers > 1 ? ` ×${layers}` : '';
               s += `<div class="card-tooltip__perm-item"><span>${escapeHTML(src)}${layersText}：</span>`;
@@ -475,7 +481,7 @@
               if (am && hm) s += '、';
               if (hm) s += `<span style="color:#e04848;">生命${(hm.value || 0) >= 0 ? '+' : ''}${hm.value || 0}</span>`;
               s += '</div>';
-            });
+            }
             parts.push(s);
           }
           // 4. 效果记录
