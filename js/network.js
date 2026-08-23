@@ -126,6 +126,9 @@
             playerRevealedCards[data.playerId] = new Set(data.cardIds.filter(function(id) { return typeof id === 'number'; }));
           }
           break;
+        case 'grave-target':
+          if (typeof window.applyRemoteGraveTarget === 'function') window.applyRemoteGraveTarget(data.playerId, !!data.enabled);
+          break;
         case 'food-card-register':
           if (data.card && typeof CardDB !== 'undefined' && typeof CardDB.addCustom === 'function') {
             CardDB.addCustom(data.card);
@@ -499,6 +502,7 @@
       }
       if (state.avatars) { ['1', '2'].forEach(function(pid) { if (state.avatars[pid]) setAvatarImage(pid, state.avatars[pid]); }); }
       if (state.revealedCards && typeof playerRevealedCards !== 'undefined') { ['1', '2'].forEach(function(pid) { if (state.revealedCards[pid]) playerRevealedCards[pid] = new Set(state.revealedCards[pid]); }); }
+      if (state.graveTargets && typeof window.applyGraveTargets === 'function') window.applyGraveTargets(state.graveTargets);
 
       // 恢复聊天记录
       if (state.chatLog && Array.isArray(state.chatLog)) {

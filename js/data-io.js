@@ -442,6 +442,8 @@
             };
           }
         });
+        // 坟场入口开关状态一并导入
+        fullState.graveTargets = (typeof window.getGraveTargetsState === 'function') ? window.getGraveTargetsState() : { '1': false, '2': false };
         // 通过 Socket.IO 直接发送（不经过 sendToPeer，避免所有权校验）
         if (window._gameSocket && window._gameSocket.connected) {
           window._gameSocket.emit('import-state', fullState);

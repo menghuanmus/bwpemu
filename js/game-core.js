@@ -129,6 +129,7 @@
         state.grave = Array.isArray(graveData) ? graveData.filter(c => c && typeof c === 'object') : (state.grave || []);
         if (typeof updateCardIdCounter === 'function') updateCardIdCounter();
         updateDeckButtons(playerId);
+        if (typeof window.refreshGraveButtons === 'function') window.refreshGraveButtons();
       } catch(e) {
         console.error('[RemoteDeck] 更新失败:', e);
       }
@@ -1285,6 +1286,9 @@
       if (typeof playerCards !== 'undefined') {
         ['1', '2'].forEach(function(pid) { playerCards[pid] = { deck: [], hand: [], grave: [] }; });
       }
+      // 2.1) 坟场入口按钮与开关
+      document.querySelectorAll('.btn-deck--grave').forEach(function(b) { b.remove(); });
+      if (typeof window.applyGraveTargets === 'function') window.applyGraveTargets({});
       // 3) 赏金 / 商店 / 库存
       if (typeof playerBounty !== 'undefined') { playerBounty['1'] = 0; playerBounty['2'] = 0; }
       if (typeof playerShops !== 'undefined') { delete playerShops['1']; delete playerShops['2']; }

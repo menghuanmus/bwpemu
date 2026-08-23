@@ -536,6 +536,17 @@
       });
     }
 
+    // ---- 检索（打开检索弹窗） ----
+    const btnSearch = document.getElementById('btn-search');
+    if (btnSearch) {
+      btnSearch.addEventListener('click', (e) => {
+        dropdownMechanicMenu.hidden = true;
+        if (isTargeting) { exitTargetingMode(); return; }
+        e.stopPropagation();
+        if (typeof window.openSearchDialog === 'function') window.openSearchDialog();
+      });
+    }
+
     // ---- 重置属性 ----
     const btnResetStats = document.getElementById('btn-reset-stats');
     if (btnResetStats) {

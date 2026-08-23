@@ -659,6 +659,7 @@
       updateDeckButtons(playerId);
       refreshOpenListDialog(playerId);
       syncDeckState(playerId);
+      if (typeof window.refreshGraveButtons === 'function') window.refreshGraveButtons();
       const verb = action === 'use' ? (window._chargeCompleting ? '完成了蓄力，使用了' : '使用了') : '弃置了';
 
       // 醉仙引：使用后回一张到商店库存并加入优先队列
@@ -673,6 +674,8 @@
         const mainMsg = `【系统】${getPlayerName(playerId)}${verb}「${card.name}」${stackInfo}${curseInfo}`;
         if (window._graveUseInProgress) {
           // 从坟场使用：由坟场逻辑统一播报，这里不重复
+        } else if (window._searchUseInProgress) {
+          // 从检索使用：由检索逻辑统一播报，这里不重复
         } else if (typeof startMessageGroup === 'function') {
           startMessageGroup(mainMsg, window.getFoodNote ? window.getFoodNote(card) : null);
         } else {
@@ -868,6 +871,7 @@
       updateDeckButtons(playerId);
       refreshOpenListDialog(playerId);
       syncDeckState(playerId);
+      if (typeof window.refreshGraveButtons === 'function') window.refreshGraveButtons();
       broadcastSystemMsg(`【系统】${getPlayerName(playerId)}从牌库弃置了「${card.name}」`);
       // 弃牌动画：从牌库按钮飞出
       _playDiscardAnim(playerId);
@@ -886,6 +890,7 @@
       updateDeckButtons(playerId);
       refreshOpenListDialog(playerId);
       syncDeckState(playerId);
+      if (typeof window.refreshGraveButtons === 'function') window.refreshGraveButtons();
       broadcastSystemMsg(`【系统】${getPlayerName(playerId)}从牌库弃置了「${cardName}」`);
       _playDiscardAnim(playerId);
     }
@@ -2656,7 +2661,23 @@
       return document.querySelector(`.btn-deck--grave[data-grave-player="${playerId}"]`);
     }
 
-    /** 机制：切换某玩家的坟场入口按钮 */
+    /** 按钮文案：显示坟场牌数 */
+    function _graveBtnText(playerId) {
+      const st = typeof getPlayerCardState === 'function' ? getPlayerCardState(playerId) : null;
+      const n = (st && Array.isArray(st.grave)) ? st.grave.length : 0;
+      return _graveIsMobile() ? '🪦' + n : `🪦 坟场（${n}）`;
+    }
+
+    /** 刷新所有坟场入口按钮的牌数显示 */
+    window.refreshGraveButtons = function() {
+      document.querySelectorAll('.btn-deck--grave').forEach(function(b) {
+        const pid = b.dataset.gravePlayer;
+        if (!pid) return;
+        b.textContent = _graveBtnText(pid);
+      });
+    };
+
+    /** 机制：切换某玩家的坟场入口按钮（同步给双方） */
     window.setGraveyardTarget = function(playerId) {
       if (!playerId || playerId === '0') return;
       if (graveTargets[playerId]) {
@@ -2665,12 +2686,51 @@
         if (b) b.remove();
         if (graveCtx && graveCtx.playerId === playerId) _graveClose();
         broadcastSystemMsg(`【系统】已关闭${getPlayerName(playerId)}的坟场入口`);
+        if (typeof sendToPeer === 'function') sendToPeer({ type: 'grave-target', playerId: playerId, enabled: false });
       } else {
         graveTargets[playerId] = true;
         _graveEnsureEntry(playerId);
         window.placeGraveButtons();
         broadcastSystemMsg(`【系统】已为${getPlayerName(playerId)}开启坟场入口`);
+        if (typeof sendToPeer === 'function') sendToPeer({ type: 'grave-target', playerId: playerId, enabled: true });
       }
+    };
+
+    /** 远端应用坟场入口开关（不重复发系统消息） */
+    window.applyRemoteGraveTarget = function(playerId, enabled) {
+      if (!playerId || playerId === '0') return;
+      if (enabled) {
+        graveTargets[playerId] = true;
+        _graveEnsureEntry(playerId);
+      } else {
+        delete graveTargets[playerId];
+        const b = _graveBtnOf(playerId);
+        if (b) b.remove();
+        if (graveCtx && graveCtx.playerId === playerId) _graveClose();
+      }
+      window.placeGraveButtons();
+    };
+
+    /** 整局状态恢复（重连/观战）：按服务器保存的入口开关重建按钮 */
+    window.applyGraveTargets = function(targets) {
+      ['1', '2'].forEach(function(pid) {
+        const on = !!(targets && targets[pid]);
+        if (on && !graveTargets[pid]) {
+          graveTargets[pid] = true;
+          _graveEnsureEntry(pid);
+        } else if (!on && graveTargets[pid]) {
+          delete graveTargets[pid];
+          const b = _graveBtnOf(pid);
+          if (b) b.remove();
+          if (graveCtx && graveCtx.playerId === pid) _graveClose();
+        }
+      });
+      window.placeGraveButtons();
+    };
+
+    /** 导出用：当前坟场入口开关快照 */
+    window.getGraveTargetsState = function() {
+      return Object.assign({}, graveTargets);
     };
 
     /** 创建坟场入口按钮（初始位置） */
@@ -2682,7 +2742,7 @@
       btn.type = 'button';
       btn.className = 'btn-deck btn-deck--grave';
       btn.dataset.gravePlayer = playerId;
-      btn.textContent = _graveIsMobile() ? '坟场' : '🪦 坟场';
+      btn.textContent = _graveBtnText(playerId);
       btn.title = '打开坟场';
       btn.addEventListener('click', (e) => {
         e.stopPropagation();
@@ -2701,7 +2761,7 @@
         const zone = document.querySelector(`.player-zone[data-player="${pid}"]`);
         const btn = _graveBtnOf(pid);
         if (!zone || !btn) return;
-        btn.textContent = mobile ? '坟场' : '🪦 坟场';
+        btn.textContent = _graveBtnText(pid);
         if (mobile) {
           const bar = zone.querySelector('.player-id-area');
           const realm = zone.querySelector('.btn-mobile-realm');
@@ -2897,6 +2957,7 @@
       const syncAfter = function() {
         if (typeof syncDeckStateForce === 'function') syncDeckStateForce(playerId);
         else if (typeof syncDeckState === 'function') syncDeckState(playerId);
+        if (typeof window.refreshGraveButtons === 'function') window.refreshGraveButtons();
       };
 
       if (graveActionMode === 'use') {
@@ -2908,6 +2969,10 @@
           removeFromHand(playerId, card.id, 'use');
         } finally {
           window._graveUseInProgress = false;
+        }
+        // 跨玩家操作时强制同步给对方（removeFromHand 内部只同步己方）
+        if (typeof syncDeckStateForce === 'function' && typeof isMyZone === 'function' && !isMyZone(playerId)) {
+          syncDeckStateForce(playerId);
         }
         broadcastSystemMsg(`【系统】${playerName}从坟场（${filterText}）使用了卡牌「${card.name}」`);
       } else if (graveActionMode === 'hand') {
@@ -2948,4 +3013,338 @@
       if (CardFlight._broadcastAnim) {
         CardFlight._broadcastAnim({ action: 'fly-single', playerId: playerId, fromType: null, fromCoord: fromC, toType: null, toCoord: toC, opts: { duration: 0.5, arcHeight: 60 } });
       }
+    }
+
+    // ================================================================
+    //  检索系统（机制：🔍 检索 → 范围开关 → 发现/牌名 → 结果操作）
+    //  检索来源：己方牌库。范围三组开关取交集。
+    // ================================================================
+    let searchOverlay = null;
+    let searchTab = 'discover';    // 'discover' | 'name'
+    let searchResults = [];        // 本次检索出的牌（牌库卡牌引用）
+    let searchMethod = '发现';     // '发现' | '牌名'
+    let searchHasResult = false;   // 是否已检索（控制「结束检索」按钮）
+    let searchFilters = {
+      shikigami: { all: true, neutral: false, names: [] },
+      levels: { '1': true, '2': true, '3': true },
+      types: { battle: true, spell: true, realm: true, form: true },
+    };
+
+    function _searchIsMobile() {
+      return window.matchMedia('(max-width: 768px)').matches;
+    }
+
+    function _searchPid() {
+      return (typeof localPlayerId !== 'undefined' && localPlayerId) ? localPlayerId : '1';
+    }
+
+    /** 己方场上的式神名（排除召唤物） */
+    function _searchOwnShikigami() {
+      const pid = _searchPid();
+      const zone = document.querySelector(`.player-zone[data-player="${pid}"]`);
+      if (!zone) return [];
+      const names = [];
+      zone.querySelectorAll('.card-slot').forEach(function(slot) {
+        if (slot.dataset.slotType === 'summon') return;
+        const ni = slot.querySelector('.card-name');
+        const n = ni ? ni.value.trim() : '';
+        if (n && names.indexOf(n) === -1) names.push(n);
+      });
+      return names;
+    }
+
+    /** 机制入口：打开检索弹窗（🔍 检索按钮调用） */
+    window.openSearchDialog = function() {
+      if (typeof isSpectator !== 'undefined' && isSpectator) {
+        broadcastSystemMsg('【系统】观众不能使用检索');
+        return;
+      }
+      _searchEnsureOverlay();
+      searchOverlay.hidden = false;
+      searchOverlay.style.display = 'flex';
+      _searchRenderRanges();
+      _searchRenderResults();
+    };
+
+    function _searchClose() {
+      if (!searchOverlay) return;
+      searchOverlay.hidden = true;
+      searchOverlay.style.display = 'none';
+      // 关闭弹窗并清空检索结果（保留范围设置）
+      searchResults = [];
+      searchHasResult = false;
+      _searchRenderResults();
+    }
+
+    function _searchEnsureOverlay() {
+      if (searchOverlay) return;
+      searchOverlay = document.createElement('div');
+      searchOverlay.className = 'search-overlay';
+      searchOverlay.hidden = true;
+      searchOverlay.innerHTML = `
+        <div class="search-dialog">
+          <div class="search-dialog__header">
+            <span class="search-dialog__title">🔍 检索</span>
+            <button type="button" class="search-dialog__close" title="结束检索并关闭">✕</button>
+          </div>
+          <div class="search-tabs">
+            <button type="button" class="search-tab active" data-tab="discover">发现</button>
+            <button type="button" class="search-tab" data-tab="name">牌名</button>
+          </div>
+          <div class="search-ranges">
+            <div class="search-range-row">
+              <span class="search-range-label">式神范围</span>
+              <div class="search-range-opts" id="search-opts-shikigami"></div>
+            </div>
+            <div class="search-range-row">
+              <span class="search-range-label">等级</span>
+              <div class="search-range-opts" id="search-opts-level"></div>
+            </div>
+            <div class="search-range-row">
+              <span class="search-range-label">类型</span>
+              <div class="search-range-opts" id="search-opts-type"></div>
+            </div>
+          </div>
+          <div class="search-panel" id="search-panel-discover">
+            <label class="search-panel__label">从 <input type="number" id="search-discover-count" min="1" value="1"> 张牌中随机发现</label>
+            <button type="button" class="search-go-btn" id="search-go-discover">发现</button>
+          </div>
+          <div class="search-panel" id="search-panel-name" hidden>
+            <label class="search-panel__label"><input type="text" id="search-name-input" placeholder="具体牌名"></label>
+            <button type="button" class="search-go-btn" id="search-go-name">确定</button>
+          </div>
+          <div class="search-dialog__body" id="search-body"></div>
+          <div class="search-footer">
+            <button type="button" class="search-end-btn" id="search-end-btn" hidden>结束检索</button>
+          </div>
+        </div>`;
+      document.body.appendChild(searchOverlay);
+
+      // 关闭：✕ 与「结束检索」等价（清空结果、保留范围）
+      searchOverlay.querySelector('.search-dialog__close').addEventListener('click', _searchClose);
+      searchOverlay.querySelector('#search-end-btn').addEventListener('click', _searchClose);
+      // 手机端：拦截弹窗外滑动，防止滚动穿透到主战场
+      searchOverlay.addEventListener('touchmove', (e) => {
+        if (e.target.closest && e.target.closest('.search-dialog')) return;
+        e.preventDefault();
+      }, { passive: false });
+      document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape' && searchOverlay && !searchOverlay.hidden) _searchClose();
+      });
+
+      // 页签切换
+      searchOverlay.querySelector('.search-tabs').addEventListener('click', (e) => {
+        const tab = e.target.closest('.search-tab');
+        if (!tab) return;
+        searchTab = tab.dataset.tab;
+        searchOverlay.querySelectorAll('.search-tab').forEach(function(t) { t.classList.toggle('active', t === tab); });
+        document.getElementById('search-panel-discover').hidden = (searchTab !== 'discover');
+        document.getElementById('search-panel-name').hidden = (searchTab !== 'name');
+      });
+
+      // 范围开关
+      searchOverlay.querySelector('.search-ranges').addEventListener('click', (e) => {
+        const b = e.target.closest('.search-range-btn');
+        if (!b) return;
+        const rg = b.dataset.rg, v = b.dataset.v;
+        if (rg === 'shikigami') {
+          if (v === 'all') {
+            searchFilters.shikigami.all = !searchFilters.shikigami.all;
+            if (searchFilters.shikigami.all) { searchFilters.shikigami.neutral = false; searchFilters.shikigami.names = []; }
+          } else if (v === 'neutral') {
+            searchFilters.shikigami.neutral = !searchFilters.shikigami.neutral;
+            if (searchFilters.shikigami.neutral) searchFilters.shikigami.all = false;
+          } else {
+            const arr = searchFilters.shikigami.names;
+            const i = arr.indexOf(v);
+            if (i === -1) { arr.push(v); searchFilters.shikigami.all = false; }
+            else arr.splice(i, 1);
+          }
+        } else if (rg === 'level') {
+          searchFilters.levels[v] = !searchFilters.levels[v];
+        } else if (rg === 'type') {
+          searchFilters.types[v] = !searchFilters.types[v];
+        }
+        _searchRenderRanges();
+      });
+
+      // 发现 / 牌名检索
+      document.getElementById('search-go-discover').addEventListener('click', _searchDiscover);
+      document.getElementById('search-go-name').addEventListener('click', _searchByName);
+      document.getElementById('search-discover-count').addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') { e.preventDefault(); _searchDiscover(); }
+      });
+      document.getElementById('search-name-input').addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') { e.preventDefault(); _searchByName(); }
+      });
+
+      // 结果操作
+      document.getElementById('search-body').addEventListener('click', (e) => {
+        const btn = e.target.closest('.search-item-btn');
+        if (!btn) return;
+        const card = searchResults[parseInt(btn.dataset.si, 10)];
+        if (!card) return;
+        if (btn.dataset.act === 'use') _searchUseCard(card);
+        else _searchAddHand(card);
+      });
+    }
+
+    function _searchRenderRanges() {
+      const f = searchFilters;
+      const optsShiki = document.getElementById('search-opts-shikigami');
+      const optsLevel = document.getElementById('search-opts-level');
+      const optsType = document.getElementById('search-opts-type');
+      if (!optsShiki || !optsLevel || !optsType) return;
+      let html = `<button type="button" class="search-range-btn${f.shikigami.all ? ' active' : ''}" data-rg="shikigami" data-v="all">全部</button>`;
+      html += `<button type="button" class="search-range-btn${f.shikigami.neutral ? ' active' : ''}" data-rg="shikigami" data-v="neutral">中立牌</button>`;
+      _searchOwnShikigami().forEach(function(n) {
+        html += `<button type="button" class="search-range-btn${f.shikigami.names.indexOf(n) !== -1 ? ' active' : ''}" data-rg="shikigami" data-v="${escapeHTML(n)}">${escapeHTML(n)}</button>`;
+      });
+      optsShiki.innerHTML = html;
+
+      html = '';
+      ['1', '2', '3'].forEach(function(lv) {
+        html += `<button type="button" class="search-range-btn${f.levels[lv] ? ' active' : ''}" data-rg="level" data-v="${lv}">${lv}级</button>`;
+      });
+      optsLevel.innerHTML = html;
+
+      html = '';
+      const typeNames = { battle: '战斗', spell: '法术', realm: '幻境', form: '形态' };
+      Object.keys(typeNames).forEach(function(t) {
+        html += `<button type="button" class="search-range-btn${f.types[t] ? ' active' : ''}" data-rg="type" data-v="${t}">${typeNames[t]}</button>`;
+      });
+      optsType.innerHTML = html;
+    }
+
+    /** 三个维度范围取交集，筛己方牌库 */
+    function _searchFilteredDeck() {
+      const pid = _searchPid();
+      const state = getPlayerCardState(pid);
+      const deck = state.deck || [];
+      const f = searchFilters;
+      const out = [];
+      deck.forEach(function(card) {
+        if (!card || typeof card !== 'object') return;
+        const db = (typeof CardDB !== 'undefined' && CardDB.lookup) ? CardDB.lookup(card.name) : null;
+        const type = (db && db.type) || card.type || 'battle';
+        const level = (db && db.level) || card.level || 1;
+        const owner = (db && db.owner) || card.owner || '中立';
+        if (!f.types[type]) return;
+        if (!f.levels[String(level)]) return;
+        if (f.shikigami.all) { out.push(card); return; }
+        const isNeutral = (!owner || owner === '中立' || owner === '无相');
+        if (isNeutral) {
+          if (f.shikigami.neutral) out.push(card);
+          return;
+        }
+        if (f.shikigami.names.indexOf(owner) !== -1) out.push(card);
+      });
+      return out;
+    }
+
+    function _searchValidate() {
+      const f = searchFilters;
+      const anyLevel = f.levels['1'] || f.levels['2'] || f.levels['3'];
+      const anyType = f.types.battle || f.types.spell || f.types.realm || f.types.form;
+      const anyShiki = f.shikigami.all || f.shikigami.neutral || f.shikigami.names.length > 0;
+      if (!anyLevel || !anyType || !anyShiki) {
+        broadcastSystemMsg('【系统】请至少选择一个范围');
+        return false;
+      }
+      return true;
+    }
+
+    function _searchDiscover() {
+      if (!_searchValidate()) return;
+      const input = document.getElementById('search-discover-count');
+      let x = parseInt(input && input.value, 10);
+      if (isNaN(x) || x < 1) x = 1;
+      const pool = _searchFilteredDeck().slice();
+      for (let i = pool.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        const t = pool[i]; pool[i] = pool[j]; pool[j] = t;
+      }
+      searchResults = pool.slice(0, x);
+      searchMethod = '发现';
+      searchHasResult = true;
+      broadcastSystemMsg(`【系统】${getPlayerName(_searchPid())}通过发现检索了牌`);
+      _searchRenderResults();
+    }
+
+    function _searchByName() {
+      if (!_searchValidate()) return;
+      const input = document.getElementById('search-name-input');
+      const name = (input && input.value) ? input.value.trim() : '';
+      if (!name) {
+        broadcastSystemMsg('【系统】请输入牌名');
+        return;
+      }
+      const pool = _searchFilteredDeck().filter(function(c) { return c && c.name === name; });
+      searchResults = pool.length ? [pool[Math.floor(Math.random() * pool.length)]] : [];
+      searchMethod = '牌名';
+      searchHasResult = true;
+      broadcastSystemMsg(`【系统】${getPlayerName(_searchPid())}通过牌名检索了牌`);
+      _searchRenderResults();
+    }
+
+    function _searchRenderResults() {
+      const body = document.getElementById('search-body');
+      const endBtn = document.getElementById('search-end-btn');
+      if (!body) return;
+      if (endBtn) endBtn.hidden = !searchHasResult;
+      if (!searchOverlay || searchOverlay.hidden) return;
+      if (searchResults.length === 0) {
+        body.innerHTML = `<div class="search-empty">${searchHasResult ? '检索完成，没有可检索的卡牌' : '设置范围后，点击「发现」或「牌名」开始检索'}</div>`;
+        return;
+      }
+      let html = '';
+      searchResults.forEach(function(card, i) {
+        html += `<div class="search-item">
+          <span class="search-item__no">${i + 1}</span>
+          <span class="search-item__name">${escapeHTML(card.name || '未知卡牌')}</span>
+          <span class="search-item__btns">
+            <button type="button" class="search-item-btn search-item-btn--use" data-si="${i}" data-act="use">使用</button>
+            <button type="button" class="search-item-btn" data-si="${i}" data-act="hand">加入手牌</button>
+          </span>
+        </div>`;
+      });
+      body.innerHTML = html;
+    }
+
+    /** 从结果中移除某张牌并刷新列表 */
+    function _searchDropCard(card) {
+      searchResults = searchResults.filter(function(c) { return c && c.id !== card.id; });
+      _searchRenderResults();
+    }
+
+    function _searchUseCard(card) {
+      const pid = _searchPid();
+      const state = getPlayerCardState(pid);
+      const idx = state.deck.findIndex(function(c) { return c && c.id === card.id; });
+      if (idx === -1) { _searchDropCard(card); return; }
+      state.deck.splice(idx, 1);
+      state.hand.push(card);
+      // 复用现有“使用牌”流程（形态/幻境/觉醒/进坟场等），播报由检索逻辑统一发
+      window._searchUseInProgress = true;
+      try {
+        removeFromHand(pid, card.id, 'use');
+      } finally {
+        window._searchUseInProgress = false;
+      }
+      broadcastSystemMsg(`【系统】${getPlayerName(pid)}从牌库通过${searchMethod}检索使用了卡牌${card.name}`);
+      _searchDropCard(card);
+    }
+
+    function _searchAddHand(card) {
+      const pid = _searchPid();
+      const state = getPlayerCardState(pid);
+      const idx = state.deck.findIndex(function(c) { return c && c.id === card.id; });
+      if (idx === -1) { _searchDropCard(card); return; }
+      state.deck.splice(idx, 1);
+      state.hand.push(card);
+      updateDeckButtons(pid);
+      refreshOpenListDialog(pid);
+      syncDeckState(pid);
+      broadcastSystemMsg(`【系统】${getPlayerName(pid)}从牌库通过${searchMethod}检索加入手牌${card.name}`);
+      _searchDropCard(card);
     }
