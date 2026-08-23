@@ -119,7 +119,7 @@
           applyRemoteSlotUpdate(data.playerId, data.slotIndex, data.state);
           break;
         case 'deck-update':
-          applyRemoteDeckState(data.playerId, data.deckCount, data.handCount, data.deckData, data.handData);
+          applyRemoteDeckState(data.playerId, data.deckCount, data.handCount, data.deckData, data.handData, data.graveData);
           break;
         case 'revealed-cards':
           if (data.playerId && Array.isArray(data.cardIds) && typeof playerRevealedCards !== 'undefined') {
@@ -440,7 +440,7 @@
         });
         var cards = getPlayerCardState(pid);
         var dummies = function(arr) { return arr.map(function(c) { return { id: c.id, name: '未知', curses: c.curses || [] }; }); };
-        sendToPeer({ type: 'deck-update', playerId: pid, deckCount: cards.deck.length, handCount: cards.hand.length, deckData: dummies(cards.deck), handData: dummies(cards.hand) });
+        sendToPeer({ type: 'deck-update', playerId: pid, deckCount: cards.deck.length, handCount: cards.hand.length, deckData: dummies(cards.deck), handData: dummies(cards.hand), graveData: (cards.grave || []).filter(function(c) { return c && typeof c === 'object'; }) });
         sendToPeer({ type: 'effects-update', playerId: pid, effects: getEffectsState(pid) });
         var info = getPlayerInfo(pid); sendToPeer({ type: 'player-info', playerId: pid, name: info.name, hp: info.hp });
         sendToPeer({ type: 'fire-update', playerId: pid, count: playerFire[pid] });

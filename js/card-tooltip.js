@@ -413,10 +413,12 @@
         // 效果/能力描述
         const effectEl = el.querySelector('.card-tooltip__effect');
         let effectText = '';
-        // 觉醒状态且有觉醒能力 → 显示觉醒能力；否则显示玩家填的基础能力；再退到数据库能力
+        let awakenedLabel = '';
+        // 觉醒状态且有觉醒能力 → 显示“觉醒：xxxx”（觉醒金色粗体）；否则显示基础能力/数据库能力
         if (currentSlot) {
           if (currentSlot.classList.contains('awakened') && currentSlot._permAbility) {
             effectText = currentSlot._permAbility;
+            awakenedLabel = '<span style="color:#e8b83a;font-weight:700;">觉醒：</span>';
           } else if (currentSlot._baseAbility !== undefined && currentSlot._baseAbility !== null && currentSlot._baseAbility !== '') {
             effectText = currentSlot._baseAbility;
           } else {
@@ -428,7 +430,7 @@
         // 数据库没有的式神：能力未填写则显示“无”
         if (card._slotInfo && !effectText) effectText = '无';
         const safeText = escapeHTML(effectText).replace(/\n/g, '<br>');
-        effectEl.innerHTML = safeText;
+        effectEl.innerHTML = awakenedLabel + safeText;
         effectEl.style.display = effectText ? '' : 'none';
 
         // 形态、永久属性、临时属性、效果记录

@@ -67,6 +67,7 @@
       divine:    { btn: () => btnMechanicToggle, activeText: '🔮 选择牌手…(Esc取消)', idleText: '🔧 机制 ▾', mobileActiveText: '选择牌手<br>占卜' },
       cook:      { btn: () => btnMechanicToggle, activeText: '🍳 选择式神…(Esc取消)', idleText: '🔧 机制 ▾', mobileActiveText: '选择式神<br>烹饪' },
       insertfood:{ btn: () => btnMechanicToggle, activeText: '🍄 选择式神…(Esc取消)', idleText: '🔧 机制 ▾', mobileActiveText: '选择式神<br>置入食材' },
+      graveyard: { btn: () => btnMechanicToggle, activeText: '🪦 选择牌手…(Esc取消)', idleText: '🔧 机制 ▾', mobileActiveText: '选择牌手<br>坟场' },
       nightfall: { btn: () => btnMechanicToggle, activeText: '🌙 选择牌手…(Esc取消)', idleText: '🔧 机制 ▾', mobileActiveText: '选择牌手<br>添加入夜' },
       bounty:    { btn: () => btnMechanicToggle, activeText: '💰 选择牌手…(Esc取消)', idleText: '🔧 机制 ▾', mobileActiveText: '选择牌手<br>添加赏金' },
       oracle:    { btn: () => btnMechanicToggle, activeText: '✨ 选择牌手…(Esc取消)', idleText: '🔧 机制 ▾', mobileActiveText: '选择牌手<br>启悟' },
@@ -478,6 +479,15 @@
       enterTargetingMode('insertfood');
     });
 
+    // ---- 坟场（选择牌手，显示/隐藏该玩家的坟场入口） ----
+    const btnGraveyard = document.getElementById('btn-graveyard');
+    if (btnGraveyard) btnGraveyard.addEventListener('click', (e) => {
+      dropdownMechanicMenu.hidden = true;
+      if (isTargeting) { exitTargetingMode(); return; }
+      e.stopPropagation();
+      enterTargetingMode('graveyard');
+    });
+
     // ---- 赏金（切换赏金图标） ----
     const btnBounty = document.getElementById('btn-bounty');
     let bountyActive = { '1': false, '2': false };
@@ -727,6 +737,21 @@
           } else if (targetingMode === 'turnstart') {
             applyTurnStart(playerId, myPid, isHelp);
           }
+          exitTargetingMode();
+          e.preventDefault();
+          e.stopPropagation();
+          return;
+        }
+        exitTargetingMode();
+        return;
+      }
+
+      // 坟场模式：选择牌手头像 → 显示/隐藏该玩家的坟场入口
+      if (targetingMode === 'graveyard') {
+        const avatar = e.target.closest('.player-avatar');
+        if (avatar) {
+          const playerId = avatar.dataset.avatarPlayer;
+          if (typeof window.setGraveyardTarget === 'function') window.setGraveyardTarget(playerId);
           exitTargetingMode();
           e.preventDefault();
           e.stopPropagation();

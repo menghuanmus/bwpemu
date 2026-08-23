@@ -104,7 +104,7 @@
     }
 
     function _sendDeckUpdate(playerId) {
-      const { deck, hand } = getPlayerCardState(playerId);
+      const { deck, hand, grave } = getPlayerCardState(playerId);
       try {
         sendToPeer({
           type: 'deck-update',
@@ -113,18 +113,20 @@
           handCount: hand.length,
           deckData: deck.filter(c => c && typeof c === 'object'),
           handData: hand.filter(c => c && typeof c === 'object'),
+          graveData: (grave || []).filter(c => c && typeof c === 'object'),
         });
       } catch(e) {
         console.error('[SyncDeck] 发送失败:', e);
       }
     }
 
-    /* 接收对方的牌库/手牌计数，更新本地按钮 */
-    function applyRemoteDeckState(playerId, deckCount, handCount, deckData, handData) {
+    /* 接收对方的牌库/手牌/坟场计数，更新本地按钮 */
+    function applyRemoteDeckState(playerId, deckCount, handCount, deckData, handData, graveData) {
       try {
         const state = getPlayerCardState(playerId);
         state.deck = Array.isArray(deckData) ? deckData.filter(c => c && typeof c === 'object') : [];
         state.hand = Array.isArray(handData) ? handData.filter(c => c && typeof c === 'object') : [];
+        state.grave = Array.isArray(graveData) ? graveData.filter(c => c && typeof c === 'object') : (state.grave || []);
         if (typeof updateCardIdCounter === 'function') updateCardIdCounter();
         updateDeckButtons(playerId);
       } catch(e) {

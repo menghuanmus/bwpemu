@@ -172,21 +172,22 @@
       position: absolute;
       bottom: calc(100% + 6px);
       right: 0;
-      min-width: 120px;
+      width: auto;
+      min-width: 460px;
       background: #1e2a3a;
       border: 2px solid rgba(210, 170, 100, 0.5);
       border-radius: 8px;
-      padding: 4px;
+      padding: 8px 10px;
       z-index: 200; /* dropdown */
-      display: flex;
-      flex-direction: column;
-      gap: 2px;
+      display: grid;
+      grid-template-columns: repeat(4, max-content);
+      gap: 6px 18px;
+      overflow: visible;
     }
     .dropdown-mechanic__menu[hidden] { display: none; }
     .dropdown-mechanic__item {
       display: block;
-      width: 100%;
-      padding: 6px 10px;
+      padding: 7px 4px;
       background: transparent;
       border: none;
       border-radius: 4px;

@@ -6,7 +6,7 @@
     // ================================================================
     //  全局常量
     // ================================================================
-    const APP_VERSION = 'v0.4.4';
+    const APP_VERSION = 'v0.4.5';
     const APP_TITLE = '百闻牌模拟器';
 
     /** 调试模式：0=关闭 1=开启（显示隐藏的编辑器按钮） */
@@ -469,7 +469,7 @@
         }
       }
 
-      function layoutMobile() { placeSpeakBtn(); placeCursePanel(); placeToolbarButtons(); stripMobileIcons(); formatDeckButtons(); placeRealmButtons(); placeChatExpand(); placeShopButtons(); placeLobbyLogout(); if (typeof updateAllDeckButtons === 'function') updateAllDeckButtons(); }
+      function layoutMobile() { placeSpeakBtn(); placeCursePanel(); placeToolbarButtons(); stripMobileIcons(); formatDeckButtons(); placeRealmButtons(); if (typeof window.placeGraveButtons === 'function') window.placeGraveButtons(); placeChatExpand(); placeShopButtons(); placeLobbyLogout(); if (typeof updateAllDeckButtons === 'function') updateAllDeckButtons(); }
       if (MOBILE_MQ.addEventListener) MOBILE_MQ.addEventListener('change', layoutMobile);
       else if (MOBILE_MQ.addListener) MOBILE_MQ.addListener(layoutMobile);
       layoutMobile();

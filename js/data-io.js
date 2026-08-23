@@ -146,8 +146,10 @@
     function _handleSaveGame() {
       const p1deck = getPlayerCardState('1').deck;
       const p1hand = getPlayerCardState('1').hand;
+      const p1grave = getPlayerCardState('1').grave || [];
       const p2deck = getPlayerCardState('2').deck;
       const p2hand = getPlayerCardState('2').hand;
+      const p2grave = getPlayerCardState('2').grave || [];
       // 序列化揭示卡牌ID（Set → Array，确保 JSON 可序列化）
       const p1revealed = playerRevealedCards['1'] ? [...playerRevealedCards['1']] : [];
       const p2revealed = playerRevealedCards['2'] ? [...playerRevealedCards['2']] : [];
@@ -181,6 +183,7 @@
           effects: getEffectsState('1'),
           deck: p1deck,
           hand: p1hand,
+          grave: p1grave,
           revealedCards: p1revealed,
           fateRevealedCards: p1fateRevealed,
           bounty: playerBounty['1'] || 0,
@@ -203,6 +206,7 @@
           effects: getEffectsState('2'),
           deck: p2deck,
           hand: p2hand,
+          grave: p2grave,
           revealedCards: p2revealed,
           fateRevealedCards: p2fateRevealed,
           bounty: playerBounty['2'] || 0,
@@ -361,6 +365,10 @@
           if (Array.isArray(p.hand)) {
             const normalized = p.hand.map(c => _normalizeSavedCard(c)).filter(c => c && typeof c === 'object');
             getPlayerCardState(pid).hand = normalized;
+          }
+          if (Array.isArray(p.grave)) {
+            const normalized = p.grave.map(c => _normalizeSavedCard(c)).filter(c => c && typeof c === 'object');
+            getPlayerCardState(pid).grave = normalized;
           }
           // 恢复揭示卡牌ID（Array → Set）
           if (Array.isArray(p.revealedCards)) {

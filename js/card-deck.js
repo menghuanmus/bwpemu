@@ -647,9 +647,14 @@
       const card = state.hand[index];
       state.hand.splice(index, 1);
 
-      // 加入墓地（使用/弃置都进墓地）
-      if (!state.grave) state.grave = [];
-      state.grave.push(card);
+      // 加入坟场（使用/弃置都进；从坟场再使用时不再重复进坟场）
+      if (window._graveUseInProgress) {
+        card.used = true;
+      } else {
+        if (!state.grave) state.grave = [];
+        card.used = (action === 'use');
+        state.grave.push(card);
+      }
 
       updateDeckButtons(playerId);
       refreshOpenListDialog(playerId);
@@ -666,7 +671,9 @@
         const stackInfo = (card._maxStack > 0) ? `（${card._stack || 1}/${card._maxStack}）` : '';
         const curseInfo = (card.curses && card.curses.length) ? '（结附灵咒：' + card.curses.map(c => c.name + '×' + c.layers).join('、') + '）' : '';
         const mainMsg = `【系统】${getPlayerName(playerId)}${verb}「${card.name}」${stackInfo}${curseInfo}`;
-        if (typeof startMessageGroup === 'function') {
+        if (window._graveUseInProgress) {
+          // 从坟场使用：由坟场逻辑统一播报，这里不重复
+        } else if (typeof startMessageGroup === 'function') {
           startMessageGroup(mainMsg, window.getFoodNote ? window.getFoodNote(card) : null);
         } else {
           broadcastSystemMsg(mainMsg);
@@ -1507,7 +1514,10 @@
           });
           break;
         case 'shuffle-deck':
-          shuffleDeck(playerId);
+          // 二次确认，防止误点
+          if (window.confirm('确定要洗牌吗？\n洗牌后，已占卜/命运抉择揭示的牌会重新变回未知。')) {
+            shuffleDeck(playerId);
+          }
           break;
         case 'divine':
           openDivineXPrompt(playerId);
@@ -2625,3 +2635,317 @@
         initialHandDrawBtn.click();
       }
     });
+
+    // ================================================================
+    //  坟场系统（机制：🪦 坟场 → 选牌手 → 入口按钮 → 坟场弹窗）
+    //  查看/筛选/换位/使用/移回手牌/移回牌库/永久删除
+    // ================================================================
+    let graveTargets = {};       // playerId -> true（入口按钮开关）
+    let graveCtx = null;         // { playerId } 当前打开的坟场
+    let graveFilters = { use: true, discard: true };
+    let graveActionMode = '';    // '' | 'use' | 'hand' | 'deck' | 'delete'
+    let graveReorder = false;    // 换位拖动模式
+    let graveOverlay = null;
+    let graveDrag = null;        // { item, cur, moved }
+
+    function _graveIsMobile() {
+      return window.matchMedia('(max-width: 768px)').matches;
+    }
+
+    function _graveBtnOf(playerId) {
+      return document.querySelector(`.btn-deck--grave[data-grave-player="${playerId}"]`);
+    }
+
+    /** 机制：切换某玩家的坟场入口按钮 */
+    window.setGraveyardTarget = function(playerId) {
+      if (!playerId || playerId === '0') return;
+      if (graveTargets[playerId]) {
+        delete graveTargets[playerId];
+        const b = _graveBtnOf(playerId);
+        if (b) b.remove();
+        if (graveCtx && graveCtx.playerId === playerId) _graveClose();
+        broadcastSystemMsg(`【系统】已关闭${getPlayerName(playerId)}的坟场入口`);
+      } else {
+        graveTargets[playerId] = true;
+        _graveEnsureEntry(playerId);
+        window.placeGraveButtons();
+        broadcastSystemMsg(`【系统】已为${getPlayerName(playerId)}开启坟场入口`);
+      }
+    };
+
+    /** 创建坟场入口按钮（初始位置） */
+    function _graveEnsureEntry(playerId) {
+      if (_graveBtnOf(playerId)) return;
+      const zone = document.querySelector(`.player-zone[data-player="${playerId}"]`);
+      if (!zone) return;
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'btn-deck btn-deck--grave';
+      btn.dataset.gravePlayer = playerId;
+      btn.textContent = _graveIsMobile() ? '坟场' : '🪦 坟场';
+      btn.title = '打开坟场';
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        _graveOpen(playerId);
+      });
+      const deckBtn = zone.querySelector('.btn-deck[data-action="deck"]');
+      if (deckBtn && deckBtn.parentElement) deckBtn.parentElement.insertBefore(btn, deckBtn.nextSibling);
+      else zone.appendChild(btn);
+    }
+
+    /** 布局函数调用：手机端放到信息条幻境按钮右边，桌面端放到牌库按钮右边 */
+    window.placeGraveButtons = function() {
+      const mobile = _graveIsMobile();
+      Object.keys(graveTargets).forEach(function(pid) {
+        if (!graveTargets[pid]) return;
+        const zone = document.querySelector(`.player-zone[data-player="${pid}"]`);
+        const btn = _graveBtnOf(pid);
+        if (!zone || !btn) return;
+        btn.textContent = mobile ? '坟场' : '🪦 坟场';
+        if (mobile) {
+          const bar = zone.querySelector('.player-id-area');
+          const realm = zone.querySelector('.btn-mobile-realm');
+          if (!bar) return;
+          bar.appendChild(btn);
+          if (realm && bar.contains(realm)) bar.insertBefore(btn, realm.nextSibling);
+        } else {
+          const deckBtn = zone.querySelector('.btn-deck[data-action="deck"]');
+          if (deckBtn && deckBtn.parentElement) deckBtn.parentElement.insertBefore(btn, deckBtn.nextSibling);
+        }
+      });
+    };
+
+    // ── 坟场弹窗 ──
+    function _graveEnsureOverlay() {
+      if (graveOverlay) return;
+      graveOverlay = document.createElement('div');
+      graveOverlay.className = 'grave-overlay';
+      graveOverlay.hidden = true;
+      graveOverlay.innerHTML = `
+        <div class="grave-dialog">
+          <div class="grave-dialog__header">
+            <span class="grave-dialog__title" id="grave-dialog-title">🪦 坟场</span>
+            <button type="button" class="grave-dialog__close" title="关闭">✕</button>
+          </div>
+          <div class="grave-filters" id="grave-filters">
+            <button type="button" class="grave-filter-btn active" data-filter="use">显示使用过的牌</button>
+            <button type="button" class="grave-filter-btn active" data-filter="discard">显示弃置过的牌</button>
+          </div>
+          <div class="grave-dialog__body" id="grave-body"></div>
+          <div class="grave-actions" id="grave-actions">
+            <button type="button" class="grave-action-btn" data-action="reorder">换位</button>
+            <button type="button" class="grave-action-btn" data-action="use">使用</button>
+            <button type="button" class="grave-action-btn" data-action="hand">移回<br>手牌</button>
+            <button type="button" class="grave-action-btn" data-action="deck">移回<br>牌库</button>
+            <button type="button" class="grave-action-btn" data-action="delete">永久<br>删除</button>
+          </div>
+        </div>`;
+      document.body.appendChild(graveOverlay);
+      graveOverlay.querySelector('.grave-dialog__close').addEventListener('click', _graveClose);
+      // 手机端：拦截弹窗外滑动，防止滚动穿透到主战场（关闭只能点 ✕）
+      graveOverlay.addEventListener('touchmove', (e) => {
+        if (e.target.closest && e.target.closest('.grave-dialog')) return;
+        e.preventDefault();
+      }, { passive: false });
+      // 筛选开关
+      graveOverlay.querySelector('#grave-filters').addEventListener('click', (e) => {
+        const btn = e.target.closest('.grave-filter-btn');
+        if (!btn) return;
+        const f = btn.dataset.filter;
+        graveFilters[f] = !graveFilters[f];
+        btn.classList.toggle('active', graveFilters[f]);
+        _graveRenderList();
+      });
+      // 操作按钮（互斥）
+      graveOverlay.querySelector('#grave-actions').addEventListener('click', (e) => {
+        const btn = e.target.closest('.grave-action-btn');
+        if (!btn) return;
+        const act = btn.dataset.action;
+        if (act === 'reorder') {
+          graveReorder = !graveReorder;
+          if (!graveReorder) graveActionMode = '';
+        } else {
+          graveActionMode = (graveActionMode === act) ? '' : act;
+          graveReorder = false;
+        }
+        _graveUpdateActionUI();
+        _graveRenderList();
+      });
+      // 列表：卡牌操作按钮 / 换位拖动
+      const body = document.getElementById('grave-body');
+      body.addEventListener('click', (e) => {
+        const btn = e.target.closest('.grave-item-btn');
+        if (btn) {
+          _graveDoAction(parseInt(btn.dataset.graveIdx, 10));
+          return;
+        }
+      });
+      body.addEventListener('pointerdown', (e) => {
+        if (!graveReorder || !graveCtx) return;
+        if (typeof isSpectator !== 'undefined' && isSpectator) return;
+        if (e.target.closest('.grave-item-btn')) return;
+        const item = e.target.closest('.grave-item');
+        if (!item) return;
+        graveDrag = { item, cur: parseInt(item.dataset.graveIdx, 10), moved: false };
+        e.preventDefault();
+      });
+      body.addEventListener('pointermove', (e) => {
+        if (!graveDrag || !graveCtx) return;
+        const state = getPlayerCardState(graveCtx.playerId);
+        const grave = state.grave || [];
+        const hover = e.target.closest('.grave-item');
+        if (!hover) return;
+        const targetIdx = parseInt(hover.dataset.graveIdx, 10);
+        if (targetIdx === graveDrag.cur || grave[targetIdx] === undefined) return;
+        graveDrag.moved = true;
+        const tmp = grave[graveDrag.cur];
+        grave[graveDrag.cur] = grave[targetIdx];
+        grave[targetIdx] = tmp;
+        graveDrag.cur = targetIdx;
+        graveDrag.item = hover;
+        _graveRenderList();
+      });
+      document.addEventListener('pointerup', (e) => {
+        if (!graveDrag) return;
+        const moved = graveDrag.moved;
+        graveDrag = null;
+        if (moved && graveCtx) {
+          const state = getPlayerCardState(graveCtx.playerId);
+          if (typeof syncDeckStateForce === 'function') syncDeckStateForce(graveCtx.playerId);
+          else if (typeof syncDeckState === 'function') syncDeckState(graveCtx.playerId);
+          broadcastSystemMsg(`【系统】${getPlayerName(graveCtx.playerId)}调整了坟场顺序`);
+        }
+      });
+      document.addEventListener('pointercancel', () => { graveDrag = null; });
+    }
+
+    function _graveOpen(playerId) {
+      _graveEnsureOverlay();
+      graveCtx = { playerId };
+      graveFilters = { use: true, discard: true };
+      graveActionMode = '';
+      graveReorder = false;
+      graveOverlay.querySelectorAll('.grave-filter-btn').forEach(b => b.classList.add('active'));
+      document.getElementById('grave-dialog-title').textContent = `🪦 ${getPlayerName(playerId)} 的坟场`;
+      _graveUpdateActionUI();
+      _graveRenderList();
+      graveOverlay.hidden = false;
+      graveOverlay.style.display = 'flex';
+    }
+
+    function _graveClose() {
+      if (!graveOverlay) return;
+      graveOverlay.hidden = true;
+      graveOverlay.style.display = 'none';
+      graveCtx = null;
+      graveActionMode = '';
+      graveReorder = false;
+    }
+
+    function _graveUpdateActionUI() {
+      if (!graveOverlay) return;
+      graveOverlay.querySelectorAll('.grave-action-btn').forEach(b => {
+        const act = b.dataset.action;
+        b.classList.toggle('active', act === 'reorder' ? graveReorder : (graveActionMode === act));
+      });
+    }
+
+    function _graveActLabel(act) {
+      return { use: '使用', hand: '移回', deck: '移回', delete: '删除' }[act] || '';
+    }
+
+    function _graveRenderList() {
+      const body = document.getElementById('grave-body');
+      if (!body || !graveCtx) return;
+      const state = getPlayerCardState(graveCtx.playerId);
+      const grave = state.grave || [];
+      let viewNo = 0;
+      let html = '';
+      grave.forEach(function(card, idx) {
+        if (!card) return;
+        const used = !!card.used;
+        if (used && !graveFilters.use) return;
+        if (!used && !graveFilters.discard) return;
+        viewNo++;
+        const tag = used
+          ? '<span class="grave-tag grave-tag--use">使用</span>'
+          : '<span class="grave-tag grave-tag--discard">弃置</span>';
+        const actionBtn = graveActionMode && !graveReorder
+          ? `<button type="button" class="grave-item-btn" data-grave-idx="${idx}" data-grave-act="${graveActionMode}">${_graveActLabel(graveActionMode)}</button>`
+          : '';
+        html += `<div class="grave-item${graveReorder ? ' grave-item--reorder' : ''}" data-grave-idx="${idx}">
+          <span class="grave-item__no">${viewNo}</span>
+          ${tag}
+          <span class="card-list-item__name grave-item__name">${escapeHTML(card.name || '未知卡牌')}</span>
+          ${actionBtn}
+        </div>`;
+      });
+      body.innerHTML = html || '<div class="grave-empty">坟场为空</div>';
+    }
+
+    function _graveDoAction(idx) {
+      if (!graveCtx) return;
+      if (typeof isSpectator !== 'undefined' && isSpectator) return;
+      const playerId = graveCtx.playerId;
+      const state = getPlayerCardState(playerId);
+      const grave = state.grave || [];
+      const card = grave[idx];
+      if (!card) return;
+      const playerName = getPlayerName(playerId);
+      const filterText = (!graveFilters.use && graveFilters.discard) ? '弃置'
+        : (graveFilters.use && !graveFilters.discard) ? '使用' : '全部';
+      const syncAfter = function() {
+        if (typeof syncDeckStateForce === 'function') syncDeckStateForce(playerId);
+        else if (typeof syncDeckState === 'function') syncDeckState(playerId);
+      };
+
+      if (graveActionMode === 'use') {
+        // 从坟场使用：放回手牌走现有“使用牌”流程（不再回坟场、不重复播报）
+        grave.splice(idx, 1);
+        state.hand.push(card);
+        window._graveUseInProgress = true;
+        try {
+          removeFromHand(playerId, card.id, 'use');
+        } finally {
+          window._graveUseInProgress = false;
+        }
+        broadcastSystemMsg(`【系统】${playerName}从坟场（${filterText}）使用了卡牌「${card.name}」`);
+      } else if (graveActionMode === 'hand') {
+        grave.splice(idx, 1);
+        state.hand.push(card);
+        if (typeof updateDeckButtons === 'function') updateDeckButtons(playerId);
+        if (typeof refreshOpenListDialog === 'function') refreshOpenListDialog(playerId);
+        syncAfter();
+        broadcastSystemMsg(`【系统】${playerName}将「${card.name}」从坟场移回了手牌`);
+        _graveFlyTo(playerId, 'hand');
+      } else if (graveActionMode === 'deck') {
+        grave.splice(idx, 1);
+        state.deck.unshift(card);
+        if (typeof updateDeckButtons === 'function') updateDeckButtons(playerId);
+        if (typeof refreshOpenListDialog === 'function') refreshOpenListDialog(playerId);
+        syncAfter();
+        broadcastSystemMsg(`【系统】${playerName}将「${card.name}」从坟场移回了牌库顶部`);
+        _graveFlyTo(playerId, 'deck');
+      } else if (graveActionMode === 'delete') {
+        grave.splice(idx, 1);
+        if (typeof updateDeckButtons === 'function') updateDeckButtons(playerId);
+        if (typeof refreshOpenListDialog === 'function') refreshOpenListDialog(playerId);
+        syncAfter();
+        broadcastSystemMsg(`【系统】${playerName}永久删除了坟场中的「${card.name}」`);
+      }
+      _graveRenderList();
+    }
+
+    /** 从坟场弹窗飞向手牌/牌库按钮（复用 CardFlight 通用飞行） */
+    function _graveFlyTo(playerId, target) {
+      if (typeof CardFlight === 'undefined' || !CardFlight.fly || !CardFlight._centerOf) return;
+      const fromEl = document.querySelector('.grave-dialog');
+      const toBtn = CardFlight.getPlayerBtn(playerId, target);
+      if (!fromEl || !toBtn) return;
+      const fromC = CardFlight._centerOf(fromEl);
+      const toC = CardFlight._centerOf(toBtn);
+      CardFlight.fly(fromC, toC, { duration: 0.5, arcHeight: 60 });
+      if (CardFlight._broadcastAnim) {
+        CardFlight._broadcastAnim({ action: 'fly-single', playerId: playerId, fromType: null, fromCoord: fromC, toType: null, toCoord: toC, opts: { duration: 0.5, arcHeight: 60 } });
+      }
+    }

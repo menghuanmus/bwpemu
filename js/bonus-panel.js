@@ -99,10 +99,11 @@ const BonusPanel = (() => {
     if (e.target.id === 'bonus-delete-slot') { handleDeleteSlot(); return; }
     if (e.target.id === 'bonus-change-image') { handleChangeImage(); return; }
     if (e.target.id === 'bonus-quick-keyword') { toggleKeywordPicker(); return; }
+    if (e.target.classList.contains('bonus-awaken-btn')) { handleQuickAwaken(e.target.dataset.awakenName); return; }
     if (e.target.classList.contains('bonus-keyword-btn')) { handleQuickKeyword(e.target.textContent); return; }
     if (e.target.classList.contains('bonus-faction-btn')) { handleFactionClick(e.target); return; }
     if (e.target.id === 'bonus-quick-form') { toggleFormPicker(); return; }
-    if (e.target.id === 'bonus-quick-awaken') { handleQuickAwaken(); return; }
+    if (e.target.id === 'bonus-quick-awaken') { toggleAwakenPicker(); return; }
     if (e.target.classList.contains('bonus-form-btn')) { handleQuickForm(e.target.dataset.formName); return; }
   }
 
@@ -418,27 +419,64 @@ const BonusPanel = (() => {
     }
   }
 
-  function handleQuickAwaken() {
-    if (!ctx) return;
-    const name = ctx.cardName;
-    if (!name || name === '(未命名)') { broadcastBonusMsg('未找到觉醒牌', ''); return; }
+  /** 查找该式神的全部觉醒牌 */
+  function _findAwakenCards(shikigamiName) {
     const all = (typeof CardDB !== 'undefined' && typeof CardDB.getAll === 'function') ? CardDB.getAll() : [];
-    const awaken = all.find(c => c.awakened && c.owner === name && (c.type === 'spell' || c.type === '法术' || c.type === 'realm'));
+    return all.filter(c => c.awakened && c.owner === shikigamiName && (c.type === 'spell' || c.type === '法术' || c.type === 'realm'));
+  }
+
+  /** 快捷觉醒选择器（跟快捷形态/关键词一样先弹出选择） */
+  function toggleAwakenPicker() {
+    const picker = document.getElementById('bonus-awaken-picker');
+    if (!picker) return;
+    if (picker.style.display === 'none') {
+      const cards = _findAwakenCards(ctx.cardName);
+      if (!cards.length) {
+        // 无觉醒牌：在面板里提示，不发系统消息
+        picker.innerHTML = '<div class="bonus-list-empty" style="grid-column:1/-1;text-align:center;padding:8px;">该式神暂无觉醒记录</div>';
+        picker.style.display = 'grid';
+        return;
+      }
+      picker.innerHTML = cards.map(function(a) {
+        const bonus = (a.atkBonus || a.hpBonus) ? `（攻击${a.atkBonus > 0 ? '+' : ''}${a.atkBonus || 0}，生命${a.hpBonus > 0 ? '+' : ''}${a.hpBonus || 0}）` : '';
+        return '<button type="button" class="bonus-keyword-btn bonus-awaken-btn" data-awaken-name="' + escapeHTML(a.name) + '" title="' + escapeHTML(a.name + bonus) + '">' + escapeHTML(a.name) + '</button>';
+      }).join('');
+      picker.style.display = 'grid';
+    } else {
+      picker.style.display = 'none';
+    }
+  }
+
+  function handleQuickAwaken(awakenName) {
+    if (!ctx || !awakenName) return;
+    const awaken = _findAwakenCards(ctx.cardName).find(c => c.name === awakenName);
     if (!awaken) { broadcastBonusMsg('未找到觉醒牌', ''); return; }
-    const wasAwakened = ctx.slot.classList.contains('awakened');
     // 自动勾选觉醒 + 写入觉醒能力
     ctx.slot.classList.add('awakened');
     const rawEffect = awaken.effect || '';
     const awIdx = rawEffect.indexOf('觉醒：');
     ctx.permAbility = awIdx >= 0 ? rawEffect.slice(awIdx + 3).trim() : rawEffect;
     ctx.slot._permAbility = ctx.permAbility;
-    // 法术觉醒牌：自动加永久属性（没有加攻/命则不加）
-    if (!wasAwakened && (awaken.type === 'spell' || awaken.type === '法术' || awaken.type === 'realm') && (awaken.atkBonus || awaken.hpBonus)) {
+    // 每次快捷觉醒都叠加觉醒牌给予的永久属性（同源同数值叠层 ×N；没有加攻/命则不加）
+    if ((awaken.type === 'spell' || awaken.type === '法术' || awaken.type === 'realm') && (awaken.atkBonus || awaken.hpBonus)) {
       const awakenSource = awaken.name.includes('觉醒') ? awaken.name : `${awaken.name}（觉醒）`;
+      const atkVal = awaken.atkBonus || 0;
+      const hpVal = awaken.hpBonus || 0;
       const oldAtk = typeof calcPermAtk === 'function' ? calcPermAtk(ctx.slot) : 0;
       const oldHp = typeof calcPermHp === 'function' ? calcPermHp(ctx.slot) : 0;
-      ctx.permAtkMods.push({ source: awakenSource, value: awaken.atkBonus || 0, layers: 1 });
-      ctx.permHpMods.push({ source: awakenSource, value: awaken.hpBonus || 0, layers: 1 });
+      let stackIdx = ctx.permAtkMods.findIndex(m => m.source === awakenSource && (m.value || 0) === atkVal);
+      if (stackIdx >= 0) {
+        const hm = ctx.permHpMods[stackIdx] || {};
+        if ((hm.value || 0) !== hpVal) stackIdx = -1;
+      }
+      if (stackIdx >= 0) {
+        // 已有相同来源相同数值的条目 → 层数 +1
+        ctx.permAtkMods[stackIdx].layers = (ctx.permAtkMods[stackIdx].layers || 1) + 1;
+        ctx.permHpMods[stackIdx].layers = ctx.permAtkMods[stackIdx].layers;
+      } else {
+        ctx.permAtkMods.push({ source: awakenSource, value: atkVal, layers: 1 });
+        ctx.permHpMods.push({ source: awakenSource, value: hpVal, layers: 1 });
+      }
       ctx.slot._permAtkMods = ctx.permAtkMods;
       ctx.slot._permHpMods = ctx.permHpMods;
       if (typeof applyPermStats === 'function') applyPermStats(ctx.slot, oldAtk, oldHp);
@@ -448,6 +486,8 @@ const BonusPanel = (() => {
     syncSlotToPeer(ctx.slot);
     if (typeof autoUpdateSlotImage === 'function') autoUpdateSlotImage(ctx.slot);
     broadcastBonusMsg('快捷觉醒了', awaken.name);
+    const picker = document.getElementById('bonus-awaken-picker');
+    if (picker) picker.style.display = 'none';
     render();
   }
 
@@ -490,6 +530,8 @@ const BonusPanel = (() => {
     const playerName = typeof getPlayerName === 'function' ? getPlayerName(playerId) : '玩家' + playerId;
     const dbCard = CardDB.lookup(cardName);
     if (typeof recordPermBase === 'function') recordPermBase(slot);
+    // 基础能力：还没填过时，把数据库能力直接写进输入框（作为可编辑内容，而非占位提示）
+    if (slot._baseAbility === undefined) slot._baseAbility = (dbCard && dbCard.ability) ? dbCard.ability : '';
 
     ctx = {
       slot, playerId, cardName, playerName, dbCard,
@@ -574,7 +616,6 @@ const BonusPanel = (() => {
     const baseCountdown = ctx.slot._baseCountdown || 2;
     const awakened = ctx.slot.classList.contains('awakened');
     const baseAbilitySaved = ctx.slot._baseAbility !== undefined ? ctx.slot._baseAbility : '';
-    const basePlaceholder = ctx.dbCard ? (ctx.dbCard.ability || '') : '';
     const awakenAbility = ctx.slot._permAbility || '';
 
     const factionHTML = `<div class="bonus-faction-row">
@@ -588,7 +629,8 @@ const BonusPanel = (() => {
         <label class="bonus-summon-label"><input type="checkbox" id="bonus-is-awakened" ${awakened ? 'checked' : ''}> 觉醒</label>
         <button type="button" id="bonus-quick-awaken" class="bonus-btn--keyword">+快捷觉醒</button>
       </div>
-      <textarea id="bonus-base-ability" class="bonus-ability-input" placeholder="${escapeHTML(basePlaceholder)}" rows="3" ${awakened ? 'style="display:none;"' : ''}>${escapeHTML(baseAbilitySaved)}</textarea>
+      <div id="bonus-awaken-picker" class="bonus-keyword-picker" style="display:none;"></div>
+      <textarea id="bonus-base-ability" class="bonus-ability-input" rows="3" ${awakened ? 'style="display:none;"' : ''}>${escapeHTML(baseAbilitySaved)}</textarea>
       <textarea id="bonus-awaken-ability" class="bonus-ability-input" placeholder="觉醒能力" rows="3" ${awakened ? '' : 'style="display:none;"'}>${escapeHTML(awakenAbility)}</textarea>`;
 
     const cdEnergyHTML = `<div class="bonus-cd-energy-row">
@@ -701,7 +743,6 @@ const BonusPanel = (() => {
     const baseCountdown = ctx.slot._baseCountdown || 2;
     const awakened = ctx.slot.classList.contains('awakened');
     const baseAbilitySaved = ctx.slot._baseAbility !== undefined ? ctx.slot._baseAbility : '';
-    const basePlaceholder = ctx.dbCard ? (ctx.dbCard.ability || '') : '';
     const awakenAbility = ctx.slot._permAbility || '';
     return `
       <div class="bonus-info">
@@ -729,7 +770,8 @@ const BonusPanel = (() => {
               <label class="bonus-summon-label"><input type="checkbox" id="bonus-is-awakened" ${awakened ? 'checked' : ''}> 觉醒</label>
               <button type="button" id="bonus-quick-awaken" class="bonus-btn--keyword">+快捷觉醒</button>
             </div>
-            <textarea id="bonus-base-ability" class="bonus-ability-input" placeholder="${escapeHTML(basePlaceholder)}" rows="3" ${awakened ? 'style="display:none;"' : ''}>${escapeHTML(baseAbilitySaved)}</textarea>
+            <div id="bonus-awaken-picker" class="bonus-keyword-picker" style="display:none;"></div>
+            <textarea id="bonus-base-ability" class="bonus-ability-input" rows="3" ${awakened ? 'style="display:none;"' : ''}>${escapeHTML(baseAbilitySaved)}</textarea>
             <textarea id="bonus-awaken-ability" class="bonus-ability-input" placeholder="觉醒能力" rows="3" ${awakened ? '' : 'style="display:none;"'}>${escapeHTML(awakenAbility)}</textarea>
           </div>
           <!-- 倒计时 / 能量 -->
