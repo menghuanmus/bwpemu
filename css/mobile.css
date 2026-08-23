@@ -1073,13 +1073,13 @@
   }
   .card-status-badge--armor {
     right: -4px;
-    width: 24px;
-    height: 24px;
+    width: 20px;
+    height: 20px;
   }
   .card-status-badge--power {
     left: -4px;
-    width: 22px;
-    height: 22px;
+    width: 24px;
+    height: 24px;
   }
   .card-status-badge input {
     font-size: 11px;

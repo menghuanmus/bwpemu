@@ -278,8 +278,17 @@ const BonusPanel = (() => {
     let idx = ctx.permAtkMods.findIndex(m => m.source === src);
     if (idx < 0) idx = ctx.permHpMods.findIndex(m => m.source === src);
     if (idx >= 0) {
-      ctx.permAtkMods[idx].layers = (ctx.permAtkMods[idx].layers || 1) + 1;
-      ctx.permHpMods[idx].layers = ctx.permAtkMods[idx].layers;
+      const atkVal = (ctx.permAtkMods[idx] || {}).value || 0;
+      const hpVal = (ctx.permHpMods[idx] || {}).value || 0;
+      if (atkVal === atk && hpVal === hp) {
+        // 来源和数值都相同 → 叠加层数
+        ctx.permAtkMods[idx].layers = (ctx.permAtkMods[idx].layers || 1) + 1;
+        ctx.permHpMods[idx].layers = ctx.permAtkMods[idx].layers;
+      } else {
+        // 来源相同但数值不同 → 新增一项
+        ctx.permAtkMods.push({ source: src, value: atk, layers: 1 });
+        ctx.permHpMods.push({ source: src, value: hp, layers: 1 });
+      }
     } else {
       ctx.permAtkMods.push({ source: src, value: atk, layers: 1 });
       ctx.permHpMods.push({ source: src, value: hp, layers: 1 });
@@ -306,7 +315,8 @@ const BonusPanel = (() => {
   }
 
   function addEffectRecord(src, desc) {
-    const exist = ctx.permEffects.find(ef => ef.source === src);
+    // 来源和描述都相同才叠加；描述不同则新增一项
+    const exist = ctx.permEffects.find(ef => ef.source === src && ef.desc === desc);
     if (exist) {
       exist.layers = (exist.layers || 1) + 1;
     } else {
@@ -852,8 +862,17 @@ const BonusPanel = (() => {
     let idx = ctx.tempAtkMods.findIndex(m => m.source === src);
     if (idx < 0) idx = ctx.tempHpMods.findIndex(m => m.source === src);
     if (idx >= 0) {
-      ctx.tempAtkMods[idx].layers = (ctx.tempAtkMods[idx].layers || 1) + 1;
-      ctx.tempHpMods[idx].layers = ctx.tempAtkMods[idx].layers;
+      const atkVal = (ctx.tempAtkMods[idx] || {}).value || 0;
+      const hpVal = (ctx.tempHpMods[idx] || {}).value || 0;
+      if (atkVal === atk && hpVal === hp) {
+        // 来源和数值都相同 → 叠加层数
+        ctx.tempAtkMods[idx].layers = (ctx.tempAtkMods[idx].layers || 1) + 1;
+        ctx.tempHpMods[idx].layers = ctx.tempAtkMods[idx].layers;
+      } else {
+        // 来源相同但数值不同 → 新增一项
+        ctx.tempAtkMods.push({ source: src, value: atk, layers: 1 });
+        ctx.tempHpMods.push({ source: src, value: hp, layers: 1 });
+      }
     } else {
       ctx.tempAtkMods.push({ source: src, value: atk, layers: 1 });
       ctx.tempHpMods.push({ source: src, value: hp, layers: 1 });

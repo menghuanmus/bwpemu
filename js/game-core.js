@@ -1002,8 +1002,9 @@
         if (bSlot) {
           const bv = parseInt(e.target.value, 10);
           if (!Number.isNaN(bv) && bv !== 0) {
-            if (e.target.classList.contains('card-attack') && (bSlot._baseAtk === undefined || bSlot._baseAtk === null)) bSlot._baseAtk = bv;
-            if (e.target.classList.contains('card-hp') && (bSlot._baseHp === undefined || bSlot._baseHp === null)) bSlot._baseHp = bv;
+            // 注意：同步后基础值可能是 0，0 也当作“未设定”
+            if (e.target.classList.contains('card-attack') && !bSlot._baseAtk) bSlot._baseAtk = bv;
+            if (e.target.classList.contains('card-hp') && !bSlot._baseHp) bSlot._baseHp = bv;
           }
         }
       }

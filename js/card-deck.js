@@ -626,7 +626,11 @@
       updateDeckButtons(playerId);
       refreshOpenListDialog(playerId);
       syncDeckState(playerId);
-      broadcastSystemMsg('【系统】' + getPlayerName(playerId) + '调度：手牌「' + handCard.name + '」与牌库「' + deckCard.name + '」交换');
+      // 公开消息：对手只能看到“调度了一张手牌”；具体换了什么仅操作者可见
+      broadcastSystemMsg('【系统】' + getPlayerName(playerId) + '调度了一张手牌');
+      if (typeof addSystemChatMessage === 'function') {
+        addSystemChatMessage('【系统】调度：手牌「' + handCard.name + '」与牌库「' + deckCard.name + '」交换（此信息仅你可见）');
+      }
       // 调度动画：一张牌从手牌飞向牌库，一张从牌库飞向手牌（联机双方可见）
       if (typeof CardFlight !== 'undefined') {
         CardFlight.flyAndBroadcast(playerId, 'hand', 'deck', { duration: 0.55 });
@@ -900,6 +904,13 @@
         return;
       }
       shuffleCards(state.deck);
+      // 洗牌后：清除该牌库相关的占卜/命运抉择揭示，变回未知
+      Object.keys(playerRevealedCards).forEach(function(k) { delete playerRevealedCards[k]; });
+      Object.keys(playerFateRevealedCards).forEach(function(k) { delete playerFateRevealedCards[k]; });
+      if (!isSoloMode && isConnected() && typeof sendToPeer === 'function') {
+        // 同步清空双方已揭示记录（占卜揭示存在服务端状态里）
+        ['1', '2'].forEach(function(pid) { sendToPeer({ type: 'revealed-cards', playerId: pid, cardIds: [] }); });
+      }
       updateDeckButtons(playerId);
       refreshOpenListDialog(playerId);
       syncDeckState(playerId);
@@ -1887,6 +1898,43 @@
         _foodEffects: allEffects,
         _foodIngredients: ingredients,
       };
+    }
+
+    /** 置入食材：选择式神 → 按等级置入一张食材牌（不检测三张合成佳肴） */
+    function performInsertFood(slot) {
+      const playerId = slot.dataset.slotPlayer;
+      if (!playerId) return;
+      const state = getPlayerCardState(playerId);
+      if (!state) return;
+      const cardName = (slot.querySelector('.card-name')?.value || '').trim();
+      if (!cardName) return;
+      const playerName = getPlayerName(playerId);
+      const isMyOp = (typeof isMyZone === 'function') ? isMyZone(playerId) : true;
+
+      // 确定式神等级，按等级生成食材牌
+      const level = getShikigamiLevel(slot);
+      const foodCard = generateFoodCard(level);
+      pushCardToHand(playerId, foodCard);
+      updateDeckButtons(playerId);
+      refreshOpenListDialog(playerId);
+
+      if (typeof syncDeckStateForce === 'function') {
+        syncDeckStateForce(playerId);
+      } else {
+        syncDeckState(playerId);
+      }
+
+      // 系统消息：自己看到详细，对手看到摘要
+      const detailMsg = `【系统】${playerName}为「${cardName}」置入了一张食材牌「${foodCard.name}」`;
+      const summaryMsg = `【系统】${playerName}为「${cardName}」置入了一张${level}级食材牌`;
+      if (isMyOp) {
+        addSystemChatMessage(detailMsg, window.getFoodNote ? window.getFoodNote(foodCard) : null);
+        if (!isSoloMode && isConnected() && typeof sendToPeer === 'function') {
+          sendToPeer({ type: 'sysmsg', text: summaryMsg });
+        }
+      } else {
+        broadcastSystemMsg(summaryMsg);
+      }
     }
 
     /** 执行烹饪：选择式神 → 获得食材牌 → 可能的佳肴合成 */

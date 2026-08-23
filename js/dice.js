@@ -66,6 +66,7 @@
       energy:    { btn: () => btnMechanicToggle, activeText: '🏮 能量中…(Esc取消)',   idleText: '🔧 机制 ▾', mobileActiveText: '选择式神<br>添加能量' },
       divine:    { btn: () => btnMechanicToggle, activeText: '🔮 选择牌手…(Esc取消)', idleText: '🔧 机制 ▾', mobileActiveText: '选择牌手<br>占卜' },
       cook:      { btn: () => btnMechanicToggle, activeText: '🍳 选择式神…(Esc取消)', idleText: '🔧 机制 ▾', mobileActiveText: '选择式神<br>烹饪' },
+      insertfood:{ btn: () => btnMechanicToggle, activeText: '🍄 选择式神…(Esc取消)', idleText: '🔧 机制 ▾', mobileActiveText: '选择式神<br>置入食材' },
       nightfall: { btn: () => btnMechanicToggle, activeText: '🌙 选择牌手…(Esc取消)', idleText: '🔧 机制 ▾', mobileActiveText: '选择牌手<br>添加入夜' },
       bounty:    { btn: () => btnMechanicToggle, activeText: '💰 选择牌手…(Esc取消)', idleText: '🔧 机制 ▾', mobileActiveText: '选择牌手<br>添加赏金' },
       oracle:    { btn: () => btnMechanicToggle, activeText: '✨ 选择牌手…(Esc取消)', idleText: '🔧 机制 ▾', mobileActiveText: '选择牌手<br>启悟' },
@@ -468,6 +469,15 @@
       enterTargetingMode('cook');
     });
 
+    // ---- 置入食材（选择式神，只置入一张食材，不检测佳肴合成） ----
+    const btnInsertFood = document.getElementById('btn-insertfood');
+    if (btnInsertFood) btnInsertFood.addEventListener('click', (e) => {
+      dropdownMechanicMenu.hidden = true;
+      if (isTargeting) { exitTargetingMode(); return; }
+      e.stopPropagation();
+      enterTargetingMode('insertfood');
+    });
+
     // ---- 赏金（切换赏金图标） ----
     const btnBounty = document.getElementById('btn-bounty');
     let bountyActive = { '1': false, '2': false };
@@ -731,6 +741,20 @@
         const slot = e.target.closest('.card-slot');
         if (slot && slot.classList.contains('has-image') && typeof performCooking === 'function') {
           performCooking(slot);
+          exitTargetingMode();
+          e.preventDefault();
+          e.stopPropagation();
+          return;
+        }
+        exitTargetingMode();
+        return;
+      }
+
+      // 置入食材模式：选择一个式神（只置入一张食材，不检测合成）
+      if (targetingMode === 'insertfood') {
+        const slot = e.target.closest('.card-slot');
+        if (slot && slot.classList.contains('has-image') && typeof performInsertFood === 'function') {
+          performInsertFood(slot);
           exitTargetingMode();
           e.preventDefault();
           e.stopPropagation();

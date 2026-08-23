@@ -715,13 +715,13 @@
     .card-status-badge[hidden] { display: none; }
     .card-status-badge--armor {
       right: -15px;
-      width: 48px;
-      height: 48px;
+      width: 41px;
+      height: 41px;
     }
     .card-status-badge--power {
       left: -15px;
-      width: 42px;
-      height: 42px;
+      width: 46px;
+      height: 46px;
     }
     .card-status-badge--power-pos { background-image: url('https://bwpemu.top/images/属性/战力.png'); }
     .card-status-badge--power-neg { background-image: url('https://bwpemu.top/images/属性/乏力.png'); }

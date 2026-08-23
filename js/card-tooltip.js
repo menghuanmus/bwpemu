@@ -365,9 +365,9 @@
               const dH = curH - fullH;
               if (dA !== 0 || dH !== 0) {
                 const parts = [];
-                if (dA !== 0) parts.push((dA > 0 ? '+' : '') + dA + '攻');
-                if (dH !== 0) parts.push((dH > 0 ? '+' : '') + dH + '血');
-                statsHTML += `<span class="stat stat--dmg">受伤：${parts.join(' ')}</span>`;
+                if (dA !== 0) parts.push(`<img src="images/属性/攻击.png" class="tip-stat-icon" alt="攻">${dA > 0 ? '+' : ''}${dA}`);
+                if (dH !== 0) parts.push(`<img src="images/属性/生命.png" class="tip-stat-icon" alt="命">${dH > 0 ? '+' : ''}${dH}`);
+                statsHTML += `<span class="stat stat--dmg">变动：${parts.join(' ')}</span>`;
               }
             } else {
               // 手牌/牌库等非卡槽场景：数据库原值
