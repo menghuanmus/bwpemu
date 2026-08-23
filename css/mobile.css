@@ -1083,25 +1083,27 @@
     bottom: calc(var(--info-h) + 33px);
   }
 
-  /* ── 坟场：手机端入口按钮（信息条内小圆钮样式）、弹窗加大触控 ── */
+  /* ── 坟场：手机端入口按钮（与幻境按钮同大小的小圆钮）、弹窗加大触控 ── */
   .player-id-area .btn-deck--grave {
     position: relative;
-    flex: 0 0 30px;
-    width: 30px;
-    height: 30px;
-    min-height: 30px;
+    flex: 0 0 34px;
+    width: 34px;
+    height: 34px;
+    min-height: 34px;
     padding: 0;
     flex-shrink: 0;
     border-radius: 50%;
     border: 2px solid rgba(220, 180, 80, 0.6);
     background: rgba(40, 30, 10, 0.85);
-    font-size: 11px;
+    font-size: 12px;
     line-height: 1;
     display: flex;
     align-items: center;
     justify-content: center;
     cursor: pointer;
   }
+  /* 换位模式：禁用触摸滚动，保证拖动换位可用 */
+  .grave-overlay.reorder-mode .grave-item { touch-action: none; }
   .grave-dialog {
     width: 92vw;
   }
@@ -1115,12 +1117,14 @@
   .search-dialog { width: 94vw; max-height: 88vh; }
   .search-dialog__title { font-size: 20px; }
   .search-dialog__close { font-size: 22px; padding: 8px 12px; }
-  .search-tab { font-size: 17px; padding: 12px 0; }
+  .search-method { margin: 4px 10px 6px; padding: 10px; }
+  .search-method__check { font-size: 17px; }
+  .search-method__check input { width: 22px; height: 22px; }
+  .search-method__label { font-size: 17px; }
+  .search-method input[type='number'],
+  .search-method input[type='text'] { font-size: 17px; padding: 8px 10px; }
   .search-range-label { flex-basis: 60px; font-size: 16px; }
   .search-range-btn { font-size: 16px; padding: 9px 14px; }
-  .search-panel { flex-wrap: wrap; }
-  .search-panel__label { font-size: 17px; }
-  .search-panel input { font-size: 17px; padding: 8px 10px; }
   .search-go-btn { font-size: 17px; padding: 11px 24px; }
   .search-dialog__body { max-height: 34vh; }
   .search-empty { font-size: 17px; }

@@ -2904,6 +2904,7 @@
 
     function _graveUpdateActionUI() {
       if (!graveOverlay) return;
+      graveOverlay.classList.toggle('reorder-mode', graveReorder);
       graveOverlay.querySelectorAll('.grave-action-btn').forEach(b => {
         const act = b.dataset.action;
         b.classList.toggle('active', act === 'reorder' ? graveReorder : (graveActionMode === act));
@@ -3020,7 +3021,7 @@
     //  检索来源：己方牌库。范围三组开关取交集。
     // ================================================================
     let searchOverlay = null;
-    let searchTab = 'discover';    // 'discover' | 'name'
+    let searchMode = 'discover';   // '' | 'discover' | 'name'（勾选框二选一）
     let searchResults = [];        // 本次检索出的牌（牌库卡牌引用）
     let searchMethod = '发现';     // '发现' | '牌名'
     let searchHasResult = false;   // 是否已检索（控制「结束检索」按钮）
@@ -3062,6 +3063,7 @@
       _searchEnsureOverlay();
       searchOverlay.hidden = false;
       searchOverlay.style.display = 'flex';
+      _searchSetMode(searchMode);
       _searchRenderRanges();
       _searchRenderResults();
     };
@@ -3087,10 +3089,6 @@
             <span class="search-dialog__title">🔍 检索</span>
             <button type="button" class="search-dialog__close" title="结束检索并关闭">✕</button>
           </div>
-          <div class="search-tabs">
-            <button type="button" class="search-tab active" data-tab="discover">发现</button>
-            <button type="button" class="search-tab" data-tab="name">牌名</button>
-          </div>
           <div class="search-ranges">
             <div class="search-range-row">
               <span class="search-range-label">式神范围</span>
@@ -3105,13 +3103,27 @@
               <div class="search-range-opts" id="search-opts-type"></div>
             </div>
           </div>
-          <div class="search-panel" id="search-panel-discover">
-            <label class="search-panel__label">从 <input type="number" id="search-discover-count" min="1" value="1"> 张牌中随机发现</label>
-            <button type="button" class="search-go-btn" id="search-go-discover">发现</button>
+          <div class="search-method">
+            <div class="search-method__row">
+              <label class="search-method__check">
+                <input type="checkbox" id="search-cb-discover"><span>发现</span>
+              </label>
+              <label class="search-method__label">从 <input type="number" id="search-discover-count" min="1" value="1" disabled> 张牌中随机发现</label>
+            </div>
+            <div class="search-method__row search-method__row--go">
+              <button type="button" class="search-go-btn" id="search-go-discover" disabled>发现</button>
+            </div>
           </div>
-          <div class="search-panel" id="search-panel-name" hidden>
-            <label class="search-panel__label"><input type="text" id="search-name-input" placeholder="具体牌名"></label>
-            <button type="button" class="search-go-btn" id="search-go-name">确定</button>
+          <div class="search-method">
+            <div class="search-method__row">
+              <label class="search-method__check">
+                <input type="checkbox" id="search-cb-name"><span>牌名</span>
+              </label>
+              <label class="search-method__label">检索具体牌：<input type="text" id="search-name-input" placeholder="具体牌名" disabled></label>
+            </div>
+            <div class="search-method__row search-method__row--go">
+              <button type="button" class="search-go-btn" id="search-go-name" disabled>确定</button>
+            </div>
           </div>
           <div class="search-dialog__body" id="search-body"></div>
           <div class="search-footer">
@@ -3132,15 +3144,11 @@
         if (e.key === 'Escape' && searchOverlay && !searchOverlay.hidden) _searchClose();
       });
 
-      // 页签切换
-      searchOverlay.querySelector('.search-tabs').addEventListener('click', (e) => {
-        const tab = e.target.closest('.search-tab');
-        if (!tab) return;
-        searchTab = tab.dataset.tab;
-        searchOverlay.querySelectorAll('.search-tab').forEach(function(t) { t.classList.toggle('active', t === tab); });
-        document.getElementById('search-panel-discover').hidden = (searchTab !== 'discover');
-        document.getElementById('search-panel-name').hidden = (searchTab !== 'name');
-      });
+      // 勾选框二选一：勾选后内容可输入可点，未勾选灰置
+      const cbDiscover = document.getElementById('search-cb-discover');
+      const cbName = document.getElementById('search-cb-name');
+      if (cbDiscover) cbDiscover.addEventListener('change', function() { _searchSetMode(this.checked ? 'discover' : ''); });
+      if (cbName) cbName.addEventListener('change', function() { _searchSetMode(this.checked ? 'name' : ''); });
 
       // 范围开关
       searchOverlay.querySelector('.search-ranges').addEventListener('click', (e) => {
@@ -3168,14 +3176,18 @@
         _searchRenderRanges();
       });
 
-      // 发现 / 牌名检索
-      document.getElementById('search-go-discover').addEventListener('click', _searchDiscover);
-      document.getElementById('search-go-name').addEventListener('click', _searchByName);
+      // 发现 / 牌名检索（按钮禁用时不响应）
+      document.getElementById('search-go-discover').addEventListener('click', function() {
+        if (searchMode === 'discover') _searchDiscover();
+      });
+      document.getElementById('search-go-name').addEventListener('click', function() {
+        if (searchMode === 'name') _searchByName();
+      });
       document.getElementById('search-discover-count').addEventListener('keydown', (e) => {
-        if (e.key === 'Enter') { e.preventDefault(); _searchDiscover(); }
+        if (e.key === 'Enter') { e.preventDefault(); if (searchMode === 'discover') _searchDiscover(); }
       });
       document.getElementById('search-name-input').addEventListener('keydown', (e) => {
-        if (e.key === 'Enter') { e.preventDefault(); _searchByName(); }
+        if (e.key === 'Enter') { e.preventDefault(); if (searchMode === 'name') _searchByName(); }
       });
 
       // 结果操作
@@ -3187,6 +3199,23 @@
         if (btn.dataset.act === 'use') _searchUseCard(card);
         else _searchAddHand(card);
       });
+    }
+
+    /** 勾选框二选一：同步勾选状态与输入框/按钮灰置 */
+    function _searchSetMode(mode) {
+      searchMode = mode || '';
+      const cbD = document.getElementById('search-cb-discover');
+      const cbN = document.getElementById('search-cb-name');
+      const inD = document.getElementById('search-discover-count');
+      const inN = document.getElementById('search-name-input');
+      const goD = document.getElementById('search-go-discover');
+      const goN = document.getElementById('search-go-name');
+      if (cbD) cbD.checked = (searchMode === 'discover');
+      if (cbN) cbN.checked = (searchMode === 'name');
+      if (inD) inD.disabled = (searchMode !== 'discover');
+      if (inN) inN.disabled = (searchMode !== 'name');
+      if (goD) goD.disabled = (searchMode !== 'discover');
+      if (goN) goN.disabled = (searchMode !== 'name');
     }
 
     function _searchRenderRanges() {
