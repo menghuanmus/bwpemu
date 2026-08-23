@@ -626,12 +626,17 @@ const Renyin = (() => {
         const slots = zone.querySelectorAll('.card-slot');
         for (const slot of slots) {
           if ((slot.querySelector('.card-name') || {}).value === dbCard.owner) {
-            slot._formName = dbCard.name;
-            slot._formAtk = dbCard.attack || 0;
-            slot._formHp = dbCard.hp || 0;
-            slot._formAbility = dbCard.effect || '';
-            if (typeof syncSlotToPeer === 'function') syncSlotToPeer(slot);
-            if (typeof autoUpdateSlotImage === 'function') autoUpdateSlotImage(slot);
+            if (typeof window.equipFormOnSlot === 'function') {
+              window.equipFormOnSlot(slot, dbCard.name, dbCard.attack || 0, dbCard.hp || 0, dbCard.effect || '');
+            } else {
+              slot._formName = dbCard.name;
+              slot._formAtk = dbCard.attack || 0;
+              slot._formHp = dbCard.hp || 0;
+              slot._formAbility = dbCard.effect || '';
+              if (typeof syncSlotToPeer === 'function') syncSlotToPeer(slot);
+              if (typeof autoUpdateSlotImage === 'function') autoUpdateSlotImage(slot);
+              if (typeof renderFormBadge === 'function') renderFormBadge(slot);
+            }
             broadcastSystemMsg(`${playerName}为「${dbCard.owner}」结附了形态「${dbCard.name}」`);
             break;
           }

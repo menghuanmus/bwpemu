@@ -1153,6 +1153,47 @@
     function calcFullAtk(slot) { return calcPermAtk(slot) + calcTempAtk(slot); }
     function calcFullHp(slot) { return calcPermHp(slot) + calcTempHp(slot); }
 
+    /** 结附/替换形态（PRD：攻=形态攻+永久+临时+手动攻差值；命回满=形态命+永久+临时） */
+    window.equipFormOnSlot = function(slot, formName, formAtk, formHp, formAbility) {
+      if (!slot) return null;
+      recordPermBase(slot);                              // 确保基础值已记录（结附前）
+      const atkIn = slot.querySelector('.card-attack');
+      const hpIn = slot.querySelector('.card-hp');
+      const curAtk = atkIn ? (parseInt(atkIn.value, 10) || 0) : 0;
+      const manualAtk = curAtk - calcFullAtk(slot);      // 结附前的手动攻差值
+      slot._formName = formName || '';
+      slot._formAtk = formAtk || 0;
+      slot._formHp = formHp || 0;
+      slot._formAbility = formAbility || '';
+      const newAtk = calcFullAtk(slot) + manualAtk;
+      const newHp = calcFullHp(slot);                    // 生命回满
+      if (atkIn) atkIn.value = newAtk || '';
+      if (hpIn) hpIn.value = newHp || '';
+      if (typeof syncSlotToPeer === 'function') syncSlotToPeer(slot);
+      if (typeof autoUpdateSlotImage === 'function') autoUpdateSlotImage(slot);
+      if (typeof renderFormBadge === 'function') renderFormBadge(slot);
+      return { newAtk: newAtk, newHp: newHp, manualAtk: manualAtk };
+    };
+
+    /** 失去形态（PRD：攻=基础+永久+临时+手动攻差值；命回满=基础+永久+临时） */
+    window.loseFormOnSlot = function(slot) {
+      if (!slot) return null;
+      recordPermBase(slot);
+      const atkIn = slot.querySelector('.card-attack');
+      const hpIn = slot.querySelector('.card-hp');
+      const curAtk = atkIn ? (parseInt(atkIn.value, 10) || 0) : 0;
+      const manualAtk = curAtk - calcFullAtk(slot);      // 失去形态前（含形态）的差值
+      slot._formName = ''; slot._formAtk = 0; slot._formHp = 0; slot._formAbility = '';
+      const newAtk = calcFullAtk(slot) + manualAtk;
+      const newHp = calcFullHp(slot);                    // 生命回满
+      if (atkIn) atkIn.value = newAtk || '';
+      if (hpIn) hpIn.value = newHp || '';
+      if (typeof syncSlotToPeer === 'function') syncSlotToPeer(slot);
+      if (typeof autoUpdateSlotImage === 'function') autoUpdateSlotImage(slot);
+      if (typeof renderFormBadge === 'function') renderFormBadge(slot);
+      return { newAtk: newAtk, newHp: newHp, manualAtk: manualAtk };
+    };
+
     /** 重置：清除临时属性+手动差值，设当前=永久值 */
     function resetToPermStats(slot) {
       recordPermBase(slot);

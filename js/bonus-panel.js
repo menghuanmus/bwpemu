@@ -180,12 +180,13 @@ const BonusPanel = (() => {
     if (e.target.id === 'bonus-form-atk-active' || e.target.id === 'bonus-form-hp-active') {
       const newAtk = parseInt(document.getElementById('bonus-form-atk-active').value, 10) || 0;
       const newHp = parseInt(document.getElementById('bonus-form-hp-active').value, 10) || 0;
-      ctx.formAtk = newAtk; ctx.formHp = newHp;
-      ctx.slot._formAtk = newAtk; ctx.slot._formHp = newHp;
-      if (typeof recordPermBase === 'function') recordPermBase(ctx.slot);
+      // 先按“修改前”的形态算出手动攻差值（避免差值把改动吃掉）
       var curAtk2 = parseInt(ctx.slot.querySelector('.card-attack').value, 10) || 0;
       var oldFullAtk2 = typeof calcFullAtk === 'function' ? calcFullAtk(ctx.slot) : curAtk2;
       var manualAtk2 = curAtk2 - oldFullAtk2;
+      ctx.formAtk = newAtk; ctx.formHp = newHp;
+      ctx.slot._formAtk = newAtk; ctx.slot._formHp = newHp;
+      if (typeof recordPermBase === 'function') recordPermBase(ctx.slot);
       var newFullAtk2 = (typeof calcFullAtk === 'function' ? calcFullAtk(ctx.slot) : newAtk) + manualAtk2;
       var newFullHp2 = typeof calcFullHp === 'function' ? calcFullHp(ctx.slot) : newHp;
       ctx.slot.querySelector('.card-attack').value = newFullAtk2 || '';
@@ -405,31 +406,21 @@ const BonusPanel = (() => {
       if (forms[i].name === formName) { found = forms[i]; break; }
     }
     if (!found) return;
-    // 先记录旧形态下的手动差值（结附前）
-    var curAtk = parseInt(ctx.slot.querySelector('.card-attack').value, 10) || 0;
-    var curHp = parseInt(ctx.slot.querySelector('.card-hp').value, 10) || 0;
-    var oldFullAtk = typeof calcFullAtk === 'function' ? calcFullAtk(ctx.slot) : curAtk;
-    var oldFullHp = typeof calcFullHp === 'function' ? calcFullHp(ctx.slot) : curHp;
-    var manualAtk = curAtk - oldFullAtk;
-    var manualHp = curHp - oldFullHp;
-    // 填入形态数据
     ctx.formName = found.name;
     ctx.formAtk = found.attack || 0;
     ctx.formHp = found.hp || 0;
     ctx.formAbility = found.effect || '';
-    ctx.slot._formName = ctx.formName;
-    ctx.slot._formAtk = ctx.formAtk;
-    ctx.slot._formHp = ctx.formHp;
-    ctx.slot._formAbility = ctx.formAbility;
-    if (typeof recordPermBase === 'function') recordPermBase(ctx.slot);
-    var newFullAtk = typeof calcFullAtk === 'function' ? calcFullAtk(ctx.slot) : ctx.formAtk;
-    var newFullHp = typeof calcFullHp === 'function' ? calcFullHp(ctx.slot) : ctx.formHp;
-    ctx.slot.querySelector('.card-attack').value = (newFullAtk + manualAtk) || '';
-    ctx.slot.querySelector('.card-hp').value = (newFullHp + manualHp) || '';
-    syncSlotToPeer(ctx.slot);
-    if (typeof autoUpdateSlotImage === 'function') autoUpdateSlotImage(ctx.slot);
-    syncSlotToPeer(ctx.slot);  // 换图后再同步一次，让对方也看到新卡图
-    if (typeof renderFormBadge === 'function') renderFormBadge(ctx.slot);
+    if (typeof window.equipFormOnSlot === 'function') {
+      window.equipFormOnSlot(ctx.slot, ctx.formName, ctx.formAtk, ctx.formHp, ctx.formAbility);
+    } else {
+      ctx.slot._formName = ctx.formName;
+      ctx.slot._formAtk = ctx.formAtk;
+      ctx.slot._formHp = ctx.formHp;
+      ctx.slot._formAbility = ctx.formAbility;
+      syncSlotToPeer(ctx.slot);
+      if (typeof autoUpdateSlotImage === 'function') autoUpdateSlotImage(ctx.slot);
+      if (typeof renderFormBadge === 'function') renderFormBadge(ctx.slot);
+    }
     broadcastBonusMsg('快捷结附了形态', ctx.formName);
     var picker = document.getElementById('bonus-form-picker');
     if (picker) picker.style.display = 'none';
@@ -886,40 +877,28 @@ const BonusPanel = (() => {
     const ability = document.getElementById('bonus-form-ability').value.trim();
     if (!name || (atk === 0 && hp === 0)) return;
     ctx.formName = name; ctx.formAtk = atk; ctx.formHp = hp; ctx.formAbility = ability;
-    ctx.slot._formName = name; ctx.slot._formAtk = atk; ctx.slot._formHp = hp; ctx.slot._formAbility = ability;
-    if (typeof recordPermBase === 'function') recordPermBase(ctx.slot);
-    var curAtk = parseInt(ctx.slot.querySelector('.card-attack').value, 10) || 0;
-    var oldFullAtk = typeof calcFullAtk === 'function' ? calcFullAtk(ctx.slot) : curAtk;
-    var manualAtk = curAtk - oldFullAtk;  // 保留手动攻差值
-    var newFullAtk = (typeof calcFullAtk === 'function' ? calcFullAtk(ctx.slot) : atk) + manualAtk;
-    var newFullHp = typeof calcFullHp === 'function' ? calcFullHp(ctx.slot) : hp;  // 回满血
-    ctx.slot.querySelector('.card-attack').value = newFullAtk || '';
-    ctx.slot.querySelector('.card-hp').value = newFullHp || '';
-    syncSlotToPeer(ctx.slot);
-    if (typeof autoUpdateSlotImage === 'function') autoUpdateSlotImage(ctx.slot);
-    if (typeof renderFormBadge === 'function') renderFormBadge(ctx.slot);
+    if (typeof window.equipFormOnSlot === 'function') {
+      window.equipFormOnSlot(ctx.slot, name, atk, hp, ability);
+    } else {
+      ctx.slot._formName = name; ctx.slot._formAtk = atk; ctx.slot._formHp = hp; ctx.slot._formAbility = ability;
+      syncSlotToPeer(ctx.slot);
+      if (typeof autoUpdateSlotImage === 'function') autoUpdateSlotImage(ctx.slot);
+      if (typeof renderFormBadge === 'function') renderFormBadge(ctx.slot);
+    }
     broadcastBonusMsg('结附了形态', `${name}（攻击${atk}，生命${hp}）`);
     refresh();
   }
 
   function handleLoseForm() {
-    // 先记录旧形态下的手动差值（失去前）
-    var curAtk = parseInt(ctx.slot.querySelector('.card-attack').value, 10) || 0;
-    var curHp = parseInt(ctx.slot.querySelector('.card-hp').value, 10) || 0;
-    var oldFullAtk = typeof calcFullAtk === 'function' ? calcFullAtk(ctx.slot) : curAtk;
-    var oldFullHp = typeof calcFullHp === 'function' ? calcFullHp(ctx.slot) : curHp;
-    var manualAtk = curAtk - oldFullAtk;
-    var manualHp = curHp - oldFullHp;
     ctx.formName = ''; ctx.formAtk = 0; ctx.formHp = 0; ctx.formAbility = '';
-    ctx.slot._formName = ''; ctx.slot._formAtk = 0; ctx.slot._formHp = 0; ctx.slot._formAbility = '';
-    if (typeof recordPermBase === 'function') recordPermBase(ctx.slot);
-    var newFullAtk = typeof calcFullAtk === 'function' ? calcFullAtk(ctx.slot) : 0;
-    var newFullHp = typeof calcFullHp === 'function' ? calcFullHp(ctx.slot) : 0;
-    ctx.slot.querySelector('.card-attack').value = (newFullAtk + manualAtk) || '';
-    ctx.slot.querySelector('.card-hp').value = (newFullHp + manualHp) || '';
-    syncSlotToPeer(ctx.slot);
-    if (typeof autoUpdateSlotImage === 'function') autoUpdateSlotImage(ctx.slot);
-    if (typeof renderFormBadge === 'function') renderFormBadge(ctx.slot);
+    if (typeof window.loseFormOnSlot === 'function') {
+      window.loseFormOnSlot(ctx.slot);
+    } else {
+      ctx.slot._formName = ''; ctx.slot._formAtk = 0; ctx.slot._formHp = 0; ctx.slot._formAbility = '';
+      syncSlotToPeer(ctx.slot);
+      if (typeof autoUpdateSlotImage === 'function') autoUpdateSlotImage(ctx.slot);
+      if (typeof renderFormBadge === 'function') renderFormBadge(ctx.slot);
+    }
     broadcastBonusMsg('失去了形态', '');
     refresh();
   }

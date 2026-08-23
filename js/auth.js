@@ -772,7 +772,10 @@
       var zone = document.querySelector('.player-zone[data-player="' + myPid + '"]');
       if (zone) { var ni = zone.querySelector('.player-name-input'); ni.value = nn; }
       if (window._gameSocket && window._gameSocket.connected) {
-        window._gameSocket.emit('act', { type: 'player-info', playerId: myPid, name: nn, hp: '30' });
+        // 血量带上当前值（重连时保持现状，不再重置为 30）
+        var hpIn = zone ? zone.querySelector('.player-hp-input') : null;
+        var hpVal = (hpIn && hpIn.value) ? hpIn.value : '30';
+        window._gameSocket.emit('act', { type: 'player-info', playerId: myPid, name: nn, hp: hpVal });
       }
     }
     }  // end if (!isSpectator)

@@ -679,24 +679,17 @@
             for (const slot of slots) {
               if (slot.querySelector('.card-name')?.value === dbCard.owner) {
                 const oldForm = slot._formName || '';
-                // 先记录旧形态下的手动差值（结附前）
-                const curAtk0 = parseInt(slot.querySelector('.card-attack')?.value, 10) || 0;
-                const curHp0 = parseInt(slot.querySelector('.card-hp')?.value, 10) || 0;
-                const oldFullAtk0 = typeof calcFullAtk === 'function' ? calcFullAtk(slot) : curAtk0;
-                const oldFullHp0 = typeof calcFullHp === 'function' ? calcFullHp(slot) : curHp0;
-                const manualAtk0 = curAtk0 - oldFullAtk0;
-                const manualHp0 = curHp0 - oldFullHp0;
-                slot._formName = dbCard.name;
-                slot._formAtk = dbCard.attack || 0;
-                slot._formHp = dbCard.hp || 0;
-                slot._formAbility = dbCard.effect || '';
-                if (typeof recordPermBase === 'function') recordPermBase(slot);
-                const newFullAtk0 = typeof calcFullAtk === 'function' ? calcFullAtk(slot) : 0;
-                const newFullHp0 = typeof calcFullHp === 'function' ? calcFullHp(slot) : 0;
-                if (slot.querySelector('.card-attack')) slot.querySelector('.card-attack').value = (newFullAtk0 + manualAtk0) || '';
-                if (slot.querySelector('.card-hp')) slot.querySelector('.card-hp').value = (newFullHp0 + manualHp0) || '';
-                syncSlotToPeer(slot);
-                if (typeof autoUpdateSlotImage === 'function') autoUpdateSlotImage(slot);
+                if (typeof window.equipFormOnSlot === 'function') {
+                  window.equipFormOnSlot(slot, dbCard.name, dbCard.attack || 0, dbCard.hp || 0, dbCard.effect || '');
+                } else {
+                  slot._formName = dbCard.name;
+                  slot._formAtk = dbCard.attack || 0;
+                  slot._formHp = dbCard.hp || 0;
+                  slot._formAbility = dbCard.effect || '';
+                  syncSlotToPeer(slot);
+                  if (typeof autoUpdateSlotImage === 'function') autoUpdateSlotImage(slot);
+                  if (typeof renderFormBadge === 'function') renderFormBadge(slot);
+                }
                 const replaceMsg = oldForm ? `（替换了原有形态「${oldForm}」）` : '';
                 broadcastSystemMsg(`【系统】${getPlayerName(playerId)}为「${dbCard.owner}」结附了形态「${dbCard.name}」${replaceMsg}`);
                 animTarget = slot;
