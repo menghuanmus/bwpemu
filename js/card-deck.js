@@ -2846,6 +2846,11 @@
         if (e.target.closest('.grave-item-btn')) return;
         const item = e.target.closest('.grave-item');
         if (!item) return;
+        // 释放触摸指针的隐式捕获，否则 pointermove 永远只落在初始元素上（手机拖不动的根因）
+        try {
+          if (item.hasPointerCapture && item.hasPointerCapture(e.pointerId)) item.releasePointerCapture(e.pointerId);
+        } catch (_) {}
+        item.classList.add('grave-item--dragging');
         graveDrag = { item, cur: parseInt(item.dataset.graveIdx, 10), moved: false };
         e.preventDefault();
       });
@@ -2853,30 +2858,46 @@
         if (!graveDrag || !graveCtx) return;
         const state = getPlayerCardState(graveCtx.playerId);
         const grave = state.grave || [];
-        const hover = e.target.closest('.grave-item');
-        if (!hover) return;
+        // 手机端优先按坐标命中，桌面端用事件目标
+        let hover = e.target && e.target.closest ? e.target.closest('.grave-item') : null;
+        if (!hover || hover === graveDrag.item) {
+          const el = document.elementFromPoint(e.clientX, e.clientY);
+          hover = el && el.closest ? el.closest('.grave-item') : null;
+        }
+        if (!hover || hover === graveDrag.item) return;
         const targetIdx = parseInt(hover.dataset.graveIdx, 10);
         if (targetIdx === graveDrag.cur || grave[targetIdx] === undefined) return;
+        const oldCur = graveDrag.cur;
         graveDrag.moved = true;
-        const tmp = grave[graveDrag.cur];
-        grave[graveDrag.cur] = grave[targetIdx];
+        const tmp = grave[oldCur];
+        grave[oldCur] = grave[targetIdx];
         grave[targetIdx] = tmp;
         graveDrag.cur = targetIdx;
-        graveDrag.item = hover;
-        _graveRenderList();
+        // 只移动 DOM 节点，不重建列表（重建会触发手机端 pointercancel 导致拖不动）
+        const list = hover.parentElement;
+        if (list) {
+          if (targetIdx > oldCur) list.insertBefore(graveDrag.item, hover.nextSibling);
+          else list.insertBefore(graveDrag.item, hover);
+        }
       });
       document.addEventListener('pointerup', (e) => {
         if (!graveDrag) return;
         const moved = graveDrag.moved;
+        const dragItem = graveDrag.item;
         graveDrag = null;
+        if (dragItem) dragItem.classList.remove('grave-item--dragging');
         if (moved && graveCtx) {
           const state = getPlayerCardState(graveCtx.playerId);
           if (typeof syncDeckStateForce === 'function') syncDeckStateForce(graveCtx.playerId);
           else if (typeof syncDeckState === 'function') syncDeckState(graveCtx.playerId);
           broadcastSystemMsg(`【系统】${getPlayerName(graveCtx.playerId)}调整了坟场顺序`);
+          _graveRenderList();
         }
       });
-      document.addEventListener('pointercancel', () => { graveDrag = null; });
+      document.addEventListener('pointercancel', () => {
+        if (graveDrag && graveDrag.item) graveDrag.item.classList.remove('grave-item--dragging');
+        graveDrag = null;
+      });
     }
 
     function _graveOpen(playerId) {
@@ -3027,8 +3048,9 @@
     let searchHasResult = false;   // 是否已检索（控制「结束检索」按钮）
     let searchFilters = {
       shikigami: { all: true, neutral: false, names: [] },
-      levels: { '1': true, '2': true, '3': true },
-      types: { battle: true, spell: true, realm: true, form: true },
+      levels: { '1': true, '2': true, '3': true, '其他': true },
+      types: { battle: true, spell: true, realm: true, form: true, '其他': true },
+      rarities: { 'R': true, 'SR': true, 'SSR': true, '其他': true },
     };
 
     function _searchIsMobile() {
@@ -3064,6 +3086,7 @@
       searchOverlay.hidden = false;
       searchOverlay.style.display = 'flex';
       _searchSetMode(searchMode);
+      _searchHideError();
       _searchRenderRanges();
       _searchRenderResults();
     };
@@ -3089,43 +3112,54 @@
             <span class="search-dialog__title">🔍 检索</span>
             <button type="button" class="search-dialog__close" title="结束检索并关闭">✕</button>
           </div>
-          <div class="search-ranges">
-            <div class="search-range-row">
-              <span class="search-range-label">式神范围</span>
-              <div class="search-range-opts" id="search-opts-shikigami"></div>
+          <div class="search-dialog__scroll">
+            <div class="search-ranges">
+              <div class="search-range-row">
+                <span class="search-range-label">式神</span>
+                <div class="search-range-opts" id="search-opts-shikigami"></div>
+              </div>
+              <div class="search-range-row">
+                <span class="search-range-label">等级</span>
+                <div class="search-range-opts" id="search-opts-level"></div>
+              </div>
+              <div class="search-range-row">
+                <span class="search-range-label">类型</span>
+                <div class="search-range-opts" id="search-opts-type"></div>
+              </div>
+              <div class="search-range-row">
+                <span class="search-range-label">稀有度</span>
+                <div class="search-range-opts" id="search-opts-rarity"></div>
+              </div>
             </div>
-            <div class="search-range-row">
-              <span class="search-range-label">等级</span>
-              <div class="search-range-opts" id="search-opts-level"></div>
-            </div>
-            <div class="search-range-row">
-              <span class="search-range-label">类型</span>
-              <div class="search-range-opts" id="search-opts-type"></div>
-            </div>
-          </div>
-          <div class="search-method">
-            <div class="search-method__row">
+            <div class="search-error" id="search-error" hidden></div>
+            <div class="search-method" id="search-method-discover">
               <label class="search-method__check">
                 <input type="checkbox" id="search-cb-discover"><span>发现</span>
               </label>
-              <label class="search-method__label">从 <input type="number" id="search-discover-count" min="1" value="1" disabled> 张牌中随机发现</label>
+              <div class="search-method__body">
+                <div class="search-method__row">
+                  <label class="search-method__label">从 <input type="number" id="search-discover-count" min="1" value="1" disabled> 张牌中随机发现</label>
+                </div>
+                <div class="search-method__row search-method__row--go">
+                  <button type="button" class="search-go-btn" id="search-go-discover" disabled>发现</button>
+                </div>
+              </div>
             </div>
-            <div class="search-method__row search-method__row--go">
-              <button type="button" class="search-go-btn" id="search-go-discover" disabled>发现</button>
-            </div>
-          </div>
-          <div class="search-method">
-            <div class="search-method__row">
+            <div class="search-method" id="search-method-name">
               <label class="search-method__check">
                 <input type="checkbox" id="search-cb-name"><span>牌名</span>
               </label>
-              <label class="search-method__label">检索具体牌：<input type="text" id="search-name-input" placeholder="具体牌名" disabled></label>
+              <div class="search-method__body">
+                <div class="search-method__row">
+                  <label class="search-method__label">检索具体牌：<input type="text" id="search-name-input" placeholder="具体牌名" disabled></label>
+                </div>
+                <div class="search-method__row search-method__row--go">
+                  <button type="button" class="search-go-btn" id="search-go-name" disabled>确定</button>
+                </div>
+              </div>
             </div>
-            <div class="search-method__row search-method__row--go">
-              <button type="button" class="search-go-btn" id="search-go-name" disabled>确定</button>
-            </div>
+            <div class="search-dialog__body" id="search-body"></div>
           </div>
-          <div class="search-dialog__body" id="search-body"></div>
           <div class="search-footer">
             <button type="button" class="search-end-btn" id="search-end-btn" hidden>结束检索</button>
           </div>
@@ -3154,6 +3188,7 @@
       searchOverlay.querySelector('.search-ranges').addEventListener('click', (e) => {
         const b = e.target.closest('.search-range-btn');
         if (!b) return;
+        _searchHideError();
         const rg = b.dataset.rg, v = b.dataset.v;
         if (rg === 'shikigami') {
           if (v === 'all') {
@@ -3172,6 +3207,8 @@
           searchFilters.levels[v] = !searchFilters.levels[v];
         } else if (rg === 'type') {
           searchFilters.types[v] = !searchFilters.types[v];
+        } else if (rg === 'rarity') {
+          searchFilters.rarities[v] = !searchFilters.rarities[v];
         }
         _searchRenderRanges();
       });
@@ -3201,7 +3238,7 @@
       });
     }
 
-    /** 勾选框二选一：同步勾选状态与输入框/按钮灰置 */
+    /** 勾选框二选一：同步勾选状态与输入框/按钮灰置，并展开/收起对应卡片 */
     function _searchSetMode(mode) {
       searchMode = mode || '';
       const cbD = document.getElementById('search-cb-discover');
@@ -3210,12 +3247,16 @@
       const inN = document.getElementById('search-name-input');
       const goD = document.getElementById('search-go-discover');
       const goN = document.getElementById('search-go-name');
+      const mdD = document.getElementById('search-method-discover');
+      const mdN = document.getElementById('search-method-name');
       if (cbD) cbD.checked = (searchMode === 'discover');
       if (cbN) cbN.checked = (searchMode === 'name');
       if (inD) inD.disabled = (searchMode !== 'discover');
       if (inN) inN.disabled = (searchMode !== 'name');
       if (goD) goD.disabled = (searchMode !== 'discover');
       if (goN) goN.disabled = (searchMode !== 'name');
+      if (mdD) mdD.classList.toggle('open', searchMode === 'discover');
+      if (mdN) mdN.classList.toggle('open', searchMode === 'name');
     }
 
     function _searchRenderRanges() {
@@ -3223,7 +3264,8 @@
       const optsShiki = document.getElementById('search-opts-shikigami');
       const optsLevel = document.getElementById('search-opts-level');
       const optsType = document.getElementById('search-opts-type');
-      if (!optsShiki || !optsLevel || !optsType) return;
+      const optsRarity = document.getElementById('search-opts-rarity');
+      if (!optsShiki || !optsLevel || !optsType || !optsRarity) return;
       let html = `<button type="button" class="search-range-btn${f.shikigami.all ? ' active' : ''}" data-rg="shikigami" data-v="all">全部</button>`;
       html += `<button type="button" class="search-range-btn${f.shikigami.neutral ? ' active' : ''}" data-rg="shikigami" data-v="neutral">中立牌</button>`;
       _searchOwnShikigami().forEach(function(n) {
@@ -3232,17 +3274,23 @@
       optsShiki.innerHTML = html;
 
       html = '';
-      ['1', '2', '3'].forEach(function(lv) {
-        html += `<button type="button" class="search-range-btn${f.levels[lv] ? ' active' : ''}" data-rg="level" data-v="${lv}">${lv}级</button>`;
+      ['1', '2', '3', '其他'].forEach(function(lv) {
+        html += `<button type="button" class="search-range-btn${f.levels[lv] ? ' active' : ''}" data-rg="level" data-v="${lv}">${lv === '其他' ? '其他' : lv + '级'}</button>`;
       });
       optsLevel.innerHTML = html;
 
       html = '';
-      const typeNames = { battle: '战斗', spell: '法术', realm: '幻境', form: '形态' };
+      const typeNames = { battle: '战斗', spell: '法术', realm: '幻境', form: '形态', '其他': '其他' };
       Object.keys(typeNames).forEach(function(t) {
         html += `<button type="button" class="search-range-btn${f.types[t] ? ' active' : ''}" data-rg="type" data-v="${t}">${typeNames[t]}</button>`;
       });
       optsType.innerHTML = html;
+
+      html = '';
+      ['R', 'SR', 'SSR', '其他'].forEach(function(r) {
+        html += `<button type="button" class="search-range-btn${f.rarities[r] ? ' active' : ''}" data-rg="rarity" data-v="${r}">${r}</button>`;
+      });
+      optsRarity.innerHTML = html;
     }
 
     /** 三个维度范围取交集，筛己方牌库 */
@@ -3251,15 +3299,22 @@
       const state = getPlayerCardState(pid);
       const deck = state.deck || [];
       const f = searchFilters;
+      const KNOWN_TYPES = ['battle', 'spell', 'realm', 'form'];
       const out = [];
       deck.forEach(function(card) {
         if (!card || typeof card !== 'object') return;
         const db = (typeof CardDB !== 'undefined' && CardDB.lookup) ? CardDB.lookup(card.name) : null;
-        const type = (db && db.type) || card.type || 'battle';
-        const level = (db && db.level) || card.level || 1;
+        const typeRaw = (db && db.type) || card.type || '';
+        const levelRaw = (db && db.level) || card.level || null;
         const owner = (db && db.owner) || card.owner || '中立';
+        const dbRarity = (db && db.rarity) || card.rarity || '';
+        // 未记录的等级/类型/稀有度归入「其他」
+        const type = KNOWN_TYPES.indexOf(typeRaw) !== -1 ? typeRaw : '其他';
+        const level = (levelRaw === 1 || levelRaw === 2 || levelRaw === 3) ? String(levelRaw) : '其他';
+        const rarity = (dbRarity === 'R' || dbRarity === 'SR' || dbRarity === 'SSR') ? dbRarity : '其他';
         if (!f.types[type]) return;
-        if (!f.levels[String(level)]) return;
+        if (!f.levels[level]) return;
+        if (!f.rarities[rarity]) return;
         if (f.shikigami.all) { out.push(card); return; }
         const isNeutral = (!owner || owner === '中立' || owner === '无相');
         if (isNeutral) {
@@ -3273,17 +3328,32 @@
 
     function _searchValidate() {
       const f = searchFilters;
-      const anyLevel = f.levels['1'] || f.levels['2'] || f.levels['3'];
-      const anyType = f.types.battle || f.types.spell || f.types.realm || f.types.form;
+      const anyLevel = f.levels['1'] || f.levels['2'] || f.levels['3'] || f.levels['其他'];
+      const anyType = f.types.battle || f.types.spell || f.types.realm || f.types.form || f.types['其他'];
       const anyShiki = f.shikigami.all || f.shikigami.neutral || f.shikigami.names.length > 0;
-      if (!anyLevel || !anyType || !anyShiki) {
-        broadcastSystemMsg('【系统】请至少选择一个范围');
+      const anyRarity = f.rarities['R'] || f.rarities['SR'] || f.rarities['SSR'] || f.rarities['其他'];
+      if (!anyLevel || !anyType || !anyShiki || !anyRarity) {
+        _searchShowError('请每种范围至少选择一个');
         return false;
       }
       return true;
     }
 
+    /** 界面内红字提示（不发系统消息） */
+    function _searchShowError(text) {
+      const el = document.getElementById('search-error');
+      if (!el) return;
+      el.textContent = text;
+      el.hidden = false;
+    }
+
+    function _searchHideError() {
+      const el = document.getElementById('search-error');
+      if (el) el.hidden = true;
+    }
+
     function _searchDiscover() {
+      _searchHideError();
       if (!_searchValidate()) return;
       const input = document.getElementById('search-discover-count');
       let x = parseInt(input && input.value, 10);
@@ -3301,11 +3371,12 @@
     }
 
     function _searchByName() {
+      _searchHideError();
       if (!_searchValidate()) return;
       const input = document.getElementById('search-name-input');
       const name = (input && input.value) ? input.value.trim() : '';
       if (!name) {
-        broadcastSystemMsg('【系统】请输入牌名');
+        _searchShowError('请输入牌名');
         return;
       }
       const pool = _searchFilteredDeck().filter(function(c) { return c && c.name === name; });
@@ -3374,6 +3445,10 @@
       updateDeckButtons(pid);
       refreshOpenListDialog(pid);
       syncDeckState(pid);
-      broadcastSystemMsg(`【系统】${getPlayerName(pid)}从牌库通过${searchMethod}检索加入手牌${card.name}`);
+      // 加入手牌是隐藏信息：牌名仅自己可见，双方只看到“加入了一张手牌”
+      broadcastSystemMsg(`【系统】${getPlayerName(pid)}从牌库通过${searchMethod}检索加入了一张手牌`);
+      if (typeof addSystemChatMessage === 'function') {
+        addSystemChatMessage(`【系统】检索：加入了手牌「${card.name}」（此信息仅你可见）`);
+      }
       _searchDropCard(card);
     }

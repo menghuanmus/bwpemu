@@ -3079,6 +3079,8 @@
       overscroll-behavior: contain;
     }
     .search-overlay[hidden] { display: none; }
+    /* 桌面端：滚动区不改变原有布局（手机端另行覆盖） */
+    .search-dialog__scroll { display: contents; }
     .search-dialog {
       width: min(560px, 94vw);
       max-height: 84vh;
@@ -3143,6 +3145,22 @@
       cursor: pointer;
       flex-shrink: 0;
     }
+    /* 方式卡片：未勾选时只显示勾选框行，勾选后展开输入与按钮 */
+    .search-method__body { display: none; }
+    .search-method.open .search-method__body { display: block; }
+    .search-method.open { border-color: rgba(140, 180, 255, 0.55); }
+    /* 校验失败红字提示（位于方式卡片上方） */
+    .search-error {
+      margin: 2px 14px 4px;
+      padding: 8px 12px;
+      font-size: 1.05rem;
+      font-weight: 700;
+      color: #ff6b6b;
+      background: rgba(120, 30, 30, 0.45);
+      border: 1px solid rgba(255, 100, 100, 0.45);
+      border-radius: 8px;
+    }
+    .search-error[hidden] { display: none; }
     .search-method__label { flex: 1; min-width: 0; font-size: 1.05rem; color: #b8cdea; }
     .search-method input[type='number'],
     .search-method input[type='text'] {
@@ -3176,6 +3194,7 @@
       color: #9fb4dd;
       padding-top: 5px;
     }
+    .grave-item--dragging { opacity: 0.65; }
     .search-range-opts { display: flex; flex-wrap: wrap; gap: 6px; flex: 1; }
     .search-range-btn {
       padding: 5px 12px;
