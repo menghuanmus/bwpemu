@@ -6,7 +6,7 @@
     // ================================================================
     //  全局常量
     // ================================================================
-    const APP_VERSION = 'v0.4.1';
+    const APP_VERSION = 'v0.4.2';
     const APP_TITLE = '百闻牌模拟器';
 
     /** 调试模式：0=关闭 1=开启（显示隐藏的编辑器按钮） */
@@ -539,7 +539,13 @@
         const timer = setInterval(function() {
           n--;
           const el = document.getElementById('version-update-count');
-          if (n <= 0) { clearInterval(timer); window.location.reload(); }
+          if (n <= 0) {
+            clearInterval(timer);
+            // 跳到带时间戳的新地址（不是原地刷新），保证浏览器拿到全新的页面和代码
+            var u = window.location.href.split('#')[0];
+            var sep = u.indexOf('?') >= 0 ? '&' : '?';
+            window.location.replace(u + sep + '_update=' + encodeURIComponent(newVer) + '&t=' + Date.now());
+          }
           else if (el) el.textContent = n + ' 秒后自动更新…';
         }, 1000);
       }

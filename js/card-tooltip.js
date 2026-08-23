@@ -340,22 +340,39 @@
                 statsHTML += `<span class="stat stat--faction"><img src="images/派系/${card.faction}.png" style="width:20px;height:20px;vertical-align:middle;image-rendering:auto;" alt="${card.faction}"> ${card.faction}</span>`;
               }
             }
-            if (card._slotInfo) {
-              // 数据库没有的式神：攻/命直接显示基础数值（实时值战场上看得到），未填则写“无”
-              statsHTML += `<span class="stat stat--atk"><img src="images/属性/攻击.png" class="tip-stat-icon" alt="攻"> ${card._baseAtk === null ? '无' : card._baseAtk}</span>`;
-              statsHTML += `<span class="stat stat--hp"><img src="images/属性/生命.png" class="tip-stat-icon" alt="命"> ${card._baseHp === null ? '无' : card._baseHp}</span>`;
-            } else {
-              // 卡槽悬浮窗显示实时值（本局当前攻/命），非卡槽场景用数据库原值
-              let rtAtk = card.attack;
-              let rtHp = card.hp;
-              if (currentSlot) {
-                const aInput = currentSlot.querySelector('.card-attack');
-                const hInput = currentSlot.querySelector('.card-hp');
-                rtAtk = aInput ? (aInput.value || 0) : card.attack;
-                rtHp = hInput ? (hInput.value || 0) : card.hp;
+            if (currentSlot) {
+              // 卡槽：第二排显示“基础属性”（玩家设的基础 > 记录的基础 > 数据库原值；不含形态，形态在下方单独展示）
+              let baseA = (currentSlot._baseAtk !== undefined && currentSlot._baseAtk !== null) ? currentSlot._baseAtk
+                : (currentSlot._permBaseAtk !== undefined ? currentSlot._permBaseAtk : 0);
+              let baseH = (currentSlot._baseHp !== undefined && currentSlot._baseHp !== null) ? currentSlot._baseHp
+                : (currentSlot._permBaseHp !== undefined ? currentSlot._permBaseHp : 0);
+              const missA = (currentSlot._baseAtk === undefined || currentSlot._baseAtk === null) && currentSlot._permBaseAtk === undefined;
+              const missH = (currentSlot._baseHp === undefined || currentSlot._baseHp === null) && currentSlot._permBaseHp === undefined;
+              if (missA && typeof card.attack === 'number') baseA = card.attack;
+              if (missH && typeof card.hp === 'number') baseH = card.hp;
+              const showA = (card._slotInfo && missA && typeof card.attack !== 'number') ? '无' : baseA;
+              const showH = (card._slotInfo && missH && typeof card.hp !== 'number') ? '无' : baseH;
+              statsHTML += `<span class="stat stat--atk"><img src="images/属性/攻击.png" class="tip-stat-icon" alt="攻"> ${showA}</span>`;
+              statsHTML += `<span class="stat stat--hp"><img src="images/属性/生命.png" class="tip-stat-icon" alt="命"> ${showH}</span>`;
+              // 受伤/手动差值（当前显示值 − 计算满值），只有非 0 才显示
+              const aInput = currentSlot.querySelector('.card-attack');
+              const hInput = currentSlot.querySelector('.card-hp');
+              const curA = aInput ? (parseInt(aInput.value, 10) || 0) : 0;
+              const curH = hInput ? (parseInt(hInput.value, 10) || 0) : 0;
+              const fullA = (typeof calcFullAtk === 'function') ? calcFullAtk(currentSlot) : curA;
+              const fullH = (typeof calcFullHp === 'function') ? calcFullHp(currentSlot) : curH;
+              const dA = curA - fullA;
+              const dH = curH - fullH;
+              if (dA !== 0 || dH !== 0) {
+                const parts = [];
+                if (dA !== 0) parts.push((dA > 0 ? '+' : '') + dA + '攻');
+                if (dH !== 0) parts.push((dH > 0 ? '+' : '') + dH + '血');
+                statsHTML += `<span class="stat stat--dmg">受伤：${parts.join(' ')}</span>`;
               }
-              statsHTML += `<span class="stat stat--atk"><img src="images/属性/攻击.png" class="tip-stat-icon" alt="攻"> ${rtAtk}</span>`;
-              statsHTML += `<span class="stat stat--hp"><img src="images/属性/生命.png" class="tip-stat-icon" alt="命"> ${rtHp}</span>`;
+            } else {
+              // 手牌/牌库等非卡槽场景：数据库原值
+              statsHTML += `<span class="stat stat--atk"><img src="images/属性/攻击.png" class="tip-stat-icon" alt="攻"> ${card.attack}</span>`;
+              statsHTML += `<span class="stat stat--hp"><img src="images/属性/生命.png" class="tip-stat-icon" alt="命"> ${card.hp}</span>`;
             }
             break;
           }
