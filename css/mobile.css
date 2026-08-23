@@ -1243,6 +1243,8 @@
     max-width: 88vw;
     font-size: 15px;
     padding: 12px 14px;
+    /* 手机端拦截点击：点在悬浮窗上只关闭悬浮窗，不穿透到下层按键 */
+    pointer-events: auto;
   }
 
   /* ── 式神管理面板（加成弹窗）：居中弹窗留边，Tab 分页 ── */

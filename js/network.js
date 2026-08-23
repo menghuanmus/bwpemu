@@ -211,9 +211,15 @@
           applyRemoteFireState(data.playerId, data.count);
           break;
         case 'cook-effect':
-          if (typeof DamageEffects !== 'undefined' && DamageEffects.playCookEffect) {
+          if (typeof DamageEffects !== 'undefined') {
             var zone = document.querySelector('.player-zone[data-player="' + data.playerId + '"]');
-            if (zone) { var slot = zone.querySelector('.card-slot[data-slot-index="' + data.slotIndex + '"]'); if (slot) DamageEffects.playCookEffect(slot); }
+            if (zone) {
+              var slot = zone.querySelector('.card-slot[data-slot-index="' + data.slotIndex + '"]');
+              if (slot) {
+                if (data.kind === 'insertfood' && DamageEffects.playInsertFoodEffect) DamageEffects.playInsertFoodEffect(slot);
+                else if (DamageEffects.playCookEffect) DamageEffects.playCookEffect(slot);
+              }
+            }
           }
           break;
         case 'nightfall-toggle':

@@ -663,3 +663,32 @@
   will-change: transform, opacity;
   box-shadow: 0 0 6px currentColor;
 }
+
+/* ================================================================
+   置入食材特效 (Insert Food Effect)：🥬 + 🍖
+   ================================================================ */
+.insertfood-veg,
+.insertfood-meat {
+  position: absolute;
+  z-index: 550;
+  pointer-events: none;
+  font-size: 52px;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  filter: drop-shadow(0 5px 14px rgba(255, 220, 100, 0.5));
+  will-change: transform, opacity;
+}
+
+.insertfood-spark {
+  position: absolute;
+  z-index: 545;
+  pointer-events: none;
+  border-radius: 50%;
+  width: 10px;
+  height: 10px;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  will-change: transform, opacity;
+}

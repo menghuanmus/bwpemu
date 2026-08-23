@@ -664,6 +664,74 @@ const DamageEffects = (() => {
     console.log('[DamageEffects] 🍳 烹饪特效 →', slot.querySelector('.card-name')?.value || slot.className);
   }
 
+  /** 置入食材特效：🥬菜 + 🍖肉 从两侧弹入，闪点粒子，向上飘散（与烹饪不同） */
+  function playInsertFoodEffect(slot) {
+    if (!slot) return;
+    if (typeof gsap === 'undefined') {
+      console.warn('[DamageEffects] GSAP 未加载，置入食材特效跳过');
+      return;
+    }
+    const fxId = ++_fxUid;
+
+    const origPos = slot.style.position;
+    if (!origPos || origPos === 'static') {
+      slot.style.position = 'relative';
+    }
+
+    const tl = gsap.timeline({
+      onComplete: () => {
+        slot.style.position = origPos;
+        setTimeout(() => cleanupElements(slot, fxId), 600);
+      }
+    });
+
+    // 菜（左）：弹入 → 轻微摇摆 → 上飘消失
+    const veg = document.createElement('div');
+    veg.className = 'insertfood-veg';
+    veg.dataset.fxId = fxId;
+    veg.textContent = '🥬';
+    slot.appendChild(veg);
+    tl.fromTo(veg, { scale: 0, opacity: 0, x: -40, y: 30, rotation: -30 }, {
+      scale: 1.15, opacity: 1, x: 0, y: 0, rotation: 0,
+      duration: 0.45, ease: 'back.out(1.8)',
+    }, 0)
+    .to(veg, { rotation: -8, duration: 0.15, ease: 'sine.inOut', yoyo: true, repeat: 1 }, 0.45)
+    .to(veg, { scale: 0.2, opacity: 0, x: -25, y: -45, rotation: 20, duration: 0.5, ease: 'power2.in' }, 1.05);
+
+    // 肉（右）：稍后弹入
+    const meat = document.createElement('div');
+    meat.className = 'insertfood-meat';
+    meat.dataset.fxId = fxId;
+    meat.textContent = '🍖';
+    slot.appendChild(meat);
+    tl.fromTo(meat, { scale: 0, opacity: 0, x: 40, y: 30, rotation: 30 }, {
+      scale: 1.15, opacity: 1, x: 0, y: 0, rotation: 0,
+      duration: 0.45, ease: 'back.out(1.8)',
+    }, 0.15)
+    .to(meat, { rotation: 8, duration: 0.15, ease: 'sine.inOut', yoyo: true, repeat: 1 }, 0.6)
+    .to(meat, { scale: 0.2, opacity: 0, x: 25, y: -45, rotation: -20, duration: 0.5, ease: 'power2.in' }, 1.2);
+
+    // 小闪点粒子
+    for (let i = 0; i < 8; i++) {
+      const sp = document.createElement('div');
+      sp.className = 'insertfood-spark';
+      sp.dataset.fxId = fxId;
+      sp.style.background = (i % 2) ? '#ffd76a' : '#a8e06a';
+      slot.appendChild(sp);
+      const angle = Math.random() * Math.PI * 2;
+      const dist = 26 + Math.random() * 34;
+      const dx = Math.cos(angle) * dist;
+      const dy = Math.sin(angle) * dist - 18;
+      tl.fromTo(sp, { opacity: 0, scale: 0, x: 0, y: 0 }, {
+        opacity: 0.9, scale: 1, x: dx, y: dy,
+        duration: 0.5, ease: 'power2.out',
+      }, 0.3 + i * 0.04)
+      .to(sp, { opacity: 0, scale: 0.2, duration: 0.4, ease: 'power2.in' }, 0.8 + i * 0.04);
+    }
+
+    console.log('[DamageEffects] 🥬🍖 置入食材特效 →', slot.querySelector('.card-name')?.value || slot.className);
+  }
+
   return {
     playDamage,
     playDamageOnSlot,
@@ -672,6 +740,7 @@ const DamageEffects = (() => {
     playReviveEffect,
     playCurseEffect,
     playCookEffect,
+    playInsertFoodEffect,
     LEVELS,
   };
 

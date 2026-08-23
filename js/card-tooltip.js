@@ -14,6 +14,8 @@
       let currentSlot = null;
       let currentCardCurses = null;
       let hoveredEl = null;
+      let _swallowNextClick = false;   // 点击悬浮窗关闭时，吞掉紧随的点击，防止穿透到下层按键
+      let _swallowTimer = null;
       const DELAY = 300;
 
       function init() {
@@ -31,6 +33,23 @@
         }, true);
         // 点击悬浮窗本身：关闭悬浮窗
         el.addEventListener('click', function() { hide(); });
+        // 点在悬浮窗上：只关闭悬浮窗，拦截本次点击，防止穿透到下面的按键
+        el.addEventListener('pointerup', function(e) {
+          e.stopPropagation();
+          _swallowNextClick = true;
+          clearTimeout(_swallowTimer);
+          _swallowTimer = setTimeout(function() { _swallowNextClick = false; }, 600);
+          hide();
+        }, true);
+        // 捕获阶段吞掉穿透点击（点击事件在 pointerup 之后派发，此时悬浮窗已隐藏，目标会落在下层元素）
+        document.addEventListener('click', function(e) {
+          if (_swallowNextClick) {
+            _swallowNextClick = false;
+            clearTimeout(_swallowTimer);
+            e.stopPropagation();
+            e.preventDefault();
+          }
+        }, true);
         console.log('[Tooltip] ✅ 已初始化，监听卡牌名悬浮');
 
         // ── 手机端：点击卡图空白区域显示浮窗（按钮/拖动不触发） ──
@@ -303,8 +322,36 @@
           const effectText = (card.effect || '').replace(/\n/g, '<br>');
           effectEl.innerHTML = effectText;
           effectEl.style.display = effectText ? '' : 'none';
-          const cursesEl = el.querySelector('.card-tooltip__curses');
-          if (cursesEl) cursesEl.innerHTML = '';
+          // 食材/佳肴自身的灵咒：有才显示（只认这张牌自己的，不带别人的）
+          let cursesHTML = '';
+          const curses = currentCardCurses;
+          if (curses && curses.length) {
+            cursesHTML = '<div class="card-tooltip__curses">';
+            curses.forEach(c => {
+              const dbCurse = CardDB.lookup(c.name);
+              const eff = dbCurse ? (dbCurse.effect || '') : '';
+              cursesHTML += '<div class="card-tooltip__curse-item">';
+              cursesHTML += '<div class="card-tooltip__curse-head">⛓️ <span class="curse-name">' + escapeHTML(c.name) + '</span> <span class="curse-layers">×' + c.layers + '</span></div>';
+              if (eff) cursesHTML += '<div class="card-tooltip__curse-eff">' + escapeHTML(eff) + '</div>';
+              cursesHTML += '</div>';
+            });
+            cursesHTML += '</div>';
+          }
+          let cursesEl = el.querySelector('.card-tooltip__curses');
+          if (cursesHTML) {
+            if (!cursesEl) {
+              cursesEl = document.createElement('div');
+              el.appendChild(cursesEl);
+            }
+            cursesEl.outerHTML = cursesHTML;
+          } else if (cursesEl) {
+            cursesEl.remove();
+          }
+          // 效果记录（关键词）与属性总结不属于食材/佳肴：清掉上张卡残留
+          const permElF = el.querySelector('.card-tooltip__perm');
+          if (permElF) permElF.remove();
+          const summaryElF = el.querySelector('.card-tooltip__summary');
+          if (summaryElF) summaryElF.remove();
           return;
         }
 

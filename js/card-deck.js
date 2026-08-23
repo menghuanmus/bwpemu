@@ -1926,6 +1926,15 @@
       const playerName = getPlayerName(playerId);
       const isMyOp = (typeof isMyZone === 'function') ? isMyZone(playerId) : true;
 
+      // 置入食材专属特效动画（🥬🍖，与烹饪不同）
+      if (typeof DamageEffects !== 'undefined' && DamageEffects.playInsertFoodEffect) {
+        DamageEffects.playInsertFoodEffect(slot);
+      }
+      // 同步置入食材动画到对手/观众
+      if (!isSoloMode && isConnected() && typeof sendToPeer === 'function') {
+        sendToPeer({ type: 'cook-effect', kind: 'insertfood', playerId: slot.dataset.slotPlayer, slotIndex: slot.dataset.slotIndex });
+      }
+
       // 确定式神等级，按等级生成食材牌
       const level = getShikigamiLevel(slot);
       const foodCard = generateFoodCard(level);
