@@ -1084,7 +1084,7 @@
     .sbtag--derivative { background: rgba(160,140,200,0.2); color: #b0a0d0; border:1px solid rgba(160,140,200,0.35); }
     .sbtag--diy        { background: rgba(200,160,60,0.2); color: #e0c060; border:1px solid rgba(200,160,60,0.3); }
 
-    /* 衍生物分隔 */
+    /* 衍生分隔 */
     .shikigami-book__derivative-sep {
       display: flex;
       align-items: center;
@@ -3269,4 +3269,63 @@
       background: rgba(90, 30, 30, 0.6);
       color: #ffb4b4;
       cursor: pointer;
+    }
+
+    /* ================================================================
+       特定效果说明书
+       ================================================================ */
+    .effect-manual-overlay {
+      position: fixed;
+      inset: 0;
+      z-index: 3400;
+      background: rgba(8, 10, 18, 0.72);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .effect-manual-overlay[hidden] { display: none; }
+    .effect-manual-dialog {
+      width: min(560px, 94vw);
+      max-height: 80vh;
+      overflow-y: auto;
+      background: #1c1f2b;
+      border: 1px solid rgba(150, 180, 220, 0.35);
+      border-radius: 14px;
+      padding: 0 18px 16px;
+      overscroll-behavior: contain;
+    }
+    .effect-manual-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 12px 0;
+      font-size: 1.25rem;
+      font-weight: 700;
+      color: #9ec5ff;
+      position: sticky;
+      top: 0;
+      background: #1c1f2b;
+    }
+    .effect-manual-close {
+      font-size: 1.25rem;
+      background: none;
+      border: none;
+      color: #aab;
+      cursor: pointer;
+      padding: 4px 8px;
+      border-radius: 6px;
+    }
+    .effect-manual-close:hover { color: #fff; background: rgba(255, 255, 255, 0.1); }
+    .effect-manual-sec { margin-bottom: 14px; }
+    .effect-manual-sec__title {
+      font-size: 1.1rem;
+      font-weight: 700;
+      color: #e8c86a;
+      margin-bottom: 6px;
+    }
+    .effect-manual-sec__body {
+      font-size: 1.05rem;
+      color: #d8d0c0;
+      line-height: 1.7;
+      white-space: pre-line;   /* 正文里的 \\n 会显示为换行 */
     }

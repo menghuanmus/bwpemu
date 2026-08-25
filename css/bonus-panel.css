@@ -89,10 +89,21 @@
   display: flex; gap: 10px; align-items: center;
 }
 
-/* 觉醒勾选 + 快捷觉醒按钮行 */
+/* 觉醒勾选 + 觉醒牌名输入框 + 快捷觉醒按钮行 */
 .bonus-awaken-row {
   display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
   margin-bottom: 6px;
+}
+.bonus-awaken-name-input {
+  flex: 1 1 130px;
+  min-width: 110px;
+  max-width: 240px;
+  padding: 6px 8px;
+  font-size: 14px;
+  border-radius: 6px;
+  border: 1px solid rgba(220, 180, 80, 0.45);
+  background: rgba(30, 26, 16, 0.75);
+  color: #f0e0b0;
 }
 
 /* 基础属性与状态输入区 */

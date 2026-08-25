@@ -325,7 +325,7 @@
   .player-zone--bottom .zone-effects { flex-direction: row; }
 
   /* 幻境面板和"添加幻境"按钮：改为点信息条右侧 🏞 按钮弹出 */
-  .effects-panel, .btn-add-effect { display: none; }
+  .effects-panel, .btn-add-effect, .btn-effect-manual { display: none; }
 
   /* 🏞 幻境按钮（信息条末尾） */
   .btn-mobile-realm {
@@ -381,17 +381,29 @@
   .player-zone--top.realm-open .effects-panel { top: 50px; }
   .player-zone--bottom.realm-open .effects-panel { bottom: 54px; }
 
-  /* 添加按钮：固定在弹层最上方（列表滚动时吸顶） */
-  .player-zone.realm-open .btn-add-effect {
+  /* 添加/说明书按钮：一行两列（吸顶） */
+  .player-zone.realm-open .realm-btns-row {
     display: flex;
+    gap: 6px;
+    margin-bottom: 6px;
     position: sticky;
     top: 0;
     z-index: 2;
-    width: 100%;
+    background: rgba(20, 30, 50, 0.96);
+    padding: 4px 0;
+  }
+  .player-zone.realm-open .btn-add-effect,
+  .player-zone.realm-open .btn-effect-manual {
+    display: flex;
+    flex: 1 1 0;
+    min-width: 0;
     justify-content: center;
-    padding: 8px;
+    padding: 8px 4px;
     font-size: 13px;
-    margin: 0 0 6px;
+    margin: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
   /* 条目保持一行：名称 + 数值 + 移除 */
   .player-zone.realm-open .effect-item {
@@ -1179,6 +1191,12 @@
     background: #1c1f2b;
     border-top: 1px solid rgba(120, 160, 255, 0.25);
   }
+  /* 特定效果说明书：手机端加大触控 */
+  .effect-manual-dialog { width: 94vw; }
+  .effect-manual-header { font-size: 20px; }
+  .effect-manual-close { font-size: 22px; padding: 8px 12px; }
+  .effect-manual-sec__title { font-size: 17px; }
+  .effect-manual-sec__body { font-size: 16px; line-height: 1.75; }
   .card-status-badge input {
     font-size: 11px;
     padding-top: 1px;

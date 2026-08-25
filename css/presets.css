@@ -202,6 +202,11 @@
 }
 .preset-item:hover { background: rgba(150,180,220, 0.1); border-color: rgba(150,180,220, 0.25); }
 .preset-item:active { cursor: grabbing; }
+/* 召唤物：整体右移 15px，像式神名下的子列表 */
+.preset-item--summon {
+  padding-left: 35px;
+  border-left: 2px solid rgba(160, 190, 230, 0.28);
+}
 
 .preset-item__img {
   width: 60px; height: 82px; border-radius: 5px;

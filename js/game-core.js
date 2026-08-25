@@ -167,6 +167,7 @@
         item.querySelector('.effect-value').value = eff.value;
         panel.appendChild(item);
       });
+      if (typeof applyStackLimitEffects === 'function') applyStackLimitEffects(playerId, false);
     }
 
     // ---- JS-1.7：状态同步 —— 玩家名称/生命值 ----
@@ -216,6 +217,7 @@
         const name = item.querySelector('.effect-name').value || '未命名';
         item.remove();
         syncEffectsState(playerId);
+        if (typeof applyStackLimitEffects === 'function') applyStackLimitEffects(playerId, true);
         broadcastSystemMsg(`【系统】${getPlayerName(playerId)}移除了幻境/效果「${name}」`);
       });
       // 观众视角下视觉变灰
@@ -234,8 +236,129 @@
         const panel = zone.querySelector('.effects-panel');
         panel.appendChild(createEffectItem());
         syncEffectsState(zone.dataset.player);
+        if (typeof applyStackLimitEffects === 'function') applyStackLimitEffects(zone.dataset.player, true);
         broadcastSystemMsg(`【系统】${getPlayerName(zone.dataset.player)}添加了幻境/效果`);
       });
+    });
+
+    // ---- JS-1.6b：特定效果「堆叠上限：卡牌名」 ----
+
+    /** 应用堆叠上限效果：效果名称「堆叠上限：卡牌名」+ 数值（最低 1） */
+    function applyStackLimitEffects(playerId, doSync) {
+      const zone = document.querySelector(`.player-zone[data-player="${playerId}"]`);
+      if (!zone) return;
+      const state = getPlayerCardState(playerId);
+      if (!state) return;
+      const deck = state.deck || [];
+      const hand = state.hand || [];
+
+      // 收集规则：卡牌名 -> 上限（同名多条取最后一条；数值最低 1；未填数值不生效）
+      const limits = {};
+      zone.querySelectorAll('.effect-item').forEach(function(item) {
+        const name = (item.querySelector('.effect-name')?.value || '').trim();
+        const m = name.match(/^堆叠上限[：:](.+)$/);
+        if (!m) return;
+        const cardName = m[1].trim();
+        if (!cardName) return;
+        const rawVal = (item.querySelector('.effect-value')?.value || '').trim();
+        if (!rawVal) return;
+        let val = parseInt(rawVal, 10);
+        if (Number.isNaN(val)) return;
+        if (val < 1) val = 1;
+        limits[cardName] = val;
+      });
+
+      let splitCount = 0;
+      const splitNames = [];
+      const applyTo = function(card, isHand) {
+        if (!card || typeof card !== 'object') return;
+        const db = (typeof CardDB !== 'undefined' && CardDB.lookup) ? CardDB.lookup(card.name) : null;
+        const dbMax = (db && db.maxStack) ? db.maxStack : 0;
+        const newMax = (limits[card.name] !== undefined) ? limits[card.name] : dbMax;
+        if (newMax <= 0) { card._maxStack = 0; return; }
+        if (!card._stack) card._stack = 1;
+        card._maxStack = newMax;
+        if (!isHand || card._stack <= newMax) return;
+        // 超上限：拆成多个堆叠（每叠 <= 新上限，余数单独成叠，最低 1 层）
+        const parts = [];
+        let remain = card._stack;
+        while (remain > 0) {
+          const layer = Math.min(remain, newMax);
+          parts.push(layer);
+          remain -= layer;
+        }
+        card._stack = parts[0];
+        const baseIdx = hand.indexOf(card);
+        for (let i = 1; i < parts.length; i++) {
+          const nc = createCard(card.name);
+          nc._stack = parts[i];
+          nc._maxStack = newMax;
+          hand.splice(baseIdx + i, 0, nc);
+          splitCount++;
+        }
+        if (splitNames.indexOf(card.name) === -1) splitNames.push(card.name);
+      };
+      deck.forEach(function(c) { applyTo(c, false); });
+      hand.slice().forEach(function(c) { applyTo(c, true); });
+
+      updateDeckButtons(playerId);
+      if (typeof refreshOpenListDialog === 'function') refreshOpenListDialog(playerId);
+      if (doSync) {
+        if (typeof syncDeckStateForce === 'function') syncDeckStateForce(playerId);
+        else if (typeof syncDeckState === 'function') syncDeckState(playerId);
+      }
+      if (splitCount > 0) {
+        const names = splitNames.join('、');
+        broadcastSystemMsg(`【系统】${getPlayerName(playerId)}的「${names}」堆叠上限调整，超出的${splitCount}叠已拆分`);
+      }
+    }
+
+    // ---- 特定效果说明书（后续可继续加条目） ----
+    const EFFECT_MANUAL = [
+      {
+        title: '堆叠上限：卡牌名',
+        body: '仅对具有堆叠的卡牌有效。\n填写该效果后，数值则为该卡牌新的堆叠上限。数值留空则不生效。\n若手牌中已有堆叠超过新上限，多出的层数会自动拆分为新的堆叠。删除效果后恢复为卡牌数据中的默认上限。\n【示例】堆叠上限：生命精华',
+      },
+    ];
+
+    function openEffectManual() {
+      let ov = document.getElementById('effect-manual-overlay');
+      if (!ov) {
+        ov = document.createElement('div');
+        ov.id = 'effect-manual-overlay';
+        ov.className = 'effect-manual-overlay';
+        ov.hidden = true;
+        ov.innerHTML = '<div class="effect-manual-dialog">' +
+          '<div class="effect-manual-header"><span>📖 特定效果说明</span><button type="button" class="effect-manual-close">✕</button></div>' +
+          '<div class="effect-manual-body"></div></div>';
+        document.body.appendChild(ov);
+        ov.querySelector('.effect-manual-close').addEventListener('click', function() { ov.hidden = true; });
+        ov.addEventListener('click', function(e) { if (e.target === ov) ov.hidden = true; });
+        const body = ov.querySelector('.effect-manual-body');
+        EFFECT_MANUAL.forEach(function(sec) {
+          const secEl = document.createElement('div');
+          secEl.className = 'effect-manual-sec';
+          const t = document.createElement('div');
+          t.className = 'effect-manual-sec__title';
+          t.textContent = sec.title;
+          const b = document.createElement('div');
+          b.className = 'effect-manual-sec__body';
+          b.textContent = sec.body;
+          secEl.appendChild(t);
+          secEl.appendChild(b);
+          body.appendChild(secEl);
+        });
+      }
+      ov.hidden = false;
+    }
+    window.openEffectManual = openEffectManual;
+
+    document.addEventListener('click', function(e) {
+      const b = e.target.closest ? e.target.closest('.btn-effect-manual') : null;
+      if (!b) return;
+      e.preventDefault();
+      e.stopPropagation();
+      openEffectManual();
     });
 
     function getCardArt(slot) {
@@ -290,18 +413,34 @@
       if (!baseName) return;
       const baseUrl = (window._IMAGE_BASE || '') + '/';
 
+      // 召唤物的卡图放在所属式神文件夹下（images/式神名/召唤物名.png）
+      const dbCard = (typeof CardDB !== 'undefined' && CardDB.lookup) ? CardDB.lookup(baseName) : null;
+      const isSummon = slot.dataset.slotType === 'summon' || (dbCard && dbCard.type === 'summon');
+      const folder = (isSummon && dbCard && dbCard.owner) ? dbCard.owner : baseName;
+
       const paths = [];
-      if (slot._formName) paths.push(baseUrl + 'images/' + baseName + '/' + slot._formName + '.png');
+      if (slot._formName) paths.push(baseUrl + 'images/' + folder + '/' + slot._formName + '.png');
+      // 觉醒图：优先用式神管理里填写的觉醒牌名，其次查数据库，均不依赖属性
+      if (slot.classList.contains('awakened')) {
+        const customAwaken = slot._awakenCardName || '';
+        if (customAwaken) paths.push(baseUrl + 'images/' + folder + '/' + customAwaken + '.png');
+        if (typeof CardDB !== 'undefined' && CardDB.getAll) {
+          const awakenDefs = CardDB.getAll().filter(c => c && c.awakened && c.owner === baseName);
+          if (awakenDefs.length && awakenDefs[0].name !== customAwaken) {
+            paths.push(baseUrl + 'images/' + folder + '/' + awakenDefs[0].name + '.png');
+          }
+        }
+      }
       const mods = slot._permAtkMods || [];
       for (let i = mods.length - 1; i >= 0; i--) {
         const src = mods[i].source || '';
         if (src.includes('觉醒')) {
           const awakenCard = src.endsWith('（觉醒）') ? src.slice(0, -4) : src;
-          paths.push(baseUrl + 'images/' + baseName + '/' + awakenCard + '.png');
+          paths.push(baseUrl + 'images/' + folder + '/' + awakenCard + '.png');
           break;
         }
       }
-      paths.push(baseUrl + 'images/' + baseName + '/' + baseName + '.png');
+      paths.push(baseUrl + 'images/' + folder + '/' + baseName + '.png');
 
       // 依次尝试加载，第一个成功的就用它，都不成功则不动
       _trySetImage(slot, paths, 0);
@@ -339,6 +478,7 @@
         ko: slot.querySelector('.ko-overlay') ? (slot.querySelector('.ko-circle input').value || '1') : '',
         curses: getSlotCurses(slot),
         awakened: slot.classList.contains('awakened'),
+        awakenName: slot._awakenCardName || '',
         permAtkMods: slot._permAtkMods || [],
         permHpMods: slot._permHpMods || [],
         permAbility: slot._permAbility || '',
@@ -393,6 +533,7 @@
       slot._tempHpMods = state.tempHpMods || [];
       // 类型 / 派系
       if (state.slotType) slot.dataset.slotType = state.slotType;
+      if (state.awakenName !== undefined) slot._awakenCardName = state.awakenName;
       if (state.slotFaction) slot.dataset.slotFaction = state.slotFaction;
       // 基础攻/命（玩家在式神管理中设置，用于重置/复活）
       if (state.baseAtk !== undefined) slot._baseAtk = state.baseAtk;
@@ -1035,7 +1176,20 @@
       // 效果面板输入
       if (e.target.closest('.effect-item')) {
         const zone = e.target.closest('.player-zone');
-        if (zone) syncEffectsState(zone.dataset.player);
+        if (zone) {
+          // 填「堆叠上限：卡牌名」且数值为空 → 自动带入数据库默认上限
+          if (e.target.classList.contains('effect-name')) {
+            const item = e.target.closest('.effect-item');
+            const valueInput = item.querySelector('.effect-value');
+            const m = (e.target.value || '').trim().match(/^堆叠上限[：:](.+)$/);
+            if (m && !(valueInput.value || '').trim()) {
+              const db = (typeof CardDB !== 'undefined' && CardDB.lookup) ? CardDB.lookup(m[1].trim()) : null;
+              if (db && db.maxStack) valueInput.value = String(db.maxStack);
+            }
+          }
+          syncEffectsState(zone.dataset.player);
+          if (typeof applyStackLimitEffects === 'function') applyStackLimitEffects(zone.dataset.player, true);
+        }
         return;
       }
       // 玩家名称 / 生命值
@@ -1275,7 +1429,7 @@
       document.querySelectorAll('.card-slot').forEach(slot => {
         slot.innerHTML = CARD_INNER_HTML;
         ['_formName', '_formAtk', '_formHp', '_formAbility', '_permAbility', '_baseAbility',
-         '_permAtkMods', '_permHpMods', '_permEffects',
+         '_permAtkMods', '_permHpMods', '_permEffects', '_awakenCardName',
          '_tempAtkMods', '_tempHpMods', '_chargedCards'].forEach(function(k) { delete slot[k]; });
         slot.classList.remove('has-image', 'charging', 'awakened');
         delete slot.dataset.slotFaction;

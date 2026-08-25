@@ -1411,12 +1411,36 @@
       }
     }
 
+    /** 计算卡牌当前有效的堆叠上限：卡牌自带 > 效果面板规则 > 数据库默认 */
+    function getCardMaxStack(playerId, card) {
+      if (!card || !card.name) return 0;
+      // 1) 卡牌对象已带上限（之前入手/效果改过）
+      if (card._maxStack > 0) return card._maxStack;
+      // 2) 效果面板规则「堆叠上限：卡牌名」
+      const zone = document.querySelector(`.player-zone[data-player="${playerId}"]`);
+      if (zone) {
+        let limit = 0;
+        zone.querySelectorAll('.effect-item').forEach(function(item) {
+          const name = (item.querySelector('.effect-name')?.value || '').trim();
+          const m = name.match(/^堆叠上限[：:](.+)$/);
+          if (!m || m[1].trim() !== card.name) return;
+          const rawVal = (item.querySelector('.effect-value')?.value || '').trim();
+          if (!rawVal) return;
+          const val = parseInt(rawVal, 10);
+          if (!Number.isNaN(val) && val >= 1) limit = val;
+        });
+        if (limit > 0) return limit;
+      }
+      // 3) 数据库默认
+      const db = (typeof CardDB !== 'undefined' && CardDB.lookup) ? CardDB.lookup(card.name) : null;
+      return (db && db.maxStack) ? db.maxStack : 0;
+    }
+
     /** 将卡牌置入手牌，自动处理最大堆叠 */
     function pushCardToHand(playerId, card, fromShop) {
       if (!card || !card.name) return;
       const state = getPlayerCardState(playerId);
-      const db = (typeof CardDB !== 'undefined') ? CardDB.lookup(card.name) : null;
-      const maxStack = (db && db.maxStack) ? db.maxStack : 0;
+      const maxStack = getCardMaxStack(playerId, card);
 
       if (maxStack > 0) {
         // 从商店购买时，卡牌本身可能已有层数

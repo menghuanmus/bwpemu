@@ -6,7 +6,7 @@
     // ================================================================
     //  全局常量
     // ================================================================
-    const APP_VERSION = 'v0.4.11';
+    const APP_VERSION = 'v0.4.12';
     const APP_TITLE = '百闻牌模拟器';
 
     /** 调试模式：0=关闭 1=开启（显示隐藏的编辑器按钮） */
@@ -213,6 +213,23 @@
             }
           }
         });
+        // 说明书按钮：手机端去图标
+        document.querySelectorAll('.btn-effect-manual').forEach(function(el) {
+          var orig = el.getAttribute('data-orig-text');
+          if (isMobile) {
+            if (orig === null) {
+              orig = (el.textContent || '').trim();
+              el.setAttribute('data-orig-text', orig);
+            }
+            var cleanTxt = orig.replace(/[\u{1F000}-\u{1FAFF}\u{2300}-\u{23FF}\u{2600}-\u{27BF}\u{2B00}-\u{2BFF}\uFE0F\u200D]/gu, '').trim();
+            if (el.textContent !== cleanTxt) el.textContent = cleanTxt;
+          } else {
+            if (orig !== null) {
+              el.textContent = orig;
+              el.removeAttribute('data-orig-text');
+            }
+          }
+        });
         // 聊天大厅标题
         var playerChatTitle = document.querySelector('.chat-section--player .chat-section-title');
         if (playerChatTitle && playerChatTitle.childNodes.length > 0 && playerChatTitle.childNodes[0].nodeType === 3) {
@@ -289,18 +306,29 @@
           var bar = zone.querySelector('.player-id-area');
           var panel = zone.querySelector('.effects-panel');
           var addBtn = zone.querySelector('.btn-add-effect');
+          var manualBtn = zone.querySelector('.btn-effect-manual');
+          var btnsWrap = zone.querySelector('.zone-effects-btns');
           var btn = zone.querySelector('.btn-mobile-realm');
           if (!isMobile) {
-            // 桌面端：移除按钮、收起面板、添加按钮回原位
+            // 桌面端：移除按钮、收起面板、添加/说明书按钮回一行容器
             if (btn) btn.remove();
             zone.classList.remove('realm-open');
-            if (addBtn && panel && addBtn.parentElement === panel && panel.parentElement) {
-              panel.parentElement.insertBefore(addBtn, panel.nextSibling);
+            if (btnsWrap) {
+              if (addBtn && addBtn.parentElement !== btnsWrap) btnsWrap.insertBefore(addBtn, btnsWrap.firstChild);
+              if (manualBtn && addBtn && (manualBtn.parentElement !== btnsWrap || manualBtn.previousElementSibling !== addBtn)) {
+                addBtn.insertAdjacentElement('afterend', manualBtn);
+              }
             }
+            // 清掉手机端残留的空按钮行
+            var realmRow = zone.querySelector('.realm-btns-row');
+            if (realmRow && !realmRow.children.length) realmRow.remove();
             if (addBtn) addBtn.style.display = '';
+            if (manualBtn) manualBtn.style.display = '';
             return;
           }
           if (!bar || !panel) return;
+          // 手机端：说明书按钮收进弹层内（随弹层显隐）
+          if (manualBtn && manualBtn.parentElement !== panel) panel.appendChild(manualBtn);
           if (!btn) {
             btn = document.createElement('button');
             btn.type = 'button';
@@ -315,14 +343,21 @@
                 z.classList.remove('realm-open');
               });
               if (isOpen) {
-                // 关闭：添加按钮回原位
-                if (addBtn && panel && addBtn.parentElement === panel && panel.parentElement) {
-                  panel.parentElement.insertBefore(addBtn, panel.nextSibling);
+                // 关闭：添加按钮回一行容器
+                if (btnsWrap && addBtn && addBtn.parentElement !== btnsWrap) {
+                  btnsWrap.insertBefore(addBtn, btnsWrap.firstChild);
                 }
                 if (addBtn) addBtn.style.display = '';
               } else {
-                // 打开：添加按钮固定在面板最上方
-                if (addBtn && panel && addBtn.parentElement !== panel) panel.insertBefore(addBtn, panel.firstChild);
+                // 打开：添加/说明书按钮放进同一行容器（吸顶）
+                var row = panel.querySelector('.realm-btns-row');
+                if (!row) {
+                  row = document.createElement('div');
+                  row.className = 'realm-btns-row';
+                }
+                if (row.parentElement !== panel) panel.insertBefore(row, panel.firstChild);
+                if (addBtn && addBtn.parentElement !== row) row.appendChild(addBtn);
+                if (manualBtn && manualBtn.parentElement !== row) row.appendChild(manualBtn);
                 if (typeof isSpectator !== 'undefined' && isSpectator) {
                   if (addBtn) addBtn.style.display = 'none';   // 观众只读，隐藏添加
                 } else if (addBtn) {

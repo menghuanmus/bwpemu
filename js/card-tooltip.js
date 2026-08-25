@@ -365,11 +365,11 @@
         // 卡牌名称
         el.querySelector('.card-tooltip__name').textContent = card.name;
 
-        // 标签：觉醒 / 衍生物
+        // 标签：觉醒 / 衍生
         const tagEl = el.querySelector('.card-tooltip__tag');
         let tags = [];
         if (card.awakened) tags.push('<span class="card-tooltip__tag card-tooltip__tag--awakened">觉醒</span>');
-        if (card.derivative) tags.push('<span class="card-tooltip__tag card-tooltip__tag--derivative">衍生物</span>');
+        if (card.derivative) tags.push('<span class="card-tooltip__tag card-tooltip__tag--derivative">衍生</span>');
         tagEl.innerHTML = tags.join(' ');
 
         // 属性区

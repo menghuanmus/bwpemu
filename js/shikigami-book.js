@@ -345,18 +345,18 @@
       const derivativeCards = sortedCards.filter(c => c.derivative);
       const sortedCurses = [...entry.curses].sort((a, b) => a.name.localeCompare(b.name, 'zh'));
 
-      // 等级筛选标签
-      if (normalCards.length > 0) {
-        const counts = { 0: normalCards.length };
+      // 等级/衍生筛选标签（全部 = 普通牌 + 衍生）
+      if (normalCards.length > 0 || derivativeCards.length > 0) {
+        const counts = { 0: normalCards.length + derivativeCards.length };
         for (const c of normalCards) {
           const lv = c.level || 0;
           counts[lv] = (counts[lv] || 0) + 1;
         }
         const levelFilters = document.createElement('div');
         levelFilters.className = 'shikigami-book__level-filters';
-        [0, 1, 2, 3].forEach(lv => {
-          const cnt = lv === 0 ? counts[0] : (counts[lv] || 0);
-          const label = lv === 0 ? `全部(${cnt})` : `${lv}级(${cnt})`;
+        [0, 1, 2, 3, 4].forEach(lv => {
+          const cnt = lv === 0 ? counts[0] : (lv === 4 ? derivativeCards.length : (counts[lv] || 0));
+          const label = lv === 0 ? `全部(${cnt})` : (lv === 4 ? `衍生(${cnt})` : `${lv}级(${cnt})`);
           const btn = document.createElement('button');
           btn.type = 'button';
           btn.className = 'book-level-btn' + (_bookLevelFilter === lv ? ' book-level-btn--active' : '');
@@ -370,20 +370,34 @@
         shikigamiBookDetail.appendChild(levelFilters);
       }
 
-      // 渲染卡牌
-      for (const card of normalCards) {
-        if (_bookLevelFilter > 0 && (card.level || 0) !== _bookLevelFilter) continue;
-        shikigamiBookDetail.appendChild(createBookCardEntry(card));
-      }
-
-      // 衍生牌分隔
-      if (derivativeCards.length > 0) {
-        const sep = document.createElement('div');
-        sep.className = 'shikigami-book__derivative-sep';
-        sep.textContent = '衍生物';
-        shikigamiBookDetail.appendChild(sep);
+      if (_bookLevelFilter === 4) {
+        // 只看衍生
         for (const card of derivativeCards) {
           shikigamiBookDetail.appendChild(createBookCardEntry(card));
+        }
+        if (derivativeCards.length === 0) {
+          const empty = document.createElement('div');
+          empty.className = 'card-list-empty';
+          empty.textContent = '暂无衍生';
+          empty.style.padding = '20px';
+          empty.style.textAlign = 'center';
+          shikigamiBookDetail.appendChild(empty);
+        }
+      } else {
+        // 普通牌
+        for (const card of normalCards) {
+          if (_bookLevelFilter > 0 && (card.level || 0) !== _bookLevelFilter) continue;
+          shikigamiBookDetail.appendChild(createBookCardEntry(card));
+        }
+        // 全部视图下：衍生牌分隔区
+        if (_bookLevelFilter === 0 && derivativeCards.length > 0) {
+          const sep = document.createElement('div');
+          sep.className = 'shikigami-book__derivative-sep';
+          sep.textContent = '衍生';
+          shikigamiBookDetail.appendChild(sep);
+          for (const card of derivativeCards) {
+            shikigamiBookDetail.appendChild(createBookCardEntry(card));
+          }
         }
       }
 
@@ -507,7 +521,7 @@
         if (card.derivative) {
           const t = document.createElement('span');
           t.className = 'shikigami-book__tag sbtag--derivative';
-          t.textContent = '衍生物';
+          t.textContent = '衍生';
           tags.appendChild(t);
         }
         head.appendChild(tags);

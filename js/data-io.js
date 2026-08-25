@@ -26,7 +26,7 @@
         { id: 'attack', label: '攻击', placeholder: '例：2', type: 'number' },
         { id: 'hp', label: '生命', placeholder: '例：5', type: 'number' },
         { id: 'ability', label: '基础能力', placeholder: '例：进场时抽1张牌', textarea: true },
-        { id: 'derivative', label: '衍生物', type: 'checkbox' },
+        { id: 'derivative', label: '衍生', type: 'checkbox' },
       ],
       summon: [
         { id: 'name', label: '名称', placeholder: '例：召唤·桃花', required: true },
@@ -35,7 +35,7 @@
         { id: 'attack', label: '攻击', placeholder: '例：1', type: 'number' },
         { id: 'hp', label: '生命', placeholder: '例：2', type: 'number' },
         { id: 'ability', label: '能力', placeholder: '例：回合结束时消失', textarea: true },
-        { id: 'derivative', label: '衍生物（通常为是）', type: 'checkbox', default: true },
+        { id: 'derivative', label: '衍生（通常为是）', type: 'checkbox', default: true },
       ],
       spell: [
         { id: 'name', label: '名称', placeholder: '例：凤火', required: true },
@@ -45,7 +45,7 @@
         { id: 'atkBonus', label: '增加攻击', placeholder: '非觉醒牌填0', type: 'number', default: '0' },
         { id: 'hpBonus', label: '增加生命', placeholder: '非觉醒牌填0', type: 'number', default: '0' },
         { id: 'effect', label: '卡牌效果', placeholder: '例：对一名敌方式神造成3点伤害', textarea: true },
-        { id: 'derivative', label: '衍生物', type: 'checkbox' },
+        { id: 'derivative', label: '衍生', type: 'checkbox' },
       ],
       battle: [
         { id: 'name', label: '名称', placeholder: '例：尘刀', required: true },
@@ -57,7 +57,7 @@
         { id: 'shieldBonus', label: '增加护盾', placeholder: '例：0', type: 'number', default: '0' },
         { id: 'shieldPenalty', label: '减少护盾', placeholder: '例：0', type: 'number', default: '0' },
         { id: 'effect', label: '卡牌效果', placeholder: '例：本次战斗中+2攻击', textarea: true },
-        { id: 'derivative', label: '衍生物', type: 'checkbox' },
+        { id: 'derivative', label: '衍生', type: 'checkbox' },
       ],
       form: [
         { id: 'name', label: '名称', placeholder: '例：桃花仙', required: true },
@@ -67,7 +67,7 @@
         { id: 'attack', label: '攻击', placeholder: '例：3', type: 'number' },
         { id: 'hp', label: '生命', placeholder: '例：6', type: 'number' },
         { id: 'effect', label: '卡牌效果', placeholder: '例：进场时恢复生命', textarea: true },
-        { id: 'derivative', label: '衍生物', type: 'checkbox' },
+        { id: 'derivative', label: '衍生', type: 'checkbox' },
       ],
       realm: [
         { id: 'name', label: '名称', placeholder: '例：蓬莱之境', required: true },
@@ -76,7 +76,7 @@
         { id: 'awakened', label: '觉醒牌', type: 'checkbox' },
         { id: 'durability', label: '耐久', placeholder: '例：4', type: 'number' },
         { id: 'effect', label: '卡牌效果', placeholder: '例：回合开始时抽1张牌', textarea: true },
-        { id: 'derivative', label: '衍生物', type: 'checkbox' },
+        { id: 'derivative', label: '衍生', type: 'checkbox' },
       ],
       curse: [
         { id: 'name', label: '名称', placeholder: '例：友切', required: true },

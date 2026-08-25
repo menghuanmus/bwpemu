@@ -61,6 +61,11 @@ const BonusPanel = (() => {
     if (!body) return;
     body.addEventListener('click', handleBodyClick);
     body.addEventListener('change', handleBodyChange);
+    // 觉醒牌名输入框：每次输入都即时查图
+    body.addEventListener('input', function(e) {
+      if (e.target.id !== 'bonus-awaken-name' || !ctx) return;
+      handleAwakenNameInput(e.target.value);
+    });
     _delegationReady = true;
   }
 
@@ -114,6 +119,8 @@ const BonusPanel = (() => {
       if (e.target.checked) { ctx.slot.classList.add('awakened'); }
       else { ctx.slot.classList.remove('awakened'); }
       syncSlotToPeer(ctx.slot);
+      // 觉醒状态变化 → 重查卡图（觉醒图 > 默认图）
+      if (typeof autoUpdateSlotImage === 'function') autoUpdateSlotImage(ctx.slot);
       render();   // 重绘，切换基础/觉醒能力输入框和等级框样式
     }
     if (e.target.id === 'bonus-base-ability') {
@@ -451,8 +458,9 @@ const BonusPanel = (() => {
     if (!ctx || !awakenName) return;
     const awaken = _findAwakenCards(ctx.cardName).find(c => c.name === awakenName);
     if (!awaken) { broadcastBonusMsg('未找到觉醒牌', ''); return; }
-    // 自动勾选觉醒 + 写入觉醒能力
+    // 自动勾选觉醒 + 写入觉醒能力 + 自动填入觉醒牌名（相同则不变）
     ctx.slot.classList.add('awakened');
+    ctx.slot._awakenCardName = awakenName;
     const rawEffect = awaken.effect || '';
     const awIdx = rawEffect.indexOf('觉醒：');
     ctx.permAbility = awIdx >= 0 ? rawEffect.slice(awIdx + 3).trim() : rawEffect;
@@ -491,8 +499,28 @@ const BonusPanel = (() => {
     render();
   }
 
-  function handleQuickForm(formName) {
-    if (!formName || !ctx) return;
+  /** 觉醒牌名输入变化：记录名字，按名字在该式神文件夹下找图（找到就换，找不到不动） */
+  function handleAwakenNameInput(val) {
+    const name = (val || '').trim();
+    ctx.slot._awakenCardName = name;
+    if (typeof syncSlotToPeer === 'function') syncSlotToPeer(ctx.slot);
+    if (!name) return;
+    // 文件夹：召唤物用所属式神文件夹，其余用自己的名字
+    let folder = ctx.cardName;
+    const dbCard = (typeof CardDB !== 'undefined' && CardDB.lookup) ? CardDB.lookup(ctx.cardName) : null;
+    if (ctx.slot.dataset.slotType === 'summon' && dbCard && dbCard.owner) folder = dbCard.owner;
+    const url = (window._IMAGE_BASE || '') + '/images/' + folder + '/' + name + '.png';
+    const testImg = new Image();
+    testImg.onload = function() {
+      // 输入可能又变了，只有仍一致才换图
+      if ((ctx.slot._awakenCardName || '').trim() !== name) return;
+      if (typeof setSlotImage === 'function') setSlotImage(ctx.slot, url);
+      if (typeof syncSlotToPeer === 'function') syncSlotToPeer(ctx.slot);
+    };
+    testImg.src = url;
+  }
+
+  function handleQuickForm(formName) {    if (!formName || !ctx) return;
     var forms = _findShikigamiForms(ctx.cardName);
     var found = null;
     for (var i = 0; i < forms.length; i++) {
@@ -617,6 +645,7 @@ const BonusPanel = (() => {
     const awakened = ctx.slot.classList.contains('awakened');
     const baseAbilitySaved = ctx.slot._baseAbility !== undefined ? ctx.slot._baseAbility : '';
     const awakenAbility = ctx.slot._permAbility || '';
+    const awakenCardName = ctx.slot._awakenCardName || ('觉醒·' + ctx.cardName);
 
     const factionHTML = `<div class="bonus-faction-row">
       ${['苍叶','红莲','青岚','紫岩','无相'].map(function(f) {
@@ -627,6 +656,7 @@ const BonusPanel = (() => {
 
     const abilityHTML = `<div class="bonus-awaken-row">
         <label class="bonus-summon-label"><input type="checkbox" id="bonus-is-awakened" ${awakened ? 'checked' : ''}> 觉醒</label>
+        <input type="text" id="bonus-awaken-name" class="bonus-awaken-name-input" placeholder="觉醒牌名" value="${escapeHTML(awakenCardName)}" ${awakened ? '' : 'style="display:none;"'}>
         <button type="button" id="bonus-quick-awaken" class="bonus-btn--keyword">+快捷觉醒</button>
       </div>
       <div id="bonus-awaken-picker" class="bonus-keyword-picker" style="display:none;"></div>
@@ -744,6 +774,7 @@ const BonusPanel = (() => {
     const awakened = ctx.slot.classList.contains('awakened');
     const baseAbilitySaved = ctx.slot._baseAbility !== undefined ? ctx.slot._baseAbility : '';
     const awakenAbility = ctx.slot._permAbility || '';
+    const awakenCardName = ctx.slot._awakenCardName || ('觉醒·' + ctx.cardName);
     return `
       <div class="bonus-info">
         <span class="bonus-info__name">「${escapeHTML(ctx.cardName)}」</span>
@@ -768,6 +799,7 @@ const BonusPanel = (() => {
             <div class="bonus-section__label">📝 基础能力</div>
             <div class="bonus-awaken-row">
               <label class="bonus-summon-label"><input type="checkbox" id="bonus-is-awakened" ${awakened ? 'checked' : ''}> 觉醒</label>
+              <input type="text" id="bonus-awaken-name" class="bonus-awaken-name-input" placeholder="觉醒牌名" value="${escapeHTML(awakenCardName)}" ${awakened ? '' : 'style="display:none;"'}>
               <button type="button" id="bonus-quick-awaken" class="bonus-btn--keyword">+快捷觉醒</button>
             </div>
             <div id="bonus-awaken-picker" class="bonus-keyword-picker" style="display:none;"></div>

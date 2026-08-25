@@ -55,7 +55,8 @@ const Presets = (() => {
           hp: c.hp || 0,
           ability: c.ability || '',
           owner: c.owner || '',
-          imageSrc: `images/${c.name}/${c.name}.png`,
+          // 召唤物卡图在所属式神文件夹下（images/式神名/召唤物名.png）
+          imageSrc: (c.type === 'summon' && c.owner) ? `images/${c.owner}/${c.name}.png` : `images/${c.name}/${c.name}.png`,
           level: c.type === 'shikigami' ? '1' : '',
           countdown: '',
           energy: '',
@@ -502,7 +503,7 @@ const Presets = (() => {
       const badge = p.type === 'summon' ? '召' : '';
       const isDIY = p.author && p.author !== '官方';
 
-      h += `<div class="preset-item" draggable="true" data-preset-id="${p.id}">
+      h += `<div class="preset-item${p.type === 'summon' ? ' preset-item--summon' : ''}" draggable="true" data-preset-id="${p.id}">
         <div class="preset-item__img" style="${p.imageSrc ? `background-image:url(${_escapeHTML(p.imageSrc)})` : ''}">
           ${p.imageSrc ? `<img src="${_escapeHTML(p.imageSrc)}" style="display:none;" onerror="this.parentElement.style.backgroundImage='url('+(window._IMAGE_BASE||'')+'/images/无图.png)'">` : ''}
           ${!p.imageSrc ? '<span class="preset-item__placeholder">🃏</span>' : ''}

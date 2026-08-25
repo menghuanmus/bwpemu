@@ -260,6 +260,45 @@
       transform: scale(0.98);
     }
 
+    .btn-effect-manual {
+      flex-shrink: 0;
+      padding: 6px 10px;
+      font-size: 12px;
+      background: linear-gradient(180deg, #8a6a2a, #6a4f1e);
+      border: 1px solid #b08d3e;
+      border-radius: 6px;
+      color: #ffe8b0;
+      cursor: pointer;
+      white-space: nowrap;
+      text-align: center;
+      margin: 0;
+    }
+
+    .btn-effect-manual:hover {
+      background: linear-gradient(180deg, #9a7a3a, #7a5f2e);
+    }
+
+    /* 添加/说明书按钮一行两列：各占 1/2 */
+    .zone-effects-btns {
+      display: flex;
+      gap: 6px;
+      flex-shrink: 0;
+    }
+    .zone-effects-btns .btn-add-effect {
+      flex: 1 1 0;
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .zone-effects-btns .btn-effect-manual {
+      flex: 1 1 0;
+      min-width: 0;
+      padding: 6px 6px;
+      font-size: 12px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
 
 
     .effects-panel {

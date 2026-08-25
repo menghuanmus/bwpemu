@@ -16,20 +16,20 @@
 //
 //  式神 shikigami:
 //    name（名称）, type（类型）, faction（派系）, attack（攻击）, hp（生命）,
-//    ability（能力描述）, derivative（衍生物）, effects（模块化效果,可选）,
+//    ability（能力描述）, derivative（衍生）, effects（模块化效果,可选）,
 //    author（作者,可选）, _shop（商店牌,可选）
 //
 //  召唤物 summon:
 //    name（名称）, type（类型）, owner（所属式神）, faction（派系）,
 //    attack（攻击）, hp（生命）, ability（能力描述）,
-//    derivative（衍生物）, effects（模块化效果,可选）,
+//    derivative（衍生）, effects（模块化效果,可选）,
 //    author（作者,可选）, _shop（商店牌,可选）
 //
 //  法术牌 spell:
 //    name（名称）, type（类型）, owner（所属式神）, level（等级）,
 //    awakened（觉醒牌）, atkBonus（攻击加成）, hpBonus（生命加成）,
 //    maxStack（最大堆叠,0=不堆叠）, effect（效果描述）,
-//    derivative（衍生物）, effects（模块化效果,可选）,
+//    derivative（衍生）, effects（模块化效果,可选）,
 //    rarity（稀有度,可选）, author（作者,可选）,
 //    cost_modifier（费用修正,可选）, _shop（商店牌,可选）,
 //    _oracle（启悟牌,可选）
@@ -38,20 +38,20 @@
 //    name（名称）, type（类型）, owner（所属式神）, level（等级）,
 //    awakened（觉醒牌）, atkBonus（攻击加成）, atkPenalty（攻击减成）,
 //    shieldBonus（护盾加成）, shieldPenalty（护盾减成）,
-//    effect（效果描述）, derivative（衍生物）, effects（模块化效果,可选）,
+//    effect（效果描述）, derivative（衍生）, effects（模块化效果,可选）,
 //    rarity（稀有度,可选）, author（作者,可选）,
 //    cost_modifier（费用修正,可选）, _shop（商店牌,可选）
 //
 //  形态牌 form:
 //    name（名称）, type（类型）, owner（所属式神）, level（等级）,
 //    awakened（觉醒牌）, attack（攻击）, hp（生命）,
-//    effect（效果描述）, derivative（衍生物）, effects（模块化效果,可选）,
+//    effect（效果描述）, derivative（衍生）, effects（模块化效果,可选）,
 //    rarity（稀有度,可选）, author（作者,可选）, _shop（商店牌,可选）
 //
 //  幻境牌 realm:
 //    name（名称）, type（类型）, owner（所属式神）, level（等级）,
 //    awakened（觉醒牌）, durability（耐久）,
-//    effect（效果描述）, derivative（衍生物）, effects（模块化效果,可选）,
+//    effect（效果描述）, derivative（衍生）, effects（模块化效果,可选）,
 //    rarity（稀有度,可选）, author（作者,可选）, _shop（商店牌,可选）
 //
 //  灵咒 curse:
@@ -62,7 +62,7 @@
 //    name（名称）, type（类型）, owner（所属式神）, level（等级）,
 //    awakened（觉醒牌）, atkBonus（攻击加成）, atkPenalty（攻击减成）,
 //    shieldBonus（护盾加成）, shieldPenalty（护盾减成）,
-//    effect（效果描述）, derivative（衍生物）, effects（模块化效果,可选）,
+//    effect（效果描述）, derivative（衍生）, effects（模块化效果,可选）,
 //    rarity（稀有度,可选）, author（作者,可选）, _shop（商店牌,可选）
 //
 //  商店牌（以上任意类型 + _shop:true, owner:"商店"）:
@@ -88,7 +88,7 @@
 //    shieldPenalty 护盾减成
 //    durability    幻境耐久值
 //    maxStack      最大堆叠数（0=不堆叠, 仅法术牌）
-//    derivative    是否为衍生物（true/false）
+//    derivative    是否为衍生（true/false）
 //    effects       模块化效果JSON（可选，见 effect-modules.js）
 //    cost_modifier 费用修正（可选，如{"fire_cost":0}表示不消耗鬼火）
 //    _shop         是否为商店牌（true/不填）
