@@ -150,8 +150,7 @@
           addChatMessage(data.playerId, data.text, data.senderName);
           break;
         case 'dice':
-          addSystemChatMessage('【系统】' + (data.rollerName || '对手') + '骰了随机数' + data.result + '（' + data.low + '~' + data.high + '）');
-          // 远端骰子动画
+          // 文字已由 sysmsg（broadcastSystemMsg）同步给对方，这里只播远端骰子动画
           playRemoteDiceAnim(data.result);
           break;
         case 'effects-update':
@@ -371,6 +370,10 @@
         if (speakBtn) { speakBtn.removeAttribute('data-locked'); speakBtn.disabled = false; speakBtn.style.opacity = ''; speakBtn.style.cursor = ''; }
         // 观众可以打开坟场查看（坟场内部操作已对观众禁止）
         document.querySelectorAll('.btn-deck--grave').forEach(function(el) {
+          el.removeAttribute('data-locked'); el.disabled = false; el.style.opacity = ''; el.style.cursor = '';
+        });
+        // 观众可以打开手牌/牌库查看（内部操作按钮已灰置禁点）
+        document.querySelectorAll('.btn-deck[data-action="hand"], .btn-deck[data-action="deck"]').forEach(function(el) {
           el.removeAttribute('data-locked'); el.disabled = false; el.style.opacity = ''; el.style.cursor = '';
         });
         // 观众可以打开幻境/效果面板查看（内部输入框保持只读，添加按钮已隐藏）

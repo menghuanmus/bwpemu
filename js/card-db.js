@@ -92,6 +92,13 @@
         return null;
       }
 
+      /** 严格全匹配查询（悬浮窗等需要精确对应卡牌的场合） */
+      function lookupExact(name) {
+        if (!name) return null;
+        const key = name.trim();
+        return _cards.has(key) ? _cards.get(key) : null;
+      }
+
       /** 添加自定义卡牌 */
       function addCustom(card) {
         if (!card || !card.name || !card.type) return false;
@@ -152,6 +159,6 @@
         return _keywords.get(name) || null;
       }
 
-      return { init, lookup, addCustom, removeCustom, exportCustom, importCustom, isReady, size, getAll, lookupKeyword };
+      return { init, lookup, lookupExact, addCustom, removeCustom, exportCustom, importCustom, isReady, size, getAll, lookupKeyword };
     })();
 

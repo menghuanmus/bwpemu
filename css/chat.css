@@ -599,6 +599,25 @@
       flex-shrink: 0;
     }
 
+    /* 观众视角：操作按钮可见但不可点 */
+    .card-list-item__actions--spec {
+      pointer-events: none;
+      opacity: 0.55;
+    }
+
+    /* 观众视角：灵咒工具栏（输入框+随机结附+优先不重复）置灰禁点 */
+    .curse-random-bar--spec {
+      pointer-events: none;
+      opacity: 0.55;
+    }
+
+    /* 禁用状态的卡牌操作按钮（如观众看牌库时的弃牌按钮） */
+    .btn-card-action:disabled {
+      opacity: 0.45;
+      cursor: not-allowed;
+      filter: grayscale(0.85);
+    }
+
     .btn-card-action {
       padding: 4px 10px;
       font-size: 11px;

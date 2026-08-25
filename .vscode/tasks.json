@@ -1,0 +1,21 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"label": "bwpemu-spec-test",
+			"type": "shell",
+			"command": "cd /d \"d:\\DIY\\百闻牌\\百闻牌模拟器\\menghuanmus.github.io\\server\" && node test-spec-flow.js > test-out.txt 2>&1 & type test-out.txt",
+			"args": [],
+			"isBackground": false,
+			"problemMatcher": []
+		},
+		{
+			"label": "bwpemu-spec-test",
+			"type": "shell",
+			"command": "Set-Location \"d:\\DIY\\百闻牌\\百闻牌模拟器\\menghuanmus.github.io\\server\"; node test-spec-flow.js *> test-out.txt; Get-Content test-out.txt -Encoding UTF8",
+			"args": [],
+			"isBackground": false,
+			"problemMatcher": []
+		}
+	]
+}

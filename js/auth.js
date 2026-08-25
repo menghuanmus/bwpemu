@@ -854,6 +854,19 @@
       if (typeof showReadyRoom === 'function') showReadyRoom(res);
       return;
     }
+    // 无对局可恢复：之前是观众的话，自动重新观战原房间
+    if (isSpectator && lastRoomCode) {
+      socket.emit('spectate-room', { room: lastRoomCode }, function(r) {
+        if (r && r.spectating) {
+          if (r.state && typeof applyFullState === 'function') applyFullState(r.state);
+          if (typeof enterGame === 'function') enterGame(r);
+          return;
+        }
+        isSpectator = false; lastRoomCode = null;
+        if (typeof showLobby === 'function') showLobby(res.nickname);
+      });
+      return;
+    }
     // 无对局可恢复：回大厅
     if (typeof showLobby === 'function') showLobby(res.nickname);
   }

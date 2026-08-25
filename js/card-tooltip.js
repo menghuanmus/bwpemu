@@ -184,7 +184,7 @@
         if (name && typeof name === 'object' && name._foodData) {
           card = _buildFoodCardInfo(name._foodData);
         } else {
-          card = name ? CardDB.lookup(name) : null;
+          card = name ? (CardDB.lookupExact ? CardDB.lookupExact(name) : CardDB.lookup(name)) : null;
           // 数据库没有的式神：用卡槽当前设置（名字/基础数值/能力来自式神管理）
           if (!card && slot) {
             card = _buildSlotCardInfo(slot, typeof name === 'string' ? name : '');
@@ -212,7 +212,7 @@
         }
       }
 
-      /** 卡槽是否有内容（图/名字/攻命/基础值），空槽不算 */
+      /** 卡槽是否有内容（图/名字/攻命输入值），空槽不算 */
       function _slotHasContent(slot) {
         if (!slot) return false;
         if (slot.classList.contains('has-image')) return true;
@@ -220,8 +220,6 @@
         const atkEl = slot.querySelector('.card-attack');
         const hpEl = slot.querySelector('.card-hp');
         if ((nameEl && nameEl.value) || (atkEl && atkEl.value) || (hpEl && hpEl.value)) return true;
-        if (slot._baseAtk !== undefined && slot._baseAtk !== null) return true;
-        if (slot._baseHp !== undefined && slot._baseHp !== null) return true;
         return false;
       }
 
@@ -328,7 +326,7 @@
           if (curses && curses.length) {
             cursesHTML = '<div class="card-tooltip__curses">';
             curses.forEach(c => {
-              const dbCurse = CardDB.lookup(c.name);
+              const dbCurse = CardDB.lookupExact ? CardDB.lookupExact(c.name) : CardDB.lookup(c.name);
               const eff = dbCurse ? (dbCurse.effect || '') : '';
               cursesHTML += '<div class="card-tooltip__curse-item">';
               cursesHTML += '<div class="card-tooltip__curse-head">⛓️ <span class="curse-name">' + escapeHTML(c.name) + '</span> <span class="curse-layers">×' + c.layers + '</span></div>';
@@ -576,7 +574,7 @@
         if (curses && curses.length) {
           cursesHTML = '<div class="card-tooltip__curses">';
           curses.forEach(c => {
-            const dbCurse = CardDB.lookup(c.name);
+            const dbCurse = CardDB.lookupExact ? CardDB.lookupExact(c.name) : CardDB.lookup(c.name);
             const eff = dbCurse ? (dbCurse.effect || '') : '';
             cursesHTML += '<div class="card-tooltip__curse-item">';
             cursesHTML += '<div class="card-tooltip__curse-head">⛓️ <span class="curse-name">' + escapeHTML(c.name) + '</span> <span class="curse-layers">×' + c.layers + '</span></div>';
