@@ -477,6 +477,83 @@ var CARD_DB_DATA = [
   { "name":"鸮之庇佑", "type":"form", "owner":"薰", "level":3, "rarity":"SR", "attack":5, "hp":8,
     "effect":"使一个己方式神结附「鸮之守护」。结附「鸮之守护」的己方式神获得不屈。" },
 
+  // ── 入殓师 ──
+  { "name":"入殓师", "type":"shikigami", "faction":"紫岩", "attack":2, "hp":3,
+    "ability":"当入殓师气绝时，召唤一个「织雪」。", "derivative":false },
+  { "name":"哀恸", "type":"spell", "owner":"入殓师", "level":1, "rarity":"R",
+    "effect":"使你战斗区的召唤物发起一次攻击，本次战斗获得+1力量并免疫战斗伤害。" },
+  { "name":"相合伞", "type":"spell", "owner":"入殓师", "level":1, "rarity":"R",
+    "effect":"召唤一个「织雪」。" },
+  { "name":"粉妆", "type":"spell", "owner":"入殓师", "level":1, "rarity":"R",
+    "effect":"复活一个己方力量最高的召唤物。" },
+  { "name":"纳馆人", "type":"form", "owner":"入殓师", "level":2, "rarity":"SR", "attack":3, "hp":5,
+    "effect":"使己方战斗区非召唤物式神获得遗愿：「召唤一个「织雪」」。当己方召唤物式神气绝时，随机使一个己方式神气绝倒计时-1。" },
+  { "name":"觉醒·入殓师", "type":"spell", "owner":"入殓师", "level":2, "rarity":"SR", "awakened":true,
+    "effect":`召唤一个「织雪」，本局游戏你的「织雪」永久获得1力量与1生命。
+觉醒：当入殓师气绝时，召唤一个「织雪」。` },
+  { "name":"离魂", "type":"spell", "owner":"入殓师", "level":2, "rarity":"R",
+    "effect":"消灭敌方战斗区式神。敌方牌手抽一张牌。" },
+  { "name":"葬仪", "type":"spell", "owner":"入殓师", "level":3, "rarity":"SR",
+    "effect":"召唤一个「织雪」，对所有敌方角色造成2点伤害，「织雪」每融合过一次此牌伤害便+1。" },
+  { "name":"荼蘼盛放之馆", "type":"spell", "owner":"入殓师", "level":3, "rarity":"SSR",
+    "effect":"召唤一个「织雪」然后使「织雪」获得等同于你一半生命的力量和生命。" },
+  { "name":"织雪", "type":"summon", "owner":"入殓师", "faction":"紫岩", "attack":3, "hp":3,
+    "ability":`融合
+进场或融合的回合不能出击。`, "derivative":true },
+
+  // ── 骨女 ──
+  { "name":"骨女", "type":"shikigami", "faction":"紫岩", "attack":2, "hp":5,
+    "ability":"遗愿：召唤一个「骸」。", "derivative":false },
+  { "name":"怨生", "type":"battle", "owner":"骨女", "level":1, "rarity":"R",
+    "atkBonus":1, "atkPenalty":0, "shieldBonus":0, "shieldPenalty":0,
+    "effect":`追猎
+本次战斗若骨女气绝，对与其战斗的式神造成2点伤害。` },
+  { "name":"赤霞鸟", "type":"realm", "owner":"骨女", "level":1, "durability":4, "rarity":"SR",
+    "effect":`进场时坚守。
+使己方战斗区非召唤物式神获得「遗愿：召唤一个「骸」并降低该幻境2耐久」。` },
+  { "name":"借皮", "type":"spell", "owner":"骨女", "level":1, "rarity":"R",
+    "effect":"眩晕一个敌方式神并召唤一个「骸」。" },
+  { "name":"骨刃", "type":"spell", "owner":"骨女", "level":2, "rarity":"SR",
+    "effect":"消灭骨女与一个等级小于等于骨女的敌方式神。" },
+  { "name":"觉醒·骨女", "type":"spell", "owner":"骨女", "level":2, "rarity":"SR", "awakened":true, "atkBonus":1, "hpBonus":1,
+    "effect":`气绝时可用
+觉醒：骨女气绝时，召唤一个「骸」。所有己方式神气绝倒计时为2。` },
+  { "name":"脱胎换骨", "type":"form", "owner":"骨女", "level":2, "rarity":"R", "attack":4, "hp":6,
+    "effect":`气绝时可用
+进场或骨女气绝时，复活骨女。` },
+  { "name":"一步一息", "type":"battle", "owner":"骨女", "level":2, "rarity":"R",
+    "atkBonus":4, "atkPenalty":0, "shieldBonus":0, "shieldPenalty":0,
+    "effect":"本次战斗若骨女气绝，眩晕与其战斗的敌方式神和敌方牌手。" },
+  { "name":"帐下梦", "type":"realm", "owner":"骨女", "level":3, "durability":6, "rarity":"SSR",
+    "effect":`进场时召唤一个「骸」。
+己方「骸」进场时获得迅捷。当己方式神被敌方式神消灭时，对该式神造成4点伤害。` },
+  { "name":"骸", "type":"summon", "owner":"骨女", "faction":"紫岩", "attack":1, "hp":2,
+    "ability":"融合", "derivative":true },
+
+  // ── 源九郎狐 ──
+  { "name":"源九郎狐", "type":"shikigami", "faction":"紫岩", "attack":2, "hp":5,
+    "ability":"当你使用其他紫岩式神的牌时，源九郎狐获得1生命。", "derivative":false },
+  { "name":"狐手", "type":"battle", "owner":"源九郎狐", "level":1, "rarity":"R",
+    "effect":"为源九郎狐恢复2生命，此牌造成的过量治疗会转化为力量。" },
+  { "name":"狐辞", "type":"spell", "owner":"源九郎狐", "level":1, "rarity":"R",
+    "effect":"瞬发，选择一项：为一个角色恢复3生命，过量治疗会转化为护甲；或使一个幻境获得3耐久。" },
+  { "name":"觉醒·源九郎狐", "type":"spell", "owner":"源九郎狐", "level":2, "rarity":"SR", "awakened":true, "atkBonus":1, "hpBonus":1,
+    "effect":"觉醒：己方所有其他紫岩式神获得1力量和1生命。当你使用其他紫岩式神的牌时，源九郎狐获得1生命。" },
+  { "name":"御先狐", "type":"form", "owner":"源九郎狐", "level":2, "rarity":"SR", "attack":3, "hp":7,
+    "effect":"己方回合当源九郎狐对敌方角色造成战斗伤害时，使该角色获得3破甲，自己获得3护甲。" },
+  { "name":"初音鼓", "type":"spell", "owner":"源九郎狐", "level":2, "rarity":"SR",
+    "effect":`复活一个己方式神，并使该式神获得1力量，1生命和1护甲。
+增强：若己方式神都为紫岩派系，再将该式神移入战斗区。` },
+  { "name":"狐狸六法", "type":"realm", "owner":"源九郎狐", "level":2, "durability":6, "rarity":"R",
+    "effect":`进场时使一个己方式神获得+1生命和+2护甲。
+进场和己方回合开始时，若己方任一式神的生命为场上最大或同为最大，抽一张牌。` },
+  { "name":"灵狐之嗣", "type":"form", "owner":"源九郎狐", "level":3, "rarity":"R", "attack":4, "hp":4,
+    "effect":`不屈
+增强：你每有一个其他未气绝的紫岩式神，此牌便获得3力量和3生命。` },
+  { "name":"道行初音旅", "type":"spell", "owner":"源九郎狐", "level":3, "rarity":"SSR",
+    "effect":`复活所有己方紫岩式神。
+本局游戏每个己方回合结束时，己方所有紫岩式神永久获得+1力量和+1生命。（此效果可以叠加，对气绝式神有效）` },
+
   // ── 神无月 ──
   { "name":"神无月", "type":"shikigami", "faction":"青岚", "attack":2, "hp":5, "author":"黄衣",
     "ability":`你使用己方幻境后，它自毁。
@@ -502,6 +579,36 @@ var CARD_DB_DATA = [
   { "name":"坠明落尘", "type":"realm", "owner":"神无月", "level":3, "durability":1, "rarity":"SSR", "author":"黄衣",
     "effect":`唯一。
 此牌在坟场存在，其他己方幻境离场时，若神无月等级为3，自动入场并获得其效果。并在回合结束时失去1耐久` },
+
+  // ── 长崎爽世 ──
+  { "name":"长崎爽世", "type":"shikigami", "faction":"紫岩", "attack":1, "hp":5, "author":"假天",
+    "ability":"己方式神获得「遗愿：获得一张「雨仍未停」」。", "derivative":false },
+  { "name":"我们用我们的方法", "type":"spell", "owner":"长崎爽世", "level":1, "rarity":"R", "author":"假天",
+    "effect":`气绝时可用
+临时复活上个气绝的己方基础式神直至敌方回合结束。移动并眩晕该式神。
+响应：当你被攻击时，自动使用此牌。` },
+  { "name":"我来结束这一切", "type":"spell", "owner":"长崎爽世", "level":1, "rarity":"R", "author":"假天",
+    "effect":`条件：消灭己方战斗区式神。
+瞬发。本局游戏你的「雨仍未停」堆叠层数上限+1。获得三张「雨仍未停」。` },
+  { "name":"时间长河的尽头", "type":"realm", "owner":"长崎爽世", "level":1, "durability":4, "rarity":"SR", "author":"假天",
+    "effect":"你获得的「雨仍未停」数量翻倍。" },
+  { "name":"觉醒·长崎爽世", "type":"spell", "owner":"长崎爽世", "level":2, "rarity":"SR", "awakened":true, "atkBonus":0, "hpBonus":1, "author":"假天",
+    "effect":`气绝时可用
+觉醒：己方式神气绝时，获得一张「雨仍未停」并使其获得瞬发。（气绝时有效）` },
+  { "name":"再一次，一起...", "type":"spell", "owner":"长崎爽世", "level":2, "rarity":"R", "author":"假天",
+    "effect":"获得等同于己方未气绝紫岩式神数量的「雨仍未停」。对一名敌方式神造成等同于你手牌中「雨仍未停」张数的伤害。" },
+  { "name":"这种关系名为：", "type":"realm", "owner":"长崎爽世", "level":2, "durability":3, "rarity":"SSR", "author":"假天",
+    "effect":"进场时获得一张具有瞬发的满堆叠层数的「雨仍未停」。你的「雨仍未停」还会使你获得生命上限。" },
+  { "name":"思绪如雨而下", "type":"spell", "owner":"长崎爽世", "level":3, "rarity":"SR", "author":"假天",
+    "effect":`造成等同于本局游戏己方式神气绝次数的伤害，随机分配到所有敌方角色上。
+增强：本局游戏己方紫岩式神每气绝15次，此牌便额外重复一次。` },
+  { "name":"唯愿时光停留在从前", "type":"spell", "owner":"长崎爽世", "level":3, "rarity":"R", "author":"假天",
+    "effect":`瞬发。消灭所有己方式神。为你恢复所有生命。跳过你的下个回合。
+响应：当你将受到致命伤害时，自动使用此牌。` },
+  { "name":"雨仍未停", "type":"spell", "owner":"长崎爽世", "level":1, "rarity":"R", "maxStack":3, "derivative":true, "author":"假天",
+    "effect":`堆叠
+气绝时可用
+为你恢复2生命，调度你的手牌（1次调度次数）。` },
 
   // ══════════════════════════════════════════════════════════════
   //                               中立
