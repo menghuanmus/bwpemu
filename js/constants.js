@@ -6,7 +6,7 @@
     // ================================================================
     //  全局常量
     // ================================================================
-    const APP_VERSION = 'v0.4.17';
+    const APP_VERSION = 'v0.4.18';
     const APP_TITLE = '百闻牌模拟器';
 
     /** 调试模式：0=关闭 1=开启（显示隐藏的编辑器按钮） */
@@ -23,6 +23,8 @@
       const _urlEnv = new URLSearchParams(window.location.search).get('env');
       if (_urlEnv === '2' || _urlEnv === 'test') SERVER_ENV = 2;
       else if (_urlEnv === '1' || _urlEnv === 'prod') SERVER_ENV = 1;
+      // 网址路径包含 /bwpemu-test/ 时自动按测试服处理（不用带 ?env=2）
+      else if (window.location.pathname.indexOf('/bwpemu-test/') !== -1) SERVER_ENV = 2;
     } catch (_) { /* 旧浏览器不支持 URLSearchParams 时保持默认 */ }
 
     // 正式服关闭 console.log 输出（测试服保留）
