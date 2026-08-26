@@ -57,7 +57,7 @@ const Presets = (() => {
           owner: c.owner || '',
           // 召唤物卡图在所属式神文件夹下（images/式神名/召唤物名.png）
           imageSrc: (c.type === 'summon' && c.owner) ? `images/${c.owner}/${c.name}.png` : `images/${c.name}/${c.name}.png`,
-          level: c.type === 'shikigami' ? '1' : '',
+          level: c.type === 'shikigami' ? '0' : '',
           countdown: '',
           energy: '',
           rarity: c.rarity || '',

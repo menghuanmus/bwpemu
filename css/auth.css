@@ -165,6 +165,15 @@
   font-size: 0.75rem; color: #3A3E50;
 }
 
+/* ── 版权免责声明 ── */
+.auth-disclaimer {
+  margin-top: 10px;
+  text-align: center;
+  font-size: 1rem;
+  line-height: 1.5;
+  color: #4A4E63;
+}
+
 /* ── 自动登录复选框 ── */
 .auth-checkbox {
   display: flex; align-items: center; gap: 10px;
