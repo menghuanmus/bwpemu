@@ -943,7 +943,7 @@
       var env = null;
       try { env = new URLSearchParams(window.location.search).get('env'); } catch (e) {}
       var isTest = (env === '2' || env === 'test');
-      var src = 'https://bwpemu.top' + (isTest ? '/ws-test/data/cards.js' : '/ws/data/cards.js');
+      var src = 'https://bwpemu.top' + (isTest ? '/ws-test/data-test/cards.js' : '/ws/data/cards.js');
       document.write('<script src="' + src + '" onerror="console.error(\'卡牌数据加载失败，请检查服务器 cards.js 是否已部署\')"><\/script>');
     })();
   </script>
@@ -974,6 +974,7 @@
 
 </body>
 </html>
+
 
 
 
