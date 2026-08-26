@@ -4,3 +4,4 @@ docs/
 .scratch/
 server/
 deploy/
+data/cards.js
