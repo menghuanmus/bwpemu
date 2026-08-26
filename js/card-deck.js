@@ -3491,6 +3491,10 @@
       updateDeckButtons(pid);
       refreshOpenListDialog(pid);
       syncDeckState(pid);
+      // 飞行动画：牌库 → 手牌（与抽牌动画一致）
+      if (typeof CardFlight !== 'undefined') {
+        CardFlight.flyAndBroadcast(pid, 'deck', 'hand');
+      }
       // 加入手牌是隐藏信息：牌名仅自己可见，双方只看到“加入了一张手牌”
       broadcastSystemMsg(`【系统】${getPlayerName(pid)}从牌库通过${searchMethod}检索加入了一张手牌`);
       if (typeof addSystemChatMessage === 'function') {
