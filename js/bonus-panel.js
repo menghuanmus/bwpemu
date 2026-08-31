@@ -429,7 +429,10 @@ const BonusPanel = (() => {
   /** 查找该式神的全部觉醒牌 */
   function _findAwakenCards(shikigamiName) {
     const all = (typeof CardDB !== 'undefined' && typeof CardDB.getAll === 'function') ? CardDB.getAll() : [];
-    return all.filter(c => c.awakened && c.owner === shikigamiName && (c.type === 'spell' || c.type === '法术' || c.type === 'realm'));
+    // 名字比较时统一・与·，避免新旧字符不一致导致匹配失败
+    const norm = s => (s || '').replace(/・/g, '·');
+    const target = norm(shikigamiName);
+    return all.filter(c => c.awakened && norm(c.owner) === target && (c.type === 'spell' || c.type === '法术' || c.type === 'realm' || c.type === 'battle' || c.type === 'form'));
   }
 
   /** 快捷觉醒选择器（跟快捷形态/关键词一样先弹出选择） */
@@ -466,7 +469,8 @@ const BonusPanel = (() => {
     ctx.permAbility = awIdx >= 0 ? rawEffect.slice(awIdx + 3).trim() : rawEffect;
     ctx.slot._permAbility = ctx.permAbility;
     // 每次快捷觉醒都叠加觉醒牌给予的永久属性（同源同数值叠层 ×N；没有加攻/命则不加）
-    if ((awaken.type === 'spell' || awaken.type === '法术' || awaken.type === 'realm') && (awaken.atkBonus || awaken.hpBonus)) {
+    // 注意：只有法术牌觉醒才给予永久属性加成，战斗/形态/幻境觉醒不叠加
+    if ((awaken.type === 'spell' || awaken.type === '法术') && (awaken.atkBonus || awaken.hpBonus)) {
       const awakenSource = awaken.name.includes('觉醒') ? awaken.name : `${awaken.name}（觉醒）`;
       const atkVal = awaken.atkBonus || 0;
       const hpVal = awaken.hpBonus || 0;

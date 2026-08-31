@@ -1034,6 +1034,7 @@
     .sbt--realm    { background: rgba(140,200,200,0.25); color: #90d8d8; border:1px solid rgba(140,200,200,0.35); }
     .sbt--curse    { background: rgba(200,100,160,0.25); color: #e090c0; border:1px solid rgba(200,100,160,0.35); }
     .sbt--bond     { background: rgba(200,140,60,0.25); color: #f0c080; border:1px solid rgba(200,140,60,0.35); }
+    .sbt--transform { background: rgba(120,170,220,0.25); color: #90c0e8; border:1px solid rgba(120,170,220,0.35); }
 
     /* 稀有度标签 */
     .shikigami-book__rarity {

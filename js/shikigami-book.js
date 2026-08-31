@@ -469,7 +469,7 @@
     // ================================================================
 
     function createBookCardEntry(card) {
-      const typeNames = { shikigami: '式神', summon: '召唤物', spell: '法术', battle: '战斗', bond: '协战', form: '形态', realm: '幻境', curse: '灵咒' };
+      const typeNames = { shikigami: '式神', summon: '召唤物', spell: '法术', battle: '战斗', bond: '协战', form: '形态', realm: '幻境', curse: '灵咒', transform: '变身' };
       const typeCN = typeNames[card.type] || card.type;
 
       const entry = document.createElement('div');
@@ -536,6 +536,7 @@
       switch (card.type) {
         case 'shikigami':
         case 'summon':
+        case 'transform':
           if (card.faction) statsHTML += `<span>${_factionIconHTML(card.faction)} ${card.faction}</span>`;
           statsHTML += `<span>${_atkIconHTML()}${card.attack}</span>`;
           statsHTML += `<span>${_hpIconHTML()}${card.hp}</span>`;

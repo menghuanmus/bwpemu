@@ -1,4 +1,4 @@
-/* ================================================================
+﻿/* ================================================================
    css/presets.css �?预设面板样式
    ================================================================ */
 
@@ -276,26 +276,3 @@
 .preset-save-picker__item-name { font-weight: bold; color: #c0c8e0; font-size: 19px; }
 .preset-save-picker__item-meta { font-size: 16px; color: #6880a8; }
 .preset-save-picker__empty { font-size: 18px; color: #607090; text-align: center; padding: 10px; }
-
-/* 悬浮信息�?*/
-.preset-tooltip {
-  display: none; position: fixed; z-index: 2200;
-  width: 240px; padding: 12px; border-radius: 8px;
-  background: linear-gradient(180deg, #141e2c, #0c141e);
-  border: 2px solid rgba(150,180,220, 0.5);
-  box-shadow: 0 6px 24px rgba(0,0,0,0.6);
-  pointer-events: none;
-}
-.preset-tooltip__name {
-  font-size: 19px; font-weight: bold; color: #80b8e0; margin-bottom: 4px;
-}
-.preset-tooltip__meta {
-  font-size: 16px; color: #7890b0; margin-bottom: 6px;
-}
-.preset-tooltip__ability {
-  font-size: 16px; color: #98a8c0; line-height: 1.5;
-  padding-top: 6px; border-top: 1px solid rgba(150,180,220, 0.2);
-}
-.preset-tooltip__author {
-  font-size: 15px; color: #8090b0; margin-top: 6px;
-}

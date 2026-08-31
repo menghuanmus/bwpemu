@@ -322,9 +322,6 @@ const Presets = (() => {
     // 拖拽事件委托
     _panelEl.querySelector('#preset-list').addEventListener('dragstart', _onDragStart);
     _panelEl.querySelector('#preset-list').addEventListener('dragend', _onDragEnd);
-    // 悬浮信息窗
-    _panelEl.querySelector('#preset-list').addEventListener('mouseenter', _onPresetHover, true);
-    _panelEl.querySelector('#preset-list').addEventListener('mouseleave', _onPresetLeave, true);
 
     // ── 手机端：触摸拖动预设项到战场（面板左移隐藏，松开放置/空处取消后移回） ──
     // 修复要点：
@@ -604,51 +601,6 @@ const Presets = (() => {
     _dragId = null;
     // 清除卡槽高亮
     document.querySelectorAll('.card-slot.drag-over').forEach(s => s.classList.remove('drag-over'));
-  }
-
-  // 悬浮信息窗
-  let _hoverTooltip = null;
-  let _hoverTimer = null;
-
-  function _onPresetHover(e) {
-    const item = e.target.closest('.preset-item');
-    if (!item) return;
-    const id = item.dataset.presetId;
-    const p = _presets.find(p => p.id === id);
-    if (!p) return;
-    clearTimeout(_hoverTimer);
-    _hoverTimer = setTimeout(() => _showPresetTooltip(p, e), 400);
-  }
-
-  function _onPresetLeave(e) {
-    const item = e.target.closest('.preset-item');
-    if (!item) return;
-    clearTimeout(_hoverTimer);
-    _hidePresetTooltip();
-  }
-
-  function _showPresetTooltip(p, e) {
-    if (!_hoverTooltip) {
-      _hoverTooltip = document.createElement('div');
-      _hoverTooltip.className = 'preset-tooltip';
-      document.body.appendChild(_hoverTooltip);
-    }
-    const typeName = p.type === 'summon' ? '召唤物' : '式神';
-    _hoverTooltip.innerHTML = `
-      <div class="preset-tooltip__name">${_escapeHTML(p.name)}</div>
-      <div class="preset-tooltip__meta">${_factionIcon(p.faction)} ${p.faction || '无相'} · ${typeName} · <img src="images/属性/攻击.png" class="preset-item__stat-icon" alt="攻">${p.attack}  <img src="images/属性/生命.png" class="preset-item__stat-icon" alt="命">${p.hp}</div>
-      ${p.ability ? `<div class="preset-tooltip__ability">${_escapeHTML(p.ability)}</div>` : ''}
-      ${p.author && p.author !== '官方' ? `<div class="preset-tooltip__author">作者：${_escapeHTML(p.author)}</div>` : ''}
-    `;
-    _hoverTooltip.style.display = 'block';
-    const x = e.clientX + 14;
-    const y = e.clientY - 10;
-    _hoverTooltip.style.left = Math.min(x, window.innerWidth - 260) + 'px';
-    _hoverTooltip.style.top = Math.min(y, window.innerHeight - 120) + 'px';
-  }
-
-  function _hidePresetTooltip() {
-    if (_hoverTooltip) _hoverTooltip.style.display = 'none';
   }
 
   /** 卡槽接收拖放（由 game-core.js 的事件委托调用） */
