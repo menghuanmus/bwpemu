@@ -65,6 +65,7 @@
       countdown: { btn: () => btnMechanicToggle, activeText: '⏳ 倒计时中…(Esc取消)', idleText: '🔧 机制 ▾', mobileActiveText: '选择式神<br>添加倒计时' },
       energy:    { btn: () => btnMechanicToggle, activeText: '🏮 能量中…(Esc取消)',   idleText: '🔧 机制 ▾', mobileActiveText: '选择式神<br>添加能量' },
       divine:    { btn: () => btnMechanicToggle, activeText: '🔮 选择牌手…(Esc取消)', idleText: '🔧 机制 ▾', mobileActiveText: '选择牌手<br>占卜' },
+      showhand:  { btn: () => btnMechanicToggle, activeText: '👁 选择牌手/式神…(Esc取消)', idleText: '🔧 机制 ▾', mobileActiveText: '选择牌手<br>或式神展示' },
       cook:      { btn: () => btnMechanicToggle, activeText: '🍳 选择式神…(Esc取消)', idleText: '🔧 机制 ▾', mobileActiveText: '选择式神<br>烹饪' },
       insertfood:{ btn: () => btnMechanicToggle, activeText: '🍄 选择式神…(Esc取消)', idleText: '🔧 机制 ▾', mobileActiveText: '选择式神<br>置入食材' },
       graveyard: { btn: () => btnMechanicToggle, activeText: '🪦 选择牌手…(Esc取消)', idleText: '🔧 机制 ▾', mobileActiveText: '选择牌手<br>坟场' },
@@ -461,6 +462,17 @@
       enterTargetingMode('divine');
     });
 
+    // ---- 展示（选择牌手或式神） ----
+    const btnShowHand = document.getElementById('btn-show-hand');
+    if (btnShowHand) {
+      btnShowHand.addEventListener('click', (e) => {
+        dropdownMechanicMenu.hidden = true;
+        if (isTargeting) { exitTargetingMode(); return; }
+        e.stopPropagation();
+        enterTargetingMode('showhand');
+      });
+    }
+
     // ---- 烹饪（选择式神，一次烹饪后自动退出） ----
     const btnCook = document.getElementById('btn-cook');
     btnCook.addEventListener('click', (e) => {
@@ -703,6 +715,31 @@
           if (typeof openDivineXPrompt === 'function') {
             openDivineXPrompt(playerId, myPid);
           }
+          exitTargetingMode();
+          e.preventDefault();
+          e.stopPropagation();
+          return;
+        }
+        exitTargetingMode();
+        return;
+      }
+
+      // 展示模式：点头像=选牌手，点卡槽=选式神
+      if (targetingMode === 'showhand') {
+        const avatar = e.target.closest('.player-avatar');
+        if (avatar) {
+          const playerId = avatar.dataset.avatarPlayer;
+          if (typeof ShowHand !== 'undefined') ShowHand.openPrompt('player', playerId, '');
+          exitTargetingMode();
+          e.preventDefault();
+          e.stopPropagation();
+          return;
+        }
+        const slot = e.target.closest('.card-slot');
+        if (slot && slot.classList.contains('has-image')) {
+          const name = ((slot.querySelector('.card-name') || {}).value || '').trim();
+          const pid = slot.dataset.slotPlayer || '1';
+          if (name && typeof ShowHand !== 'undefined') ShowHand.openPrompt('shikigami', pid, name);
           exitTargetingMode();
           e.preventDefault();
           e.stopPropagation();

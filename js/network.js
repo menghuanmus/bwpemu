@@ -126,6 +126,16 @@
             playerRevealedCards[data.playerId] = new Set(data.cardIds.filter(function(id) { return typeof id === 'number'; }));
           }
           break;
+        case 'fate-revealed-cards':
+          if (data.playerId && Array.isArray(data.cardIds) && typeof playerFateRevealedCards !== 'undefined') {
+            playerFateRevealedCards[data.playerId] = new Set(data.cardIds.filter(function(id) { return typeof id === 'number'; }));
+          }
+          break;
+        case 'hand-shown':
+          if (data.playerId && Array.isArray(data.cardIds) && typeof playerHandShows !== 'undefined') {
+            playerHandShows[data.playerId] = new Set(data.cardIds.filter(function(id) { return typeof id === 'number'; }));
+          }
+          break;
         case 'grave-target':
           if (typeof window.applyRemoteGraveTarget === 'function') window.applyRemoteGraveTarget(data.playerId, !!data.enabled);
           break;
@@ -520,6 +530,8 @@
       }
       if (state.avatars) { ['1', '2'].forEach(function(pid) { if (state.avatars[pid]) setAvatarImage(pid, state.avatars[pid]); }); }
       if (state.revealedCards && typeof playerRevealedCards !== 'undefined') { ['1', '2'].forEach(function(pid) { if (state.revealedCards[pid]) playerRevealedCards[pid] = new Set(state.revealedCards[pid]); }); }
+      if (state.fateRevealedCards && typeof playerFateRevealedCards !== 'undefined') { ['1', '2'].forEach(function(pid) { if (state.fateRevealedCards[pid]) playerFateRevealedCards[pid] = new Set(state.fateRevealedCards[pid]); }); }
+      if (state.handShows && typeof playerHandShows !== 'undefined') { ['1', '2'].forEach(function(pid) { if (state.handShows[pid]) playerHandShows[pid] = new Set(state.handShows[pid]); }); }
       if (state.graveTargets && typeof window.applyGraveTargets === 'function') window.applyGraveTargets(state.graveTargets);
 
       // 恢复聊天记录

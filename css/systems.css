@@ -177,7 +177,7 @@
     #curse-panel-overlay {
       position: fixed; inset: 0;
       background: rgba(0,0,0,0.45);
-      z-index: 500; /* curse panel */
+      z-index: 3600; /* 高于坟场(3100)/检索(3200)等弹窗，确保灵咒面板在上层 */
       display: flex; align-items: center; justify-content: center;
     }
     #curse-panel-overlay[hidden] { display: none; }
@@ -195,9 +195,10 @@
     .curse-panel__add input {
       padding: 4px 8px; background: #121a28; border: 1px solid #5a4a6a;
       border-radius: 4px; color: #eee; font-size: 12px; outline: none;
+      min-width: 0;
     }
     .curse-panel__add input:focus { border-color: #ff80b0; }
-    .curse-panel__add .inp-name { flex: 2; }
+    .curse-panel__add .inp-name { flex: 2; min-width: 0; }
     .curse-panel__add .inp-layers { width: 44px; text-align: center; }
     .curse-panel__add button {
       padding: 4px 10px; border-radius: 4px; border: 1px solid #8a5a7a;
@@ -2981,7 +2982,8 @@
     /* 换位模式：禁用触摸滚动，保证拖动换位可用 */
     .grave-overlay.reorder-mode .grave-item { touch-action: none; }
     /* 观众视角：坟场操作区置灰禁点（可查看、可筛选用途） */
-    .grave-overlay.spec-view .grave-actions { opacity: 0.35; pointer-events: none; }
+    .grave-overlay.spec-view .grave-actions,
+    .grave-overlay.spec-view .grave-deck-row { opacity: 0.35; pointer-events: none; }
     .grave-empty {
       text-align: center;
       color: #806f50;
@@ -3022,6 +3024,7 @@
     }
     .grave-tag--use { background: rgba(90, 170, 90, 0.25); color: #90e090; border: 1px solid rgba(110, 200, 110, 0.4); }
     .grave-tag--discard { background: rgba(170, 120, 90, 0.25); color: #e0b090; border: 1px solid rgba(200, 150, 110, 0.4); }
+    .grave-tag--add { background: rgba(90, 150, 200, 0.25); color: #90c8e8; border: 1px solid rgba(110, 170, 220, 0.4); }
     .grave-item__name {
       flex: 1;
       min-width: 0;
@@ -3032,6 +3035,16 @@
       white-space: nowrap;
       cursor: default;
     }
+    /* 牌名 + 灵咒标签竖排区 */
+    .grave-item__namewrap {
+      flex: 1;
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: stretch;
+      gap: 2px;
+    }
+    .grave-item__curses .card-list-curse-tag { margin-left: 0; font-size: 11px; }
     .grave-item-btn {
       flex-shrink: 0;
       padding: 5px 12px;
@@ -3043,6 +3056,16 @@
       cursor: pointer;
     }
     .grave-item-btn:hover { background: rgba(150, 120, 40, 0.85); }
+    /* 灵咒管理按钮（粉紫色调） */
+    .grave-item-btn--curse {
+      border-color: rgba(255, 140, 200, 0.5);
+      background: rgba(110, 45, 85, 0.7);
+      color: #ffc0e0;
+    }
+    .grave-item-btn--curse:hover { background: rgba(150, 65, 110, 0.9); }
+    /* 观众视角：列表内操作按钮禁点 */
+    .grave-overlay.spec-view .grave-item-btn,
+    .grave-overlay.spec-view .btn-card-curse-add { pointer-events: none; opacity: 0.45; }
 
     .grave-actions {
       display: flex;
@@ -3067,6 +3090,63 @@
       border-color: rgba(240, 200, 60, 0.7);
       color: #f0d080;
     }
+
+    /* 移回牌库：标签 + 三个位置按钮 */
+    .grave-deck-row {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 0 12px 8px;
+      border-top: 1px solid rgba(200, 180, 120, 0.25);
+    }
+    .grave-deck-label {
+      flex-shrink: 0;
+      font-size: 14px;
+      font-weight: 700;
+      color: #c0a060;
+    }
+    .grave-deck-row .grave-action-btn {
+      flex: 1;
+      padding: 8px 0;
+    }
+
+    /* 向坟场置入卡牌：按钮 + 冒号 + 输入框 + 提示 */
+    .grave-add-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 12px 12px;
+      border-top: 1px solid rgba(200, 180, 120, 0.25);
+    }
+    .grave-add-row .grave-action-btn {
+      flex: 0 0 auto;
+      padding: 8px 14px;
+    }
+    .grave-add-colon {
+      flex-shrink: 0;
+      font-size: 15px;
+      color: #c0a060;
+    }
+    .grave-add-input {
+      flex: 1;
+      min-width: 0;
+      padding: 8px 10px;
+      font-size: 14px;
+      border-radius: 6px;
+      border: 1px solid rgba(200, 180, 120, 0.35);
+      background: rgba(25, 20, 10, 0.7);
+      color: #f0e0c0;
+    }
+    .grave-add-input::placeholder { color: #8a7a5a; }
+    .grave-add-msg {
+      flex-shrink: 0;
+      font-size: 13px;
+      text-align: right;
+    }
+    .grave-add-msg--ok { color: #90e090; }
+    .grave-add-msg--err { color: #f08888; }
+    /* 观众视角：置入行同样禁点 */
+    .grave-overlay.spec-view .grave-add-row { opacity: 0.35; pointer-events: none; }
 
     /* ================================================================
        检索弹窗

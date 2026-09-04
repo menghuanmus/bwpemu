@@ -132,6 +132,7 @@ const CardFlight = (() => {
       draw:    '.btn-deck[data-action="draw"]',
       addHand: '.btn-deck[data-action="add-hand"]',
       addDeck: '.btn-deck[data-action="add-deck"]',
+      grave:   '.btn-deck--grave',
     };
     return zone.querySelector(map[btnType] || '');
   }
@@ -666,6 +667,7 @@ const CardFlight = (() => {
     if (type === 'oracle') return document.getElementById('btn-oracle-zone-' + playerId);
     if (type === 'addHand') return getPlayerBtn(playerId, 'addHand');
     if (type === 'addDeck') return getPlayerBtn(playerId, 'addDeck');
+    if (type === 'grave') return getPlayerBtn(playerId, 'grave');
     return null;
   }
 

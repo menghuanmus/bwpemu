@@ -239,7 +239,7 @@
     /* 观战模式：玩家区域全面锁定（含动态创建的元素） */
     .player-zone--locked[data-locked="all"] input,
     .player-zone--locked[data-locked="all"] textarea,
-    .player-zone--locked[data-locked="all"] button:not(.btn-deck) {
+    .player-zone--locked[data-locked="all"] button:not(.btn-deck):not(.btn-mobile-realm) {
       pointer-events: none !important;
       opacity: 0.45;
     }

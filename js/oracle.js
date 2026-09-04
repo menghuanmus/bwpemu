@@ -227,7 +227,7 @@
       return revealed.includes(name) ? ('「' + name + '」') : '一张牌';
     }
 
-    /** 从启悟区移除卡牌（使用/弃置） */
+    /** 从启悟区移除卡牌（使用/弃置）：除三诫外进入坟场 */
     function removeFromOracle(playerId, idx, reason) {
       const cards = oracleHands[playerId] || [];
       if (idx < 0 || idx >= cards.length) return;
@@ -237,11 +237,24 @@
       const verb = reason === 'use' ? '使用' : '弃置';
       const msg = '【系统】' + name + '从启悟区' + verb + '了「' + (card.name || '未知牌') + '」';
       broadcastSystemMsg(msg, typeof window.getFoodNote === 'function' ? window.getFoodNote(card) : null);
+      // 使用/弃置后进入坟场（星诫/月诫/日诫除外）
+      const TRIPLE = ['星诫', '月诫', '日诫'];
+      if (TRIPLE.indexOf(card.name) === -1 && typeof getPlayerCardState === 'function') {
+        const state = getPlayerCardState(playerId);
+        if (!state.grave) state.grave = [];
+        card.used = (reason === 'use');
+        card._graveAdded = false;
+        state.grave.push(card);
+        if (typeof window.refreshGraveButtons === 'function') window.refreshGraveButtons();
+        if (typeof syncDeckStateForce === 'function') syncDeckStateForce(playerId);
+        else if (typeof syncDeckState === 'function') syncDeckState(playerId);
+      }
       // 使用动画
       if (reason === 'use' && typeof CardFlight !== 'undefined') {
         CardFlight.playUseCardAnim(playerId, card);
       }
       renderOracleCards(playerId);
+      if (typeof updateDeckButtons === 'function') updateDeckButtons(playerId);
       syncOracleToPeer(playerId);
     }
 
@@ -311,6 +324,7 @@
       const msg = '【系统】' + name + '将' + _oracleCardLabel(card.name) + '从手牌区移入启悟区';
       broadcastSystemMsg(msg);
       if (typeof refreshOpenListDialog === 'function') refreshOpenListDialog(playerId);
+      if (typeof updateDeckButtons === 'function') updateDeckButtons(playerId);
       if (typeof syncDeckStateForce === 'function') syncDeckStateForce(playerId);
       if (!oracleOverlay.hidden && _activeOraclePlayer === playerId) {
         renderOracleCards(playerId);
@@ -371,6 +385,7 @@
                             : ('【系统】' + pname + '将' + _oracleCardLabel(name) + '置入了启悟区');
       broadcastSystemMsg(msg);
       renderOracleCards(playerId);
+      if (typeof updateDeckButtons === 'function') updateDeckButtons(playerId);
       syncOracleToPeer(playerId);
       if (typeof CardFlight !== 'undefined') {
         const oracleBtn = document.getElementById('btn-oracle-zone-' + playerId);
@@ -448,6 +463,8 @@
       if (!oracleOverlay.hidden && _activeOraclePlayer === data.playerId) {
         renderOracleCards(data.playerId);
       }
+      // 刷新启悟区按钮牌数（双方/观众同步）
+      if (typeof updateDeckButtons === 'function') updateDeckButtons(data.playerId);
     }
 
     // ---- 拖拽支持 ----

@@ -1120,10 +1120,34 @@
     width: 92vw;
   }
   .grave-filter-btn { font-size: 17px; padding: 12px 0; }
+  /* 手机端筛选按钮：每排最多 4 个字 */
+  .grave-filter-btn span { display: block; line-height: 1.3; }
   .grave-action-btn { font-size: 14px; padding: 10px 0; }
   .grave-item { padding: 10px; }
   .grave-item__name { font-size: 16px; }
   .grave-item-btn { padding: 8px 16px; font-size: 16px; }
+  .grave-add-input { font-size: 16px; padding: 10px; }
+  .grave-add-msg { font-size: 14px; }
+  .grave-deck-row { flex-wrap: wrap; padding: 8px 12px; }
+  .grave-deck-label { flex-basis: 100%; font-size: 16px; margin-bottom: 4px; }
+  .grave-deck-row .grave-action-btn { padding: 10px 0; }
+  .grave-add-colon { font-size: 16px; }
+  /* 坟场灵咒小加号按钮与标签（手机端放大） */
+  .grave-item .btn-card-curse-add { width: 26px; height: 26px; font-size: 14px; }
+  .grave-item__curses .card-list-curse-tag { font-size: 13px; padding: 1px 6px; }
+
+  /* 灵咒管理面板（手机端）：宽度自适应、输入框收缩、字号放大 */
+  .curse-panel { max-width: 86vw; }
+  .curse-panel h3 { font-size: 17px; }
+  .curse-panel__add { flex-wrap: nowrap; }
+  .curse-panel__add input { font-size: 16px; padding: 8px; }
+  .curse-panel__add .inp-name { min-width: 0; }
+  .curse-panel__add .inp-layers { width: 52px; }
+  .curse-panel__add button { font-size: 15px; padding: 8px 12px; flex-shrink: 0; }
+  .curse-panel__item-name { font-size: 15px; }
+  .curse-panel__item-actions button { width: 26px; height: 26px; font-size: 15px; }
+  .curse-panel__item-layers { font-size: 15px; }
+  .curse-panel__close { font-size: 15px; padding: 8px 24px; }
 
   /* ── 检索弹窗（手机端）：上/中/下三段，只有中间滚动，✕ 和结束检索始终可见 ── */
   .search-dialog {

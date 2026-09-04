@@ -1,0 +1,97 @@
+/* ================================================================
+   css/show-hand.css — 展示机制样式（数量弹窗 + 手牌展示徽章）
+   ================================================================ */
+
+/* ── 数量弹窗 ── */
+.showhand-overlay {
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(0,0,0,0.65);
+  z-index: 2000;
+  display: none;
+  align-items: center;
+  justify-content: center;
+}
+.showhand-overlay[hidden] { display: none; }
+
+.showhand-dialog {
+  background: linear-gradient(180deg, #1a2a3a, #0a1a2a);
+  border: 2px solid rgba(120,190,220,0.5);
+  border-radius: 12px;
+  width: 340px;
+  max-width: 95vw;
+  color: #d8e8f0;
+  box-shadow: 0 8px 40px rgba(0,0,0,0.5);
+}
+.showhand-dialog__header {
+  padding: 14px 20px 10px;
+  border-bottom: 1px solid rgba(120,190,220,0.25);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.showhand-dialog__title { font-size: 17px; font-weight: bold; color: #b8d8f0; }
+.showhand-dialog__close {
+  background: none; border: 1px solid rgba(120,190,220,0.3);
+  color: #a0c8e0; font-size: 17px; cursor: pointer;
+  width: 30px; height: 30px; border-radius: 6px;
+  display: flex; align-items: center; justify-content: center;
+}
+.showhand-dialog__close:hover { background: rgba(120,190,220,0.2); }
+
+.showhand-dialog__body { padding: 16px 20px; }
+.showhand-qty-label { font-size: 14px; color: #a0c0d0; margin-bottom: 10px; }
+.showhand-qty-row {
+  display: flex; align-items: center; justify-content: center; gap: 12px;
+}
+.showhand-qty-btn {
+  width: 40px; height: 40px; font-size: 22px; cursor: pointer;
+  border: 1px solid rgba(120,190,220,0.4); border-radius: 8px;
+  background: rgba(30,50,70,0.6); color: #c8e0f0;
+}
+.showhand-qty-btn:hover { background: rgba(70,110,150,0.5); }
+.showhand-qty-input {
+  width: 64px; padding: 6px 8px; text-align: center;
+  border: 1px solid rgba(120,190,220,0.4); border-radius: 8px;
+  background: rgba(10,20,30,0.6); color: #e0f0f8; font-size: 18px;
+  -moz-appearance: textfield; appearance: textfield;
+}
+.showhand-qty-input::-webkit-inner-spin-button,
+.showhand-qty-input::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+.showhand-qty-input:focus { outline: none; border-color: rgba(150,210,240,0.8); }
+
+.showhand-dialog__actions {
+  display: flex; gap: 10px; justify-content: flex-end; margin-top: 16px;
+}
+.showhand-btn {
+  padding: 8px 20px; border-radius: 8px; font-size: 14px; cursor: pointer;
+  border: 1px solid rgba(120,190,220,0.35); font-weight: bold;
+}
+.showhand-btn--confirm {
+  background: linear-gradient(180deg, #2a5a7a, #1a3a5a);
+  color: #e0f0f8; border-color: rgba(120,190,220,0.55);
+}
+.showhand-btn--confirm:hover { background: linear-gradient(180deg, #3a6a8a, #2a4a6a); }
+.showhand-btn--cancel { background: rgba(20,40,60,0.6); color: #90b0c0; }
+.showhand-btn--cancel:hover { background: rgba(30,60,90,0.6); }
+
+/* ── 手牌展示徽章（与灵咒徽章同行，蓝青色区分） ── */
+.card-list-show-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 2px 8px;
+  margin-left: 4px;
+  border: 1px solid rgba(110,200,230,0.5);
+  border-radius: 10px;
+  background: rgba(60,150,190,0.25);
+  color: #c0e8f5;
+  font-size: 11.5px;
+  cursor: pointer;
+  user-select: none;
+  white-space: nowrap;
+}
+.card-list-show-tag:hover {
+  background: rgba(80,180,220,0.4);
+  border-color: rgba(130,215,240,0.8);
+}

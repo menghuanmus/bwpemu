@@ -6,7 +6,7 @@
     // ================================================================
     //  全局常量
     // ================================================================
-    const APP_VERSION = 'v0.4.19';
+    const APP_VERSION = 'v0.4.2';
     const APP_TITLE = '百闻牌模拟器';
 
     /** 调试模式：0=关闭 1=开启（显示隐藏的编辑器按钮） */
@@ -257,8 +257,8 @@
         var btns = document.querySelectorAll('.btn-deck');
         var isMobile = MOBILE_MQ.matches;
         btns.forEach(function(btn) {
-          // 手牌/牌库计数按钮交给 updateDeckButtons 渲染（手机端两行），这里跳过
-          if (btn.dataset.action === 'hand' || btn.dataset.action === 'deck') return;
+          // 手牌/牌库/启悟区计数按钮交给 updateDeckButtons 渲染（手机端两行），这里跳过
+          if (btn.dataset.action === 'hand' || btn.dataset.action === 'deck' || btn.dataset.action === 'oracle-zone') return;
           var orig = btn.getAttribute('data-orig-text');
           if (isMobile) {
             if (orig === null) {
@@ -304,6 +304,23 @@
 
       function placeRealmButtons() {
         var isMobile = MOBILE_MQ.matches;
+
+        /** 收起幻境/效果弹层：按钮全部归位，清掉残留按钮行（防止下次展开顺序颠倒） */
+        function _collapseRealm(zone) {
+          var panel = zone.querySelector('.effects-panel');
+          var addBtn = zone.querySelector('.btn-add-effect');
+          var manualBtn = zone.querySelector('.btn-effect-manual');
+          var btnsWrap = zone.querySelector('.zone-effects-btns');
+          if (btnsWrap && addBtn && addBtn.parentElement !== btnsWrap) {
+            btnsWrap.insertBefore(addBtn, btnsWrap.firstChild);
+          }
+          // 说明书按钮留弹层内（随弹层显隐），但移出按钮行
+          if (panel && manualBtn && manualBtn.parentElement !== panel) panel.appendChild(manualBtn);
+          var row = panel ? panel.querySelector('.realm-btns-row') : null;
+          if (row) row.remove();
+          if (addBtn) addBtn.style.display = '';
+        }
+
         document.querySelectorAll('.player-zone').forEach(function(zone) {
           var bar = zone.querySelector('.player-id-area');
           var panel = zone.querySelector('.effects-panel');
@@ -343,15 +360,13 @@
               var isOpen = zone.classList.contains('realm-open');
               document.querySelectorAll('.player-zone.realm-open').forEach(function(z) {
                 z.classList.remove('realm-open');
+                _collapseRealm(z);
               });
               if (isOpen) {
-                // 关闭：添加按钮回一行容器
-                if (btnsWrap && addBtn && addBtn.parentElement !== btnsWrap) {
-                  btnsWrap.insertBefore(addBtn, btnsWrap.firstChild);
-                }
-                if (addBtn) addBtn.style.display = '';
+                // 关闭：按钮归位
+                _collapseRealm(zone);
               } else {
-                // 打开：添加/说明书按钮放进同一行容器（吸顶）
+                // 打开：添加/说明书按钮放进同一行容器（吸顶），固定顺序：添加在前、说明书在后
                 var row = panel.querySelector('.realm-btns-row');
                 if (!row) {
                   row = document.createElement('div');
@@ -359,7 +374,9 @@
                 }
                 if (row.parentElement !== panel) panel.insertBefore(row, panel.firstChild);
                 if (addBtn && addBtn.parentElement !== row) row.appendChild(addBtn);
-                if (manualBtn && manualBtn.parentElement !== row) row.appendChild(manualBtn);
+                if (manualBtn && addBtn && (manualBtn.parentElement !== row || manualBtn.previousElementSibling !== addBtn)) {
+                  addBtn.insertAdjacentElement('afterend', manualBtn);
+                }
                 if (typeof isSpectator !== 'undefined' && isSpectator) {
                   if (addBtn) addBtn.style.display = 'none';   // 观众只读，隐藏添加
                 } else if (addBtn) {
@@ -376,12 +393,15 @@
             zone._realmObserver.observe(panel, { childList: true });
           }
         });
-        // 点击面板/按钮以外区域：收起弹层（只注册一次）
+        // 点击面板/按钮以外区域：收起弹层（只注册一次），同时归位按钮
         if (isMobile && !document._realmOutsideHandler) {
           document._realmOutsideHandler = true;
           document.addEventListener('pointerdown', function(e) {
             if (e.target.closest('.btn-mobile-realm') || e.target.closest('.effects-panel') || e.target.closest('.btn-add-effect')) return;
-            document.querySelectorAll('.player-zone.realm-open').forEach(function(z) { z.classList.remove('realm-open'); });
+            document.querySelectorAll('.player-zone.realm-open').forEach(function(z) {
+              z.classList.remove('realm-open');
+              _collapseRealm(z);
+            });
           }, true);
         }
       }

@@ -9,10 +9,12 @@
 const Renyin = (() => {
   let ctx = null;
   let overlay, dialog;
+  let activePicker = null; // 当前打开的选择器标记，如 'must:keyword'，关闭时为 null
 
   // ── 固定选项 ──
   const LEVELS = ['1级', '2级', '3级', '其他'];
-  const TYPES = ['战斗', '法术', '形态', '幻境'];
+  const TYPES = ['战斗', '法术', '形态', '幻境', '其他'];
+  const BASIC_TYPES = ['战斗', '法术', '形态', '幻境'];
   const TYPE_MAP = { 'battle':'战斗','spell':'法术','form':'形态','realm':'幻境','shikigami':'式神','summon':'召唤物','curse':'灵咒','bond':'协战' };
 
   /** 英→中 卡牌类型 */
@@ -93,19 +95,17 @@ const Renyin = (() => {
     const quantities = targets.map(() => 0);
     quantities[defaultSelectedIdx] = 1;
 
-    const dbCard = CardDB.lookup(card.name);
-    const cardLevel = dbCard ? (dbCard.level || 1) : 1;
-    const levelSelected = new Set();
-    for (let lv = 1; lv <= cardLevel; lv++) levelSelected.add(lv);
-
-    const typeSelected = new Set(['战斗', '法术']);
-    const mustTags = [], anyTags = [];
+    // 默认全选等级与类型（含「其他」）
+    const levelSelected = new Set([1, 2, 3, 4]);
+    const typeSelected = new Set(TYPES);
+    const must = { keywords: [], cards: [], descs: [] };
+    const any = { keywords: [], cards: [], descs: [] };
 
     ctx = {
       playerId, card,
       targets, totalCount, selectedIndices, quantities,
       levelSelected, typeSelected,
-      mustTags, anyTags,
+      must, any,
       phase: 'conditions',
       foundCards: [], selectedIndex: -1,
     };
@@ -122,6 +122,7 @@ const Renyin = (() => {
     overlay.hidden = true;
     overlay.style.display = 'none';
     ctx = null;
+    activePicker = null;
   }
 
   // ================================================================
@@ -131,6 +132,7 @@ const Renyin = (() => {
     const body = document.getElementById('renyin-body');
     const cardName = ctx.card.name || '(未命名)';
     const t = ctx.targets;
+    activePicker = null; // 重建面板时重置选择器状态
 
     body.innerHTML = `
       <div class="renyin-used-card">
@@ -178,7 +180,7 @@ const Renyin = (() => {
       </div>
       <!-- 步骤4 -->
       <div class="renyin-step">
-        <div class="renyin-step__label">🎴 第四步：卡牌类型 <span class="renyin-step__hint">（选择1-4个）</span></div>
+        <div class="renyin-step__label">🎴 第四步：卡牌类型 <span class="renyin-step__hint">（选择1-5个）</span></div>
         <div class="renyin-btn-group" id="renyin-types">
           ${TYPES.map(t => {
             const active = ctx.typeSelected.has(t) ? ' renyin-opt-btn--active' : '';
@@ -188,22 +190,28 @@ const Renyin = (() => {
       </div>
       <!-- 步骤5 -->
       <div class="renyin-step">
-        <div class="renyin-step__label">🏷 第五步：标签过滤</div>
-        <div style="margin-bottom:8px;">
-          <div style="font-size:12px;color:#9080b0;margin-bottom:3px;">必须全含（牌上必须同时有这些标签）</div>
-          <div class="renyin-tag-row">
-            <input type="text" id="renyin-must-input" placeholder="输入标签名" maxlength="20">
-            <button type="button" class="renyin-tag-add-btn" id="renyin-must-add">+ 添加</button>
+        <div class="renyin-step__label">🏷 第五步：标签过滤 <span class="renyin-step__hint">（关键词 / 卡牌名 / 描述）</span></div>
+        <div class="renyin-filter-block">
+          <div class="renyin-filter-block__label">🔒 必须全含（以下所有条件都要满足）</div>
+          <div class="renyin-filter-btns">
+            <button type="button" class="renyin-filter-add-btn" data-kind="must" data-mode="keyword">🔑 ＋关键词</button>
+            <button type="button" class="renyin-filter-add-btn" data-kind="must" data-mode="card">🃏 ＋卡牌名</button>
+            <button type="button" class="renyin-filter-add-btn" data-kind="must" data-mode="desc">📄 ＋描述</button>
           </div>
-          <div class="renyin-tag-list" id="renyin-must-list">${renderTagChips(ctx.mustTags, 'must')}</div>
+          <div class="renyin-tag-list" id="renyin-must-list">${renderChips('must')}</div>
+          <div class="renyin-filter-picker" id="renyin-must-kw-picker" hidden></div>
+          <div class="renyin-filter-picker" id="renyin-must-text-picker" hidden></div>
         </div>
-        <div>
-          <div style="font-size:12px;color:#9080b0;margin-bottom:3px;">至少含一（有其中任意一个标签就行）</div>
-          <div class="renyin-tag-row">
-            <input type="text" id="renyin-any-input" placeholder="输入标签名" maxlength="20">
-            <button type="button" class="renyin-tag-add-btn" id="renyin-any-add">+ 添加</button>
+        <div class="renyin-filter-block">
+          <div class="renyin-filter-block__label">🔓 至少含一（满足其中任意一个条件即可）</div>
+          <div class="renyin-filter-btns">
+            <button type="button" class="renyin-filter-add-btn" data-kind="any" data-mode="keyword">🔑 ＋关键词</button>
+            <button type="button" class="renyin-filter-add-btn" data-kind="any" data-mode="card">🃏 ＋卡牌名</button>
+            <button type="button" class="renyin-filter-add-btn" data-kind="any" data-mode="desc">📄 ＋描述</button>
           </div>
-          <div class="renyin-tag-list" id="renyin-any-list">${renderTagChips(ctx.anyTags, 'any')}</div>
+          <div class="renyin-tag-list" id="renyin-any-list">${renderChips('any')}</div>
+          <div class="renyin-filter-picker" id="renyin-any-kw-picker" hidden></div>
+          <div class="renyin-filter-picker" id="renyin-any-text-picker" hidden></div>
         </div>
       </div>
       <div class="renyin-actions">
@@ -214,8 +222,18 @@ const Renyin = (() => {
     bindConditionsEvents(body);
   }
 
-  function renderTagChips(tags, kind) {
-    return tags.map((tag, i) => `<span class="renyin-tag-chip">${tag}<span class="renyin-tag-chip__del" data-kind="${kind}" data-idx="${i}">✕</span></span>`).join('');
+  function renderChips(kind) {
+    const g = ctx[kind];
+    const parts = [];
+    g.keywords.forEach((t, i) => parts.push(chipHtml('keyword', kind, i, '🔑', t)));
+    g.cards.forEach((t, i) => parts.push(chipHtml('card', kind, i, '🃏', t)));
+    g.descs.forEach((t, i) => parts.push(chipHtml('desc', kind, i, '📄', t)));
+    return parts.join('');
+  }
+
+  function chipHtml(mode, kind, idx, icon, text) {
+    const dataAttrs = `data-kind="${kind}" data-mode="${mode}" data-idx="${idx}"`;
+    return `<span class="renyin-tag-chip renyin-tag-chip--${mode}" ${dataAttrs}>${icon} ${escapeHTML(text)}<span class="renyin-tag-chip__del" ${dataAttrs}>✕</span></span>`;
   }
 
   function bindConditionsEvents(body) {
@@ -276,8 +294,11 @@ const Renyin = (() => {
         btn.classList.toggle('renyin-opt-btn--active');
       });
     });
-    bindTagInput('renyin-must-input', 'renyin-must-add', 'renyin-must-list', 'must');
-    bindTagInput('renyin-any-input', 'renyin-any-add', 'renyin-any-list', 'any');
+    body.querySelectorAll('.renyin-filter-add-btn').forEach(btn => {
+      btn.addEventListener('click', () => openFilterPicker(btn.dataset.kind, btn.dataset.mode));
+    });
+    refreshChips('must');
+    refreshChips('any');
     const searchBtn = document.getElementById('renyin-search-btn');
     if (searchBtn) searchBtn.addEventListener('click', () => {
       body.querySelectorAll('#renyin-quantities .renyin-qty-input').forEach(inp => {
@@ -290,17 +311,126 @@ const Renyin = (() => {
     if (cancelBtn) cancelBtn.addEventListener('click', () => close(false));
   }
 
-  function bindTagInput(inputId, addBtnId, listId, kind) {
-    const addBtn = document.getElementById(addBtnId), input = document.getElementById(inputId);
-    if (!addBtn || !input) return;
-    addBtn.addEventListener('click', () => {
-      const val = input.value.trim(); if (!val) return;
-      const arr = kind === 'must' ? ctx.mustTags : ctx.anyTags;
-      if (!arr.includes(val)) { arr.push(val); refreshTagList(listId, arr, kind); }
-      input.value = '';
+  /** 关闭全部选择器窗口（must/any 两组的关键词与文本窗） */
+  function closeAllPickers() {
+    ['must', 'any'].forEach(k => {
+      const kw = document.getElementById(`renyin-${k}-kw-picker`);
+      const txt = document.getElementById(`renyin-${k}-text-picker`);
+      if (kw) kw.hidden = true;
+      if (txt) txt.hidden = true;
     });
-    input.addEventListener('keydown', (e) => { if (e.key === 'Enter') addBtn.click(); });
-    refreshTagList(listId, kind === 'must' ? ctx.mustTags : ctx.anyTags, kind);
+  }
+
+  /** 打开关键词网格 / 卡牌名 / 描述选择器（再次点击同一按钮才关闭，同一时间只开一个） */
+  function openFilterPicker(kind, mode) {
+    const group = ctx[kind];
+    const kwPicker = document.getElementById(`renyin-${kind}-kw-picker`);
+    const textPicker = document.getElementById(`renyin-${kind}-text-picker`);
+    const pickerKey = kind + ':' + mode;
+    // 重复点击同一个按钮：关闭自己的窗口
+    if (activePicker === pickerKey) {
+      closeAllPickers();
+      activePicker = null;
+      return;
+    }
+    closeAllPickers();
+    activePicker = pickerKey;
+
+    if (mode === 'keyword') {
+      const list = (typeof KEYWORD_DB_DATA !== 'undefined' && Array.isArray(KEYWORD_DB_DATA)) ? KEYWORD_DB_DATA : [];
+      if (!list.length) {
+        kwPicker.innerHTML = `<div class="renyin-picker-empty">关键词库未加载（请刷新页面）</div>`;
+        kwPicker.hidden = false;
+        return;
+      }
+      kwPicker.innerHTML = `
+        <div class="renyin-picker__header">
+          <span>选择关键词（可连续添加多个）</span>
+          <button type="button" class="renyin-picker__close" data-close-kind="${kind}">✕</button>
+        </div>
+        <div class="renyin-kw-grid">
+          ${list.map(kw => {
+            const picked = group.keywords.includes(kw.name);
+            const tip = kw.effect ? escapeHTML(kw.effect) : '';
+            return `<button type="button" class="renyin-kw-btn${picked ? ' renyin-kw-btn--picked' : ''}" data-kw="${escapeHTML(kw.name)}" title="${tip}">${escapeHTML(kw.name)}</button>`;
+          }).join('')}
+        </div>`;
+      kwPicker.hidden = false;
+      kwPicker.querySelector('.renyin-picker__close').addEventListener('click', () => { kwPicker.hidden = true; activePicker = null; });
+      kwPicker.querySelectorAll('.renyin-kw-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const name = btn.dataset.kw;
+          if (!group.keywords.includes(name)) {
+            group.keywords.push(name);
+            refreshChips(kind);
+          }
+          btn.classList.add('renyin-kw-btn--picked');
+        });
+      });
+      return;
+    }
+
+    // 卡牌名 / 描述：输入框 + 添加按钮
+    const isCard = mode === 'card';
+    const limitHit = isCard && kind === 'must' && group.cards.length >= 1;
+    textPicker.innerHTML = `
+      <div class="renyin-picker__header">
+        <span>${isCard ? '添加卡牌名（必须全匹配）' : '添加描述（半匹配）'}</span>
+        <button type="button" class="renyin-picker__close" data-close-kind="${kind}">✕</button>
+      </div>
+      ${limitHit
+        ? `<div class="renyin-picker-msg">「必须全含」的卡牌名最多只能加一个</div>`
+        : `<div class="renyin-tag-row">
+             <input type="text" class="renyin-text-picker__input" maxlength="30" placeholder="${isCard ? '输入完整卡牌名' : '输入描述片段'}">
+             <button type="button" class="renyin-tag-add-btn renyin-text-picker__add">＋添加</button>
+           </div>
+           <div class="renyin-picker__tip">${isCard ? '搜索到的牌名必须与输入完全相同' : '牌描述中包含这段文字即可。例如输入「鬼火」，能匹配「不消耗鬼火」'}</div>`}`;
+    textPicker.hidden = false;
+    textPicker.querySelector('.renyin-picker__close').addEventListener('click', () => { textPicker.hidden = true; activePicker = null; });
+    const input = textPicker.querySelector('.renyin-text-picker__input');
+    const addBtn = textPicker.querySelector('.renyin-text-picker__add');
+    if (input && addBtn) {
+      const doAdd = () => {
+        const val = input.value.trim();
+        if (!val) return;
+        const arr = isCard ? group.cards : group.descs;
+        if (!arr.includes(val)) {
+          arr.push(val);
+          refreshChips(kind);
+        }
+        textPicker.hidden = true;
+        activePicker = null;
+      };
+      addBtn.addEventListener('click', doAdd);
+      input.addEventListener('keydown', (e) => { if (e.key === 'Enter') doAdd(); });
+      input.focus();
+    }
+  }
+
+  /** 刷新某组（must/any）的条件 chips 并绑定删除 */
+  function refreshChips(kind) {
+    const list = document.getElementById(`renyin-${kind}-list`);
+    if (!list) return;
+    list.innerHTML = renderChips(kind);
+    list.querySelectorAll('.renyin-tag-chip__del').forEach(del => {
+      del.addEventListener('click', () => {
+        const g = ctx[del.dataset.kind];
+        const arr = del.dataset.mode === 'card' ? g.cards : (del.dataset.mode === 'desc' ? g.descs : g.keywords);
+        arr.splice(parseInt(del.dataset.idx, 10), 1);
+        refreshChips(del.dataset.kind);
+        syncKwPickerHighlight(del.dataset.kind);
+      });
+    });
+  }
+
+  /** 关键词网格里「已选」高亮与当前选择保持同步（网格打开时） */
+  function syncKwPickerHighlight(kind) {
+    const kwPicker = document.getElementById(`renyin-${kind}-kw-picker`);
+    if (!kwPicker || kwPicker.hidden) return;
+    const group = ctx[kind];
+    kwPicker.querySelectorAll('.renyin-kw-btn').forEach(btn => {
+      btn.classList.toggle('renyin-kw-btn--picked', group.keywords.includes(btn.dataset.kw));
+    });
   }
 
   // 验证条件
@@ -345,18 +475,6 @@ const Renyin = (() => {
     return true;
   }
 
-  function refreshTagList(listId, tags, kind) {
-    const list = document.getElementById(listId); if (!list) return;
-    list.innerHTML = renderTagChips(tags, kind);
-    list.querySelectorAll('.renyin-tag-chip__del').forEach(del => {
-      del.addEventListener('click', () => {
-        const idx = parseInt(del.dataset.idx, 10);
-        const arr = del.dataset.kind === 'must' ? ctx.mustTags : ctx.anyTags;
-        arr.splice(idx, 1); refreshTagList(listId, arr, del.dataset.kind);
-      });
-    });
-  }
-
   // ================================================================
   //  牌库搜索（多式神 × 各自数量）
   // ================================================================
@@ -397,16 +515,18 @@ const Renyin = (() => {
           });
         }
 
-        // 类型
-        if (ctx.typeSelected.size > 0 && ctx.typeSelected.size < 4) {
+        // 类型（「其他」= 战斗/法术/形态/幻境之外的所有类型）
+        if (ctx.typeSelected.size > 0 && ctx.typeSelected.size < TYPES.length) {
           pool = pool.filter(c => {
             const db = CardDB.lookup(c.name); if (!db) return true;
-            return ctx.typeSelected.has(cnType(db.type));
+            const t = cnType(db.type);
+            if (BASIC_TYPES.includes(t)) return ctx.typeSelected.has(t);
+            return ctx.typeSelected.has('其他');
           });
         }
 
-        // 标签
-        pool = filterByTags(pool);
+        // 第五步条件过滤（关键词 / 卡牌名 / 描述）
+        pool = filterByConditions(pool);
 
         // 随机抽
         if (pool.length > 0) {
@@ -432,14 +552,30 @@ const Renyin = (() => {
     }, 600);
   }
 
-  function filterByTags(pool) {
-    if (ctx.mustTags.length === 0 && ctx.anyTags.length === 0) return pool;
+  function filterByConditions(pool) {
+    const must = ctx.must, any = ctx.any;
+    const hasMust = must.keywords.length > 0 || must.cards.length > 0 || must.descs.length > 0;
+    const hasAny = any.keywords.length > 0 || any.cards.length > 0 || any.descs.length > 0;
+    if (!hasMust && !hasAny) return pool;
     return pool.filter(c => {
       const db = CardDB.lookup(c.name);
-      if (!db) return (ctx.mustTags.length === 0 && ctx.anyTags.length === 0);
-      const cardTexts = [db.type, db.faction, db.owner, c.name, db.effect, db.ability].filter(Boolean).join(' ').toLowerCase();
-      if (ctx.mustTags.length > 0 && !ctx.mustTags.every(tag => cardTexts.includes(tag.toLowerCase()))) return false;
-      if (ctx.anyTags.length > 0 && !ctx.anyTags.some(tag => cardTexts.includes(tag.toLowerCase()))) return false;
+      const dbKeywords = (db && Array.isArray(db.keywords)) ? db.keywords : [];
+      const descText = db ? [db.effect, db.ability].filter(Boolean).join(' ') : '';
+      const cardName = (c.name || '').trim();
+
+      // 必须全含：每类条件都要满足
+      if (hasMust) {
+        if (must.keywords.some(k => !dbKeywords.includes(k))) return false;
+        if (must.cards.some(n => cardName !== n)) return false;
+        if (must.descs.some(d => !descText.includes(d))) return false;
+      }
+      // 至少含一：任一条条件满足即可
+      if (hasAny) {
+        const hit = any.keywords.some(k => dbKeywords.includes(k))
+          || any.cards.some(n => cardName === n)
+          || any.descs.some(d => descText.includes(d));
+        if (!hit) return false;
+      }
       return true;
     });
   }
@@ -544,8 +680,8 @@ const Renyin = (() => {
       broadcastSystemMsg(`【系统】${playerName}连引使用了「${usedCard.name}」${curseSuffix(usedCard)}`);
       // 连引使用：处理幻境/形态/觉醒
       _applyUsedCardEffect(playerId, usedCard);
+      // 连引出的牌本就在牌库中，不重复放回，仅打乱位置（等同洗回随机位置）
       const returnedNames = foundCards.map(c => c.name);
-      for (const fc of foundCards) state.deck.push(fc);
       returnCount = foundCards.length;
       shuffleCards(state.deck);
       // 广播通用版（不给牌名），本地显示详细版
@@ -556,19 +692,37 @@ const Renyin = (() => {
     } else {
       const sel = foundCards.findIndex(c => c.id === selectedResult.id);
       if (sel >= 0) foundCards.splice(sel, 1);
+      // 连引出的牌是牌库里的真实牌：从牌库中真正移除使用掉的这张
+      for (let i = state.deck.length - 1; i >= 0; i--) {
+        if (state.deck[i] && state.deck[i].id === selectedResult.id) state.deck.splice(i, 1);
+      }
       moveToGrave(playerId, selectedResult);
       broadcastSystemMsg(`【系统】${playerName}连引使用了「${selectedResult.name}」${curseSuffix(selectedResult)}`);
       // 连引使用：处理幻境/形态/觉醒
       _applyUsedCardEffect(playerId, selectedResult);
-      const returned = [usedCard, ...foundCards];
-      const returnedNames = returned.map(c => c.name);
-      for (const c of returned) state.deck.push(c);
-      returnCount = returned.length;
+      // 仅原使用的牌 A 洗回牌库；其余未选的连引牌本就在牌库，打乱位置即可
+      const returnedNames = [usedCard.name, ...foundCards.map(c => c.name)];
+      state.deck.push(usedCard);
+      returnCount = 1 + foundCards.length;
       shuffleCards(state.deck);
       broadcastSystemMsg(`【系统】其余 ${returnCount} 张牌已随机洗回牌库`);
       if (isOwnView && returnCount > 0) {
         addSystemChatMessage(`【系统】洗回牌库：「${returnedNames.join('」、「')}」共 ${returnCount} 张（此信息仅你可见）`);
       }
+    }
+
+    // 洗牌后：清除占卜/命运抉择揭示（与手动洗牌一致，牌序已变，看过的不再有效）
+    if (typeof playerRevealedCards !== 'undefined') {
+      Object.keys(playerRevealedCards).forEach(k => { delete playerRevealedCards[k]; });
+    }
+    if (typeof playerFateRevealedCards !== 'undefined') {
+      Object.keys(playerFateRevealedCards).forEach(k => { delete playerFateRevealedCards[k]; });
+    }
+    if (typeof isConnected === 'function' && isConnected() && typeof sendToPeer === 'function') {
+      ['1', '2'].forEach(pid => {
+        sendToPeer({ type: 'revealed-cards', playerId: pid, cardIds: [] });
+        sendToPeer({ type: 'fate-revealed-cards', playerId: pid, cardIds: [] });
+      });
     }
 
     updateDeckButtons(playerId);
