@@ -27,7 +27,7 @@
     }
 
     let _bookActiveFactions = new Set(FACTION_ORDER); // 默认全选
-    let _bookActiveTab = 'official'; // 'official' | 'diy'
+    let _bookActiveTab = 'official'; // 'official' | 'diy' | 'mine'
     let _bookSelectedKey = null; // 当前选中的式神名 或 '__neutral__' 或 '__shop__'
     let _bookLevelFilter = 0; // 0=全部, 1/2/3
 
@@ -82,6 +82,26 @@
         }
       }
 
+      return map;
+    }
+
+    /** 我的玩家库数据：与官方聚合同构，来源是服务器个人卡库 */
+    function getMyLibBookData() {
+      const map = new Map();
+      const myPid = (typeof localPlayerId !== 'undefined' && localPlayerId) ? String(localPlayerId) : '1';
+      if (typeof CardDB === 'undefined' || !CardDB.getPlayerShikigami) return map;
+      const shikigami = CardDB.getPlayerShikigami(myPid);
+      for (const s of shikigami) {
+        map.set(s.name, { shikigami: s, cards: [], curses: [], isDiy: true, isMine: true });
+      }
+      const cards = CardDB.getPlayerLibCards(myPid);
+      for (const c of cards) {
+        if (c.type === 'curse') {
+          if (c.owner && map.has(c.owner)) map.get(c.owner).curses.push(c);
+        } else if (c.owner && map.has(c.owner)) {
+          map.get(c.owner).cards.push(c);
+        }
+      }
       return map;
     }
 
@@ -152,7 +172,7 @@
     // ================================================================
 
     function renderShikigamiList() {
-      const data = getShikigamiBookData();
+      const data = _bookActiveTab === 'mine' ? getMyLibBookData() : getShikigamiBookData();
       const filterLower = shikigamiBookSearch.value.trim().toLowerCase();
 
       shikigamiBookList.innerHTML = '';
@@ -182,8 +202,13 @@
         item.className = 'shikigami-book__item';
         if (key === _bookSelectedKey) item.classList.add('shikigami-book__item--active');
         if (entry.isDiy) {
-          item.innerHTML = key + ` <span class="shikigami-book__item-count">(${total})</span> 🔧`;
-          item.title = '作者：' + (entry.shikigami.author || '未知');
+          if (entry.isMine) {
+            item.innerHTML = key + ` <span class="shikigami-book__item-count">(${total})</span> 🃏`;
+            item.title = '我的卡库';
+          } else {
+            item.innerHTML = key + ` <span class="shikigami-book__item-count">(${total})</span> 🔧`;
+            item.title = '作者：' + (entry.shikigami.author || '未知');
+          }
         } else {
           item.innerHTML = key + ` <span class="shikigami-book__item-count">(${total})</span>`;
         }
@@ -252,7 +277,7 @@
         if (neutrals.length === 0 && shops.length === 0) {
           const empty = document.createElement('div');
           empty.className = 'card-list-empty';
-          empty.textContent = '无匹配式神';
+          empty.textContent = _bookActiveTab === 'mine' ? '你的卡库还没有式神，去大厅「DIY」页签创建' : '无匹配式神';
           empty.style.padding = '12px 8px';
           empty.style.fontSize = '12px';
           shikigamiBookList.appendChild(empty);

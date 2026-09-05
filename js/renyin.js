@@ -337,7 +337,9 @@ const Renyin = (() => {
     activePicker = pickerKey;
 
     if (mode === 'keyword') {
-      const list = (typeof KEYWORD_DB_DATA !== 'undefined' && Array.isArray(KEYWORD_DB_DATA)) ? KEYWORD_DB_DATA : [];
+      const officialList = (typeof KEYWORD_DB_DATA !== 'undefined' && Array.isArray(KEYWORD_DB_DATA)) ? KEYWORD_DB_DATA : [];
+      const playerKw = (typeof CardDB !== 'undefined' && CardDB.getPlayerKeywords) ? CardDB.getPlayerKeywords() : [];
+      const list = officialList.concat(playerKw.map(function (k) { return { name: k.name, effect: k.effect, _playerKw: true }; }));
       if (!list.length) {
         kwPicker.innerHTML = `<div class="renyin-picker-empty">关键词库未加载（请刷新页面）</div>`;
         kwPicker.hidden = false;
@@ -352,7 +354,7 @@ const Renyin = (() => {
           ${list.map(kw => {
             const picked = group.keywords.includes(kw.name);
             const tip = kw.effect ? escapeHTML(kw.effect) : '';
-            return `<button type="button" class="renyin-kw-btn${picked ? ' renyin-kw-btn--picked' : ''}" data-kw="${escapeHTML(kw.name)}" title="${tip}">${escapeHTML(kw.name)}</button>`;
+            return `<button type="button" class="renyin-kw-btn${picked ? ' renyin-kw-btn--picked' : ''}${kw._playerKw ? ' renyin-kw-btn--player' : ''}" data-kw="${escapeHTML(kw.name)}" title="${tip}">${escapeHTML(kw.name)}</button>`;
           }).join('')}
         </div>`;
       kwPicker.hidden = false;

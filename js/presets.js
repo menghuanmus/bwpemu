@@ -99,6 +99,8 @@ const Presets = (() => {
       level: state.level || '',
       countdown: state.countdown || '',
       energy: state.energy || '',
+      baseCountdown: state.baseCountdown || 0,
+      baseEnergy: state.baseEnergy || 0,
       rarity: slot.dataset.slotRarity || '',
       author: (typeof CardDB !== 'undefined' && CardDB.lookup(state.name) && CardDB.lookup(state.name).author) || '官方',
       // 完整加成快照
@@ -175,6 +177,8 @@ const Presets = (() => {
         name: p.name,
         countdown: p.countdown,
         energy: p.energy,
+        baseCountdown: (p.baseCountdown != null ? p.baseCountdown : (p.countdown ? (parseInt(String(p.countdown), 10) || 0) : 0)),
+        baseEnergy: (p.baseEnergy != null ? p.baseEnergy : 0),
         ko: p.ko || '',
         curses: p.curses || [],
         awakened: p.awakened || false,
@@ -246,6 +250,7 @@ const Presets = (() => {
         <button type="button" class="preset-tab preset-tab--active" data-tab="default">官方式神</button>
         <button type="button" class="preset-tab" data-tab="git">DIY式神</button>
         <button type="button" class="preset-tab" data-tab="temp">临时预设</button>
+        <button type="button" class="preset-tab" data-tab="mine">我的预设</button>
       </div>
       <div class="preset-panel__save-picker" id="preset-save-picker" style="display:none;"></div>
       <button type="button" class="preset-panel__filter-toggle" id="preset-filter-toggle"><span id="preset-filter-toggle-arrow">▸</span> 筛选</button>
@@ -415,12 +420,60 @@ const Presets = (() => {
     }
   }
 
+  /** 我的卡库式神 → 预设对象（玩家库来自服务器，编辑走大厅DIY，本面板只读） */
+  function _minePresetFromLib(s) {
+    const isSummon = s.type === 'summon';
+    const ab = String(s.ability || '');
+    // 描述含「倒计时x」→ 自动挂倒计时（基础 x）；含「充能」→ 自动挂能量
+    const cdMatch = ab.match(/倒计时\s*[:：]?\s*(\d+)/);
+    const autoCD = cdMatch ? (parseInt(cdMatch[1], 10) || 0) : 0;
+    const autoEN = /充能/.test(ab);
+    const authorName = (typeof window !== 'undefined' && window._gameNickname) ? window._gameNickname : '我的卡库';
+    return {
+      id: 'mine_' + s.name,
+      source: 'cards.js',   // 本面板不提供删除（编辑去大厅「DIY」页签）
+      category: 'mine',
+      name: s.name,
+      type: isSummon ? 'summon' : 'shikigami',
+      faction: _normalizeFaction(s.faction),
+      attack: s.attack || 0,
+      hp: s.hp || 0,
+      ability: ab,
+      owner: s.owner || '',
+      imageSrc: (isSummon && s.owner) ? `images/${s.owner}/${s.name}.png` : `images/${s.name}/${s.name}.png`,
+      level: isSummon ? '' : '0',
+      countdown: autoCD ? String(autoCD) : '',
+      energy: autoEN ? '0' : '',
+      baseCountdown: autoCD,        // 回合开始重置回的基础倒计时
+      baseEnergy: autoEN ? 0 : 0,
+      rarity: '',
+      author: authorName,
+      permAtkMods: [], permHpMods: [], permAbility: '', permEffects: [],
+      formName: '', formAtk: 0, formHp: 0, formAbility: '',
+      tempAtkMods: [], tempHpMods: [], curses: [], awakened: false, ko: ''
+    };
+  }
+
+  /** 根据玩家卡库刷新「我的预设」（进入该页签时重建） */
+  function _refreshMinePresets() {
+    _presets = _presets.filter(p => p.category !== 'mine');
+    const myPid = (typeof localPlayerId !== 'undefined' && localPlayerId) ? String(localPlayerId) : '1';
+    if (typeof CardDB !== 'undefined' && CardDB.getPlayerShikigami) {
+      CardDB.getPlayerShikigami(myPid).forEach(function (s) {
+        _presets.push(_minePresetFromLib(s));
+      });
+    }
+  }
+
   function _render() {
     const listEl = document.getElementById('preset-list');
     if (!listEl) return;
 
     let items;
-    if (_tabActive === 'default') {
+    if (_tabActive === 'mine') {
+      _refreshMinePresets();
+      items = _presets.filter(p => p.category === 'mine');
+    } else if (_tabActive === 'default') {
       items = _presets.filter(p => p.category === 'default');
     } else {
       items = _presets.filter(p => p.category === _tabActive);
@@ -434,6 +487,9 @@ const Presets = (() => {
     }
     if (_tabActive === 'temp') {
       html += '<div class="preset-hint">⚠️ 这里是临时保存的预设，当你刷新、关闭网页后，可能将失去该预设</div>';
+    }
+    if (_tabActive === 'mine' && !items.length) {
+      html += '<div class="preset-hint">🃏 这里会显示你的玩家卡库式神，去大厅「DIY」页签添加/编辑</div>';
     }
 
     // 所有页签按派系分组

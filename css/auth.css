@@ -897,3 +897,131 @@
   .auth-card::before { animation: none; opacity: 0.6; }
   .btn-spinner, .spinner-ring { animation: none; opacity: 0.5; }
 }
+
+/* ════════════════════════════════════════════
+   DIY 我的卡库面板
+   ════════════════════════════════════════════ */
+.diy-capacity-bar {
+  font-size: 1.05rem; color: #9aa3c0; padding: 8px 0; margin-bottom: 10px;
+}
+.diy-capacity-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: nowrap; }
+.diy-capacity-row .diy-capacity-bar { margin-bottom: 0; padding: 8px 0; white-space: nowrap; flex-shrink: 0; }
+.diy-msg { font-size: 1rem; min-height: 1.2em; text-align: right; flex: 1 1 auto; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding: 8px 0; }
+.diy-list-wrap { display: flex; gap: 16px; align-items: flex-start; }
+.diy-list--main { flex: 1; min-width: 300px; }
+.diy-section { flex: 1; min-width: 300px; }
+.diy-section-title { font-size: 1.15rem; font-weight: 600; color: #7C83FF; margin-bottom: 8px; }
+.diy-list { max-height: 420px; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; }
+.diy-empty { font-size: 1.05rem; color: #5E6278; padding: 16px; text-align: center; background: rgba(255,255,255,0.02); border-radius: 8px; }
+.diy-item {
+  display: flex; flex-direction: column; gap: 6px;
+  background: rgba(255,255,255,0.03);
+  border: 1px solid rgba(255,255,255,0.06);
+  border-radius: 10px; padding: 8px 12px;
+}
+.diy-item-top { display: flex; align-items: center; justify-content: space-between; gap: 10px; min-width: 0; }
+.diy-item-name { flex: 1; min-width: 0; font-size: 1.1rem; font-weight: 600; color: #E8EBF0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.diy-item-tags { display: flex; gap: 4px; flex-wrap: wrap; }
+.diy-tag { font-size: 0.95rem; padding: 2px 8px; border-radius: 6px; background: rgba(124,131,255,0.12); color: #aab3ff; white-space: nowrap; }
+.diy-item-actions { display: flex; gap: 6px; flex-shrink: 0; }
+.diy-btn {
+  border: 1px solid rgba(255,255,255,0.1); border-radius: 8px;
+  background: rgba(255,255,255,0.04); color: #cfd6ea;
+  font-size: 1rem; padding: 6px 10px; cursor: pointer; font-family: inherit;
+}
+.diy-btn:hover { background: rgba(255,255,255,0.1); }
+.diy-btn-edit:hover { border-color: #7C83FF; }
+.diy-btn-del:hover { border-color: #FB7185; color: #FB7185; }
+.diy-btn-ok { background: linear-gradient(135deg,#5B5FEF,#7C83FF); border: none; color: #fff; font-weight: 600; }
+.diy-btn-cancel { background: rgba(255,255,255,0.06); }
+.diy-modal-overlay {
+  position: fixed; inset: 0; z-index: 4000;
+  background: rgba(0,0,0,0.7); display: flex; align-items: center; justify-content: center;
+  backdrop-filter: blur(4px);
+}
+.diy-modal {
+  background: #0F1420; border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 16px; padding: 24px; width: 520px; max-width: 92vw;
+  max-height: 86vh; overflow-y: auto;
+}
+.diy-modal-wide { width: 640px; }
+.diy-modal h3 { font-size: 1.35rem; font-weight: 600; color: #E8EBF0; margin-bottom: 14px; }
+.diy-row { display: flex; gap: 10px; }
+.diy-row .diy-field { flex: 1; }
+.diy-field { display: block; margin-bottom: 12px; }
+.diy-field span { display: block; font-size: 1rem; color: #8a91ab; margin-bottom: 5px; }
+.diy-field input, .diy-field select, .diy-field textarea {
+  width: 100%; box-sizing: border-box; padding: 10px 12px;
+  background: #0d1424; border: 1px solid #2a3f66; border-radius: 8px;
+  color: #E8EBF0; font-size: 1.05rem; font-family: inherit; outline: none;
+}
+.diy-field input:focus, .diy-field select:focus, .diy-field textarea:focus { border-color: #7C83FF; }
+.diy-modal-err { color: #FB7185; font-size: 1rem; min-height: 1.2em; margin: 6px 0; }
+.diy-modal-actions { display: flex; gap: 10px; justify-content: flex-end; }
+.diy-hint { font-size: 1rem; color: #5E6278; margin-bottom: 10px; line-height: 1.5; }
+.diy-check { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; }
+.diy-check input[type="checkbox"] { width: 18px; height: 18px; accent-color: #7C83FF; }
+.diy-tag--summon { background: rgba(82,196,172,0.15); color: #7ad8c4; }
+.diy-tag--awakened { background: rgba(220,180,60,0.15); color: #dcc04c; }
+.diy-tag--derivative { background: rgba(255,130,180,0.15); color: #ffa8c8; }
+/* 卡牌类型四色 */
+.diy-tag--spell  { background: rgba(86,158,255,0.16); color: #9ec9ff; }
+.diy-tag--battle { background: rgba(255,116,116,0.16); color: #ffa8a8; }
+.diy-tag--form   { background: rgba(80,214,160,0.16); color: #8fe8c9; }
+.diy-tag--realm  { background: rgba(178,132,255,0.16); color: #cfaeff; }
+/* 工具栏 / 搜索 / 页签 */
+.diy-toolbar { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 12px; }
+.diy-search-row { margin-bottom: 10px; }
+.diy-search-row input {
+  width: 100%; box-sizing: border-box; padding: 10px 14px;
+  background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 8px; color: #E8EBF0; font-size: 1.05rem; outline: none; font-family: inherit;
+}
+.diy-search-row input:focus { border-color: #7C83FF; }
+.diy-tabs { display: flex; gap: 8px; margin-bottom: 10px; flex-wrap: wrap; }
+.diy-tab {
+  padding: 8px 20px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.1);
+  background: rgba(255,255,255,0.03); color: #9498A8;
+  font-size: 1.05rem; cursor: pointer; font-family: inherit;
+}
+.diy-tab:hover { background: rgba(255,255,255,0.08); color: #cfd6ea; }
+.diy-tab--active,
+.diy-tab--active:hover {
+  background: linear-gradient(135deg,#5B5FEF,#7C83FF); border-color: transparent;
+  color: #fff; font-weight: 600;
+}
+/* 全部页签：归属单位缩进（召唤物/卡牌/其他在所属式神下右移） */
+.diy-item--indent { margin-left: 30px; padding-left: 10px; border-left: 2px solid rgba(124,131,255,0.35); }
+.diy-item--active { border-color: #7C83FF; background: rgba(124,131,255,0.1); }
+.diy-group-sep {
+  font-size: 1rem; color: #5E6278; padding: 8px 4px 4px; margin-top: 6px;
+}
+/* 右侧预览窗口 */
+.diy-preview {
+  flex: 1; min-width: 260px; max-width: 380px;
+  background: rgba(255,255,255,0.02);
+  border: 1px solid rgba(255,255,255,0.06);
+  border-radius: 12px; padding: 16px;
+}
+.diy-preview__placeholder { color: #5E6278; font-size: 1rem; }
+.diy-preview__name { font-size: 1.3rem; font-weight: 700; color: #fff; margin-bottom: 8px; }
+.diy-preview__meta { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; }
+.diy-preview__meta .diy-tag { font-size: 1rem; padding: 3px 10px; }
+.diy-preview__effect { font-size: 1.05rem; color: #c9d2ea; line-height: 1.6; white-space: pre-wrap; word-break: break-all; }
+.diy-preview__kws { font-size: 1rem; color: #8a91ab; margin-top: 8px; line-height: 1.5; word-break: break-all; }
+/* 手机端悬浮窗（遮罩拦截点击） */
+.diy-mobile-tip {
+  position: fixed; inset: 0; z-index: 5000;
+  background: rgba(0,0,0,0.55);
+  display: flex; align-items: center; justify-content: center;
+  padding: 20px;
+}
+.diy-mobile-tip__card {
+  background: #0F1420; border: 1px solid rgba(124,131,255,0.4);
+  border-radius: 14px; padding: 20px; max-width: 420px; width: 100%;
+  max-height: 80vh; overflow-y: auto; color: #E8EBF0;
+}
+.diy-mobile-tip__hint { margin-top: 12px; text-align: center; color: #5E6278; font-size: 0.95rem; }
+@media (max-width: 768px) {
+  .diy-preview { display: none; }
+}

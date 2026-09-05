@@ -141,6 +141,8 @@
     showView(LOBBY_VIEW);
     // 回到大厅时彻底清空上一局的战场数据，防止新房间继承旧状态
     if (typeof resetGameState === 'function') resetGameState();
+    // 若开着预设面板（退出对局/房间）一并关闭
+    if (typeof Presets !== 'undefined' && typeof Presets.hide === 'function') Presets.hide();
     var uname = _getUname() || window._gameUsername || '';
     $('lobby-nickname').textContent = nickname;
     $('lobby-avatar').innerHTML = ''; $('lobby-avatar').textContent = nickname.charAt(0).toUpperCase();
@@ -290,7 +292,7 @@
     setBtn($('lobby-solo-btn'), true);
     socket.emit('create-solo', {}, function(res) {
       if(res.error) { $('lobby-error').textContent = res.error; setBtn($('lobby-solo-btn'), false); return; }
-      if(res.ok || res.solo) enterGame({ solo: res.solo || res.ok, slot: '1' });
+      if(res.ok || res.solo) enterGame({ solo: res.solo || res.ok, slot: '1', cardLibs: res.cardLibs });
     });
   });
 
@@ -358,7 +360,7 @@
       // 清理准备室监听
       socket.off('room-update').off('game-start').off('room-closed').off('room-chat');
       if (data.state && typeof applyFullState === 'function') applyFullState(data.state);
-      enterGame({ joined: roomCode, slot: data.slot, state: data.state, otherOnline: true });
+      enterGame({ joined: roomCode, slot: data.slot, state: data.state, otherOnline: true, cardLibs: data.cardLibs });
     });
     socket.on('room-closed', function(data) {
       isReadyMode = false; readyRoomCode = null;
@@ -517,7 +519,7 @@
     document.querySelectorAll('.lobby-nav-item').forEach(function(t) { t.classList.toggle('active', t.dataset.tab === name); });
     document.querySelectorAll('.lobby-panel').forEach(function(p) { p.classList.toggle('active', p.id === 'panel-' + name); });
     if (name === 'profile') { ['nickname','pw'].forEach(function(k) { $('profile-' + k + '-msg').textContent = ''; $('profile-' + k + '-msg').className = 'profile-msg'; }); $('profile-old-pw').value = ''; $('profile-new-pw').value = ''; }
-    if (name === 'history') loadBattleHistory();
+    if (name === 'diy') { if (typeof MyLib !== 'undefined') MyLib.onTabOpen(); }
   }
   document.querySelectorAll('.lobby-nav-item').forEach(function(t) { t.addEventListener('click', function() { switchLobbyTab(t.dataset.tab); }); });
 
@@ -659,6 +661,11 @@
     showView(GAME_VIEW);
     window._gameSocket = socket;
 
+    // 加载双方玩家卡库（进房/开局/重连时由服务端下发）
+    if (res && res.cardLibs && typeof window.loadCardLibs === 'function') {
+      window.loadCardLibs(res.cardLibs);
+    }
+
     window.sendToServer = function(data) {
       if (!socket || !socket.connected) return;
       if (data.type === 'game' && data.data) {
@@ -726,8 +733,9 @@
     }
     applyPermissionLock();
 
-    socket.off('room-state').off('update').off('player-joined').off('player-left').off('error-msg').off('room-update').off('room-closed').off('room-chat');
+    socket.off('room-state').off('update').off('player-joined').off('player-left').off('error-msg').off('room-update').off('room-closed').off('room-chat').off('cardlibs');
     socket.on('room-state', function(s) { if (typeof applyFullState === 'function') applyFullState(s); });
+    socket.on('cardlibs', function(libs) { if (typeof window.loadCardLibs === 'function') window.loadCardLibs(libs); });
     socket.on('update', function(a) { handlePeerData(a); });
     socket.on('player-joined', function(p) {
       if (p.rejoined) { addSystemChatMessage('【系统】对手重连'); setConnStatus(true, '已连接'); if (p.slot) setPlayerConnStatus(p.slot, true, '已连接'); }

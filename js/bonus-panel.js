@@ -352,11 +352,17 @@ const BonusPanel = (() => {
     const picker = document.getElementById('bonus-keyword-picker');
     if (!picker) return;
     if (picker.style.display === 'none') {
-      // 动态生成关键词按钮
-      picker.innerHTML = QUICK_KEYWORDS.map(kw => {
+      // 动态生成关键词按钮：官方快捷词 + 玩家自定义关键词（不同背景色区分）
+      const playerKw = (typeof CardDB !== 'undefined' && CardDB.getPlayerKeywords) ? CardDB.getPlayerKeywords() : [];
+      const playerNames = playerKw.map(function (k) { return k.name; });
+      const allNames = QUICK_KEYWORDS.slice();
+      playerNames.forEach(function (n) { if (allNames.indexOf(n) === -1) allNames.push(n); });
+      picker.innerHTML = allNames.map(kw => {
         const dbKw = typeof CardDB !== 'undefined' && CardDB.lookupKeyword ? CardDB.lookupKeyword(kw) : null;
-        const tip = dbKw ? dbKw.effect : '';
-        return `<button type="button" class="bonus-keyword-btn" title="${escapeHTML(tip)}">${escapeHTML(kw)}</button>`;
+        const pkw = playerKw.find(function (k) { return k.name === kw; });
+        const tip = dbKw ? dbKw.effect : (pkw ? pkw.effect : '');
+        const isPlayer = playerNames.indexOf(kw) !== -1;
+        return `<button type="button" class="bonus-keyword-btn${isPlayer ? ' bonus-keyword-btn--player' : ''}" title="${escapeHTML(tip)}">${escapeHTML(kw)}</button>`;
       }).join('');
       picker.style.display = 'grid';
     } else {
@@ -367,7 +373,11 @@ const BonusPanel = (() => {
   function handleQuickKeyword(name) {
     if (!name) return;
     const dbKw = typeof CardDB !== 'undefined' && CardDB.lookupKeyword ? CardDB.lookupKeyword(name) : null;
-    const desc = dbKw ? dbKw.effect : name;
+    let desc = dbKw ? dbKw.effect : name;
+    if (!dbKw && typeof CardDB !== 'undefined' && CardDB.getPlayerKeywords) {
+      const pkw = CardDB.getPlayerKeywords().find(function (k) { return k.name === name; });
+      if (pkw && pkw.effect) desc = pkw.effect;
+    }
     addEffectRecord(name, desc);
     const picker = document.getElementById('bonus-keyword-picker');
     if (picker) picker.style.display = 'none';

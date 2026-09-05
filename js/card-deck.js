@@ -759,7 +759,7 @@
           broadcastSystemMsg(mainMsg);
         }
 
-        const dbCard = CardDB.lookup(card.name);
+        const dbCard = CardDB.lookup(card.name, playerId);
         let animTarget = null;
 
         // 1) 形态牌：自动结附到所属式神
@@ -865,27 +865,6 @@
               }
             }
           }
-        }
-
-        // 【集成效果引擎】打出卡牌时触发 on_play 效果
-        if (typeof onCardPlayed === 'function') {
-          // 尝试找到归属的式神卡牌槽
-          let ownerSlot = null;
-          if (dbCard && dbCard.owner) {
-            const zone = getPlayerZone(playerId);
-            if (zone) {
-              const slots = zone.querySelectorAll('.card-slot');
-              for (const slot of slots) {
-                if (slot.querySelector('.card-name')?.value === dbCard.owner) {
-                  ownerSlot = slot;
-                  break;
-                }
-              }
-            }
-          }
-          onCardPlayed(card.name, playerId, ownerSlot);
-          // 效果可能修改手牌（如杀念获得新牌），刷新弹窗
-          refreshOpenListDialog(playerId);
         }
 
         // 【消息分组】结束：渲染可展开的消息组
@@ -1458,14 +1437,31 @@
     });
 
     function importDeck(playerId, text) {
-      const names = parseCardLines(text);
-      if (!names.length) return;
+      const rawNames = parseCardLines(text);
+      if (!rawNames.length) return;
+      // 支持【式神名】区段：区段内未命中的牌优先在玩家库中匹配该式神
+      const myPid = (typeof localPlayerId !== 'undefined' && localPlayerId) ? String(localPlayerId) : '1';
+      let sectionOwner = '';
+      let unresolved = 0;
+      const names = [];
+      rawNames.forEach(function(line) {
+        const sec = line.match(/^【(.+)】$/);
+        if (sec) { sectionOwner = sec[1].trim(); return; }
+        names.push(line);
+        let resolved = (typeof CardDB !== 'undefined' && CardDB.isOfficialName) ? CardDB.isOfficialName(line) : false;
+        if (!resolved && typeof CardDB !== 'undefined' && CardDB.findInPlayerLib) {
+          resolved = !!CardDB.findInPlayerLib(myPid, line, sectionOwner);
+        }
+        if (!resolved) unresolved++;
+      });
       const cards = shuffleCards(names.map(name => createCard(name)));
       getPlayerCardState(playerId).deck.push(...cards);
       updateDeckButtons(playerId);
       refreshOpenListDialog(playerId);
       syncDeckState(playerId);
-      broadcastSystemMsg(`【系统】${getPlayerName(playerId)}导入了卡组（${cards.length}张）`);
+      let msg = `【系统】${getPlayerName(playerId)}导入了卡组（${cards.length}张）`;
+      if (unresolved > 0) msg += `；其中 ${unresolved} 张未在官方库与你的卡库中找到（按无归属导入）`;
+      broadcastSystemMsg(msg);
     }
 
     function addToHand(playerId, text, qty) {
@@ -2190,9 +2186,6 @@
       if (typeof isSpectator !== 'undefined' && isSpectator && action !== 'shikigami-book') return;
       dropdownMenu.hidden = true;
       switch (action) {
-        case 'upload-cards':
-          _handleUploadCards();
-          break;
         case 'save-game':
           _handleSaveGame();
           break;
@@ -2201,13 +2194,6 @@
           break;
         case 'shikigami-book':
           openShikigamiBook();
-          break;
-        case 'effect-builder':
-          if (typeof EffectBuilder !== 'undefined') {
-            EffectBuilder.open();
-          } else {
-            broadcastSystemMsg('【系统】效果编辑器尚未就绪，请稍后再试。');
-          }
           break;
         case 'debug-panel':
           if (typeof DebugPanel !== 'undefined') {
@@ -2348,10 +2334,12 @@
         let bl = '', br = '', blColor = '', brColor = '';
         switch (db.type) {
           case 'battle': case 'bond':
-            if (db.atkBonus > 0) { bl = '+' + db.atkBonus; blColor = '#50c8b4'; }
-            if (db.atkPenalty > 0) { bl = '-' + db.atkPenalty; blColor = '#ff6e6e'; }
-            if (db.shieldBonus > 0) { br = '+' + db.shieldBonus; brColor = '#64d264'; }
-            if (db.shieldPenalty > 0) { br = '-' + db.shieldPenalty; brColor = '#ff6e6e'; }
+            if ((db.atkBonus || 0) > 0) { bl = '+' + db.atkBonus; blColor = '#50c8b4'; }
+            else if ((db.atkBonus || 0) < 0) { bl = '' + db.atkBonus; blColor = '#ff6e6e'; }
+            else if (db.atkPenalty > 0) { bl = '-' + db.atkPenalty; blColor = '#ff6e6e'; }
+            if ((db.shieldBonus || 0) > 0) { br = '+' + db.shieldBonus; brColor = '#64d264'; }
+            else if ((db.shieldBonus || 0) < 0) { br = '' + db.shieldBonus; brColor = '#ff6e6e'; }
+            else if (db.shieldPenalty > 0) { br = '-' + db.shieldPenalty; brColor = '#ff6e6e'; }
             break;
           case 'spell':
             if (db.atkBonus > 0) { bl = '+' + db.atkBonus; blColor = '#50c8b4'; }

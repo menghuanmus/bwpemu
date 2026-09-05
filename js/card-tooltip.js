@@ -428,10 +428,12 @@
             break;
           case 'battle':
             statsHTML += `<span class="stat">⭐ Lv.${card.level}</span>`;
-            if (card.atkBonus > 0) statsHTML += `<span class="stat stat--atk"><img src="images/属性/攻击.png" class="tip-stat-icon" alt="攻"> +${card.atkBonus}</span>`;
-            if (card.atkPenalty > 0) statsHTML += `<span class="stat stat--penalty"><img src="images/属性/攻击.png" class="tip-stat-icon" alt="攻"> -${card.atkPenalty}</span>`;
-            if (card.shieldBonus > 0) statsHTML += `<span class="stat stat--shield">🛡 +${card.shieldBonus}护盾</span>`;
-            if (card.shieldPenalty > 0) statsHTML += `<span class="stat stat--penalty">🛡 -${card.shieldPenalty}护盾</span>`;
+            if ((card.atkBonus || 0) > 0) statsHTML += `<span class="stat stat--atk"><img src="images/属性/攻击.png" class="tip-stat-icon" alt="攻"> +${card.atkBonus}</span>`;
+            else if ((card.atkBonus || 0) < 0) statsHTML += `<span class="stat stat--penalty"><img src="images/属性/乏力.png" class="tip-stat-icon" alt="乏力"> ${card.atkBonus}</span>`;
+            else if (card.atkPenalty > 0) statsHTML += `<span class="stat stat--penalty"><img src="images/属性/乏力.png" class="tip-stat-icon" alt="乏力"> -${card.atkPenalty}</span>`;
+            if ((card.shieldBonus || 0) > 0) statsHTML += `<span class="stat stat--shield"><img src="images/属性/护甲.png" class="tip-stat-icon" alt="护盾"> +${card.shieldBonus}</span>`;
+            else if ((card.shieldBonus || 0) < 0) statsHTML += `<span class="stat stat--penalty"><img src="images/属性/破甲.png" class="tip-stat-icon" alt="破甲"> ${card.shieldBonus}</span>`;
+            else if (card.shieldPenalty > 0) statsHTML += `<span class="stat stat--penalty"><img src="images/属性/破甲.png" class="tip-stat-icon" alt="破甲"> -${card.shieldPenalty}</span>`;
             break;
           case 'form':
             statsHTML += `<span class="stat">⭐ Lv.${card.level}</span>`;
@@ -447,10 +449,12 @@
             break;
           case 'bond':
             statsHTML += `<span class="stat">⭐ Lv.${card.level}</span>`;
-            if (card.atkBonus > 0) statsHTML += `<span class="stat stat--atk"><img src="images/属性/攻击.png" class="tip-stat-icon" alt="攻"> +${card.atkBonus}</span>`;
-            if (card.atkPenalty > 0) statsHTML += `<span class="stat stat--penalty"><img src="images/属性/攻击.png" class="tip-stat-icon" alt="攻"> -${card.atkPenalty}</span>`;
-            if (card.shieldBonus > 0) statsHTML += `<span class="stat stat--shield">🛡 +${card.shieldBonus}护盾</span>`;
-            if (card.shieldPenalty > 0) statsHTML += `<span class="stat stat--penalty">🛡 -${card.shieldPenalty}护盾</span>`;
+            if ((card.atkBonus || 0) > 0) statsHTML += `<span class="stat stat--atk"><img src="images/属性/攻击.png" class="tip-stat-icon" alt="攻"> +${card.atkBonus}</span>`;
+            else if ((card.atkBonus || 0) < 0) statsHTML += `<span class="stat stat--penalty"><img src="images/属性/乏力.png" class="tip-stat-icon" alt="乏力"> ${card.atkBonus}</span>`;
+            else if (card.atkPenalty > 0) statsHTML += `<span class="stat stat--penalty"><img src="images/属性/乏力.png" class="tip-stat-icon" alt="乏力"> -${card.atkPenalty}</span>`;
+            if ((card.shieldBonus || 0) > 0) statsHTML += `<span class="stat stat--shield"><img src="images/属性/护甲.png" class="tip-stat-icon" alt="护盾"> +${card.shieldBonus}</span>`;
+            else if ((card.shieldBonus || 0) < 0) statsHTML += `<span class="stat stat--penalty"><img src="images/属性/破甲.png" class="tip-stat-icon" alt="破甲"> ${card.shieldBonus}</span>`;
+            else if (card.shieldPenalty > 0) statsHTML += `<span class="stat stat--penalty"><img src="images/属性/破甲.png" class="tip-stat-icon" alt="破甲"> -${card.shieldPenalty}</span>`;
             break;
         }
         statsEl.innerHTML = statsHTML;

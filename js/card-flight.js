@@ -477,12 +477,13 @@ const CardFlight = (() => {
     } else {
       footerEl.textContent = '未录入数据';
     }
-    // 自适应缩字：超出100px逐级缩小
+    // 自适应缩字：以该栏当前可视宽度为准，放不下就逐级缩小（1px步进）
     let size = 16;
     footerEl.style.fontSize = size + 'px';
     requestAnimationFrame(() => {
-      while (footerEl.scrollWidth > 100 && size > 8) {
-        size -= 2;
+      const avail = footerEl.clientWidth || 168;
+      while (footerEl.scrollWidth > avail && size > 8) {
+        size -= 1;
         footerEl.style.fontSize = size + 'px';
       }
     });
@@ -498,10 +499,12 @@ const CardFlight = (() => {
     switch (db.type) {
       case 'battle':
       case 'bond':
-        if (db.atkBonus > 0)  { statBL.textContent = '+' + db.atkBonus;  statBL.style.display = ''; statBL.style.borderColor = 'rgba(80,200,180,0.7)'; statBL.style.color = '#50c8b4'; }
-        if (db.atkPenalty > 0){ statBL.textContent = '-' + db.atkPenalty; statBL.style.display = ''; statBL.style.borderColor = 'rgba(255,110,110,0.7)'; statBL.style.color = '#ff6e6e'; }
-        if (db.shieldBonus > 0) { statBR.textContent = '+' + db.shieldBonus; statBR.style.display = ''; statBR.style.borderColor = 'rgba(100,210,100,0.7)'; statBR.style.color = '#64d264'; }
-        if (db.shieldPenalty > 0){ statBR.textContent = '-' + db.shieldPenalty; statBR.style.display = ''; statBR.style.borderColor = 'rgba(255,110,110,0.7)'; statBR.style.color = '#ff6e6e'; }
+        if ((db.atkBonus || 0) > 0)  { statBL.textContent = '+' + db.atkBonus;  statBL.style.display = ''; statBL.style.borderColor = 'rgba(80,200,180,0.7)'; statBL.style.color = '#50c8b4'; }
+        else if ((db.atkBonus || 0) < 0) { statBL.textContent = '' + db.atkBonus; statBL.style.display = ''; statBL.style.borderColor = 'rgba(255,110,110,0.7)'; statBL.style.color = '#ff6e6e'; }
+        else if (db.atkPenalty > 0){ statBL.textContent = '-' + db.atkPenalty; statBL.style.display = ''; statBL.style.borderColor = 'rgba(255,110,110,0.7)'; statBL.style.color = '#ff6e6e'; }
+        if ((db.shieldBonus || 0) > 0) { statBR.textContent = '+' + db.shieldBonus; statBR.style.display = ''; statBR.style.borderColor = 'rgba(100,210,100,0.7)'; statBR.style.color = '#64d264'; }
+        else if ((db.shieldBonus || 0) < 0) { statBR.textContent = '' + db.shieldBonus; statBR.style.display = ''; statBR.style.borderColor = 'rgba(255,110,110,0.7)'; statBR.style.color = '#ff6e6e'; }
+        else if (db.shieldPenalty > 0){ statBR.textContent = '-' + db.shieldPenalty; statBR.style.display = ''; statBR.style.borderColor = 'rgba(255,110,110,0.7)'; statBR.style.color = '#ff6e6e'; }
         break;
       case 'spell':
         if (db.atkBonus > 0) { statBL.textContent = '+' + db.atkBonus; statBL.style.display = ''; statBL.style.borderColor = 'rgba(80,200,180,0.7)'; statBL.style.color = '#50c8b4'; }

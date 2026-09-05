@@ -16,6 +16,96 @@
 			"args": [],
 			"isBackground": false,
 			"problemMatcher": []
+		},
+		{
+			"label": "bwpemu-lib-syntax-check",
+			"type": "shell",
+			"command": "Set-Location \"d:\\DIY\\百闻牌\\百闻牌模拟器\\menghuanmus.github.io\"; $files = @('js\\card-db.js','js\\my-lib.js','js\\renyin.js','js\\bonus-panel.js'); foreach ($f in $files) { node --check $f; if ($LASTEXITCODE -ne 0) { Write-Output \"FAIL: $f\"; exit 1 } }; node --check server\\server.js; if ($LASTEXITCODE -ne 0) { Write-Output \"FAIL: server.js\"; exit 1 }; Write-Output \"ALL SYNTAX OK\"",
+			"problemMatcher": []
+		},
+		{
+			"label": "bwpemu-cardlib-e2e",
+			"type": "shell",
+			"command": "Set-Location \"d:\\DIY\\百闻牌\\百闻牌模拟器\\menghuanmus.github.io\\server\"; node test-cardlib-run.js",
+			"problemMatcher": []
+		},
+		{
+			"label": "bwpemu-lib-syntax-check",
+			"type": "shell",
+			"command": "Set-Location \"d:\\DIY\\百闻牌\\百闻牌模拟器\\menghuanmus.github.io\"; $files = @('js\\card-db.js','js\\my-lib.js','js\\renyin.js','js\\bonus-panel.js','js\\auth.js','js\\chat.js','js\\card-deck.js','js\\shikigami-book.js'); foreach ($f in $files) { node --check $f; if ($LASTEXITCODE -ne 0) { Write-Output \"FAIL: $f\"; exit 1 } }; node --check server\\server.js; if ($LASTEXITCODE -ne 0) { Write-Output \"FAIL: server.js\"; exit 1 }; Write-Output \"ALL SYNTAX OK\"",
+			"problemMatcher": []
+		},
+		{
+			"label": "bwpemu-cardlib-e2e",
+			"type": "shell",
+			"command": "Set-Location \"d:\\DIY\\百闻牌\\百闻牌模拟器\\menghuanmus.github.io\\server\"; node test-cardlib-run.js",
+			"problemMatcher": []
+		},
+		{
+			"label": "bwpemu-check-mylib",
+			"type": "shell",
+			"command": "Set-Location \"d:\\DIY\\百闻牌\\百闻牌模拟器\\menghuanmus.github.io\"; node --check js\\my-lib.js; if ($LASTEXITCODE -ne 0) { Write-Output \"FAIL my-lib\"; exit 1 }; Write-Output \"MYLIB OK\"",
+			"problemMatcher": []
+		},
+		{
+			"label": "bwpemu-check-mylib",
+			"type": "shell",
+			"command": "Set-Location \"d:\\DIY\\百闻牌\\百闻牌模拟器\\menghuanmus.github.io\"; node --check js\\my-lib.js; if ($LASTEXITCODE -ne 0) { Write-Output \"FAIL\"; exit 1 }; Write-Output \"OK\"",
+			"problemMatcher": []
+		},
+		{
+			"label": "bwpemu-check-mylib",
+			"type": "shell",
+			"command": "Set-Location \"d:\\DIY\\百闻牌\\百闻牌模拟器\\menghuanmus.github.io\"; node --check js\\my-lib.js; if ($LASTEXITCODE -ne 0) { Write-Output \"FAIL\"; exit 1 }; Write-Output \"OK\"",
+			"problemMatcher": []
+		},
+		{
+			"label": "bwpemu-check-mylib",
+			"type": "shell",
+			"command": "Set-Location \"d:\\DIY\\百闻牌\\百闻牌模拟器\\menghuanmus.github.io\"; node --check js\\my-lib.js; if ($LASTEXITCODE -ne 0) { Write-Output \"FAIL\"; exit 1 }; Write-Output \"OK\"",
+			"problemMatcher": []
+		},
+		{
+			"label": "bwpemu-check-mylib",
+			"type": "shell",
+			"command": "Set-Location \"d:\\DIY\\百闻牌\\百闻牌模拟器\\menghuanmus.github.io\"; node --check js\\my-lib.js; if ($LASTEXITCODE -ne 0) { Write-Output \"FAIL\"; exit 1 }; Write-Output \"OK\"",
+			"problemMatcher": []
+		},
+		{
+			"label": "bwpemu-check-presets",
+			"type": "shell",
+			"command": "Set-Location \"d:\\DIY\\百闻牌\\百闻牌模拟器\\menghuanmus.github.io\"; node --check js\\presets.js; if ($LASTEXITCODE -ne 0) { Write-Output \"FAIL\"; exit 1 }; Write-Output \"OK\"",
+			"problemMatcher": []
+		},
+		{
+			"label": "bwpemu-check-3files",
+			"type": "shell",
+			"command": "Set-Location \"d:\\DIY\\百闻牌\\百闻牌模拟器\\menghuanmus.github.io\"; node --check js\\presets.js; if ($LASTEXITCODE -ne 0) { exit 1 }; node --check js\\auth.js; if ($LASTEXITCODE -ne 0) { exit 1 }; node --check js\\my-lib.js; if ($LASTEXITCODE -ne 0) { exit 1 }; Write-Output \"ALL OK\"",
+			"problemMatcher": []
+		},
+		{
+			"label": "bwpemu-check-flight",
+			"type": "shell",
+			"command": "Set-Location \"d:\\DIY\\百闻牌\\百闻牌模拟器\\menghuanmus.github.io\"; node --check js\\card-flight.js; if ($LASTEXITCODE -ne 0) { exit 1 }; Write-Output \"OK\"",
+			"problemMatcher": []
+		},
+		{
+			"label": "bwpemu-check-tooltip",
+			"type": "shell",
+			"command": "Set-Location \"d:\\DIY\\百闻牌\\百闻牌模拟器\\menghuanmus.github.io\"; node --check js\\card-tooltip.js; if ($LASTEXITCODE -ne 0) { exit 1 }; Write-Output \"OK\"",
+			"problemMatcher": []
+		},
+		{
+			"label": "bwpemu-check-2files",
+			"type": "shell",
+			"command": "Set-Location \"d:\\DIY\\百闻牌\\百闻牌模拟器\\menghuanmus.github.io\"; node --check js\\card-tooltip.js; if ($LASTEXITCODE -ne 0) { exit 1 }; node --check js\\my-lib.js; if ($LASTEXITCODE -ne 0) { exit 1 }; Write-Output \"OK\"",
+			"problemMatcher": []
+		},
+		{
+			"label": "bwpemu-check-3anim",
+			"type": "shell",
+			"command": "Set-Location \"d:\\DIY\\百闻牌\\百闻牌模拟器\\menghuanmus.github.io\"; node --check js\\card-tooltip.js; if ($LASTEXITCODE -ne 0) { exit 1 }; node --check js\\card-flight.js; if ($LASTEXITCODE -ne 0) { exit 1 }; node --check js\\card-deck.js; if ($LASTEXITCODE -ne 0) { exit 1 }; Write-Output \"OK\"",
+			"problemMatcher": []
 		}
 	]
 }

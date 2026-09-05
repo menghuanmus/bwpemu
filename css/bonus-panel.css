@@ -317,6 +317,12 @@
   border-radius: 4px; white-space: nowrap; text-align: center;
 }
 .bonus-keyword-btn:hover { background: rgba(220,180,80,0.3); color: #f0d060; border-color: rgba(240,200,60,0.5); }
+/* 玩家自定义关键词：蓝青色背景，与官方金色区分 */
+.bonus-keyword-btn--player {
+  background: rgba(80,180,210,0.12); border-color: rgba(80,180,210,0.4);
+  color: #a8dcea;
+}
+.bonus-keyword-btn--player:hover { background: rgba(80,180,210,0.3); color: #d6f4fc; border-color: rgba(120,210,235,0.6); }
 
 /* 形态快捷按钮 */
 .bonus-form-btn {

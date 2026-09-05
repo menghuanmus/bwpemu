@@ -5,21 +5,21 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>百闻牌模拟器</title>
   <!-- CSS 模块 -->
-  <link rel="stylesheet" href="css/reset.css?v=v0.4.2">
-  <link rel="stylesheet" href="css/center-bar.css?v=v0.4.2">
-  <link rel="stylesheet" href="css/field.css?v=v0.4.2">
-  <link rel="stylesheet" href="css/chat.css?v=v0.4.2">
-  <link rel="stylesheet" href="css/room.css?v=v0.4.2">
-  <link rel="stylesheet" href="css/systems.css?v=v0.4.2">
-  <link rel="stylesheet" href="css/special-effects.css?v=v0.4.2">
-  <link rel="stylesheet" href="css/card-flight.css?v=v0.4.2">
-  <link rel="stylesheet" href="css/renyin.css?v=v0.4.2">
-  <link rel="stylesheet" href="css/show-hand.css?v=v0.4.2">
-  <link rel="stylesheet" href="css/charge.css?v=v0.4.2">
-  <link rel="stylesheet" href="css/bonus-panel.css?v=v0.4.2">
-  <link rel="stylesheet" href="css/presets.css?v=v0.4.2">
-  <link rel="stylesheet" href="css/auth.css?v=v0.4.2">
-  <link rel="stylesheet" href="css/mobile.css?v=v0.4.2">
+  <link rel="stylesheet" href="css/reset.css?v=v0.5">
+  <link rel="stylesheet" href="css/center-bar.css?v=v0.5">
+  <link rel="stylesheet" href="css/field.css?v=v0.5">
+  <link rel="stylesheet" href="css/chat.css?v=v0.5">
+  <link rel="stylesheet" href="css/room.css?v=v0.5">
+  <link rel="stylesheet" href="css/systems.css?v=v0.5">
+  <link rel="stylesheet" href="css/special-effects.css?v=v0.5">
+  <link rel="stylesheet" href="css/card-flight.css?v=v0.5">
+  <link rel="stylesheet" href="css/renyin.css?v=v0.5">
+  <link rel="stylesheet" href="css/show-hand.css?v=v0.5">
+  <link rel="stylesheet" href="css/charge.css?v=v0.5">
+  <link rel="stylesheet" href="css/bonus-panel.css?v=v0.5">
+  <link rel="stylesheet" href="css/presets.css?v=v0.5">
+  <link rel="stylesheet" href="css/auth.css?v=v0.5">
+  <link rel="stylesheet" href="css/mobile.css?v=v0.5">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
   <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
 </head>
@@ -110,8 +110,8 @@
           <div class="lobby-nav-item active" data-tab="hall">
             <span class="lobby-nav-icon">🎴</span> 大厅
           </div>
-          <div class="lobby-nav-item" data-tab="history">
-            <span class="lobby-nav-icon">📜</span> 战绩
+          <div class="lobby-nav-item" data-tab="diy">
+            <span class="lobby-nav-icon">🃏</span> DIY
           </div>
           <div class="lobby-nav-item" data-tab="profile">
             <span class="lobby-nav-icon">⚙</span> 我的
@@ -154,15 +154,32 @@
           <div class="lobby-error-msg" id="lobby-error"></div>
         </div>
 
-        <!-- 战绩 -->
-        <div class="lobby-panel" id="panel-history">
+        <!-- DIY 我的卡库 -->
+        <div class="lobby-panel" id="panel-diy">
           <div class="lobby-panel-header">
-            <h3>对局战绩</h3>
-            <p>战绩功能正在建设中...</p>
+            <div><h3>🃏 我的DIY</h3><p>组建DIY数据库，对局中自动获取。</p></div>
           </div>
-          <div class="lobby-empty">
-            <div class="lobby-empty-icon">📜</div>
-            <div class="lobby-empty-text">战绩功能正在建设中...</div>
+          <div class="diy-toolbar">
+            <button class="lobby-join-btn" id="diy-add-shikigami-btn" style="font-size:1.1rem;padding:10px 18px;">＋式神</button>
+            <button class="lobby-join-btn" id="diy-add-card-btn" style="font-size:1.1rem;padding:10px 18px;">＋卡牌</button>
+            <button class="lobby-join-btn" id="diy-add-other-btn" style="font-size:1.1rem;padding:10px 18px;">＋其他</button>
+          </div>
+          <div class="diy-capacity-row">
+            <div class="diy-capacity-bar" id="diy-capacity-bar">容量：0 / 1000</div>
+            <div class="diy-msg" id="diy-error"></div>
+          </div>
+          <div class="diy-search-row">
+            <input type="text" id="diy-search-input" placeholder="搜索名称或所属式神…" autocomplete="off">
+          </div>
+          <div class="diy-tabs" id="diy-tabs">
+            <button type="button" class="diy-tab diy-tab--active" data-tab="all">全部</button>
+            <button type="button" class="diy-tab" data-tab="shikigami">式神</button>
+            <button type="button" class="diy-tab" data-tab="card">卡牌</button>
+            <button type="button" class="diy-tab" data-tab="other">其他</button>
+          </div>
+          <div class="diy-list-wrap">
+            <div class="diy-list diy-list--main" id="diy-list-container"></div>
+            <div class="diy-preview" id="diy-preview-pane"><div class="diy-preview__placeholder">← 点击左侧条目查看详情</div></div>
           </div>
         </div>
 
@@ -522,12 +539,10 @@
         <div class="dropdown-other" id="dropdown-other">
           <button type="button" class="btn-dropdown-toggle" id="btn-dropdown-toggle">📋 其他 ▾</button>
           <div class="dropdown-other__menu" id="dropdown-other-menu" hidden>
-            <button type="button" class="dropdown-other__item" data-action="upload-cards" hidden>📤 上传卡牌</button>
             <button type="button" class="dropdown-other__item" data-action="save-game">💾 保存对局</button>
             <button type="button" class="dropdown-other__item" data-action="load-game">📥 导入对局</button>
             <button type="button" class="dropdown-other__item" data-action="shikigami-book">📖 式神录</button>
             <button type="button" class="dropdown-other__item" id="btn-preset-toggle">📦 预设</button>
-            <button type="button" class="dropdown-other__item" data-action="effect-builder" hidden>🃏 卡牌编辑器</button>
             <button type="button" class="dropdown-other__item" data-action="debug-panel" hidden>🔧 特效调试</button>
           </div>
         </div>
@@ -735,6 +750,7 @@
           <div class="shikigami-book__tabs" id="book-tabs">
             <button type="button" class="book-tab book-tab--active" data-tab="official">官方</button>
             <button type="button" class="book-tab" data-tab="diy">DIY</button>
+            <button type="button" class="book-tab" data-tab="mine">我的</button>
           </div>
           <input type="text" class="shikigami-book__search" id="shikigami-book-search" placeholder="搜索式神…" autocomplete="off">
           <div class="shikigami-book__list" id="shikigami-book-list"></div>
@@ -872,27 +888,6 @@
   <input type="file" id="image-input" accept="image/*">
   <input type="file" id="avatar-input" accept="image/*">
 
-  <!-- 上传卡牌窗口 -->
-  <div class="speak-dialog-overlay" id="upload-card-overlay" hidden>
-    <div class="speak-dialog upload-card-dialog" role="dialog">
-      <h3 id="upload-card-title">📤 上传卡牌</h3>
-      <div class="upload-card__type" id="upload-card-type-btns">
-        <button type="button" class="upload-type-btn active" data-type="shikigami">式神</button>
-        <button type="button" class="upload-type-btn" data-type="summon">召唤物</button>
-        <button type="button" class="upload-type-btn" data-type="spell">法术牌</button>
-        <button type="button" class="upload-type-btn" data-type="battle">战斗牌</button>
-        <button type="button" class="upload-type-btn" data-type="form">形态牌</button>
-        <button type="button" class="upload-type-btn" data-type="realm">幻境牌</button>
-        <button type="button" class="upload-type-btn" data-type="curse">灵咒</button>
-      </div>
-      <div class="upload-card__fields" id="upload-card-fields"></div>
-      <div class="speak-dialog-actions">
-        <button type="button" class="btn-dialog-cancel" id="upload-card-cancel">取消</button>
-        <button type="button" class="btn-dialog-confirm" id="upload-card-confirm">上传</button>
-      </div>
-    </div>
-  </div>
-
   <!-- 卡牌信息浮窗 -->
   <div id="card-tooltip" class="card-tooltip" hidden>
     <div class="card-tooltip__header">
@@ -940,7 +935,7 @@
   <!-- JS 模块（按依赖顺序加载） -->
   <!-- 卡牌数据从服务器加载：正式服 /ws/data/cards.js，测试服 /ws-test/data/cards.js。
        更新卡牌数据只需把 data/cards.js 上传到服务器，刷新页面即生效。
-       本地离线调试时可临时改回 <script src="data/cards.js?v=v0.4.2"></script> -->
+       本地离线调试时可临时改回 <script src="data/cards.js?v=v0.5"></script> -->
   <script>
     (function() {
       var isTest = false;
@@ -955,34 +950,33 @@
       document.write('<script src="' + src + '" onerror="console.error(\'卡牌数据加载失败，请检查服务器 cards.js 是否已部署\')"><\/script>');
     })();
   </script>
-  <script src="data/effect-modules.js?v=v0.4.2"></script>
-  <script src="js/constants.js?v=v0.4.2"></script>
-  <script src="js/card-db.js?v=v0.4.2"></script>
-  <script src="js/card-tooltip.js?v=v0.4.2"></script>
-  <script src="js/card-flight.js?v=v0.4.2"></script>
-  <script src="js/network.js?v=v0.4.2"></script>
-  <script src="js/game-core.js?v=v0.4.2"></script>
-  <script src="js/chat.js?v=v0.4.2"></script>
-  <script src="js/dice.js?v=v0.4.2"></script>
-  <script src="js/card-deck.js?v=v0.4.2"></script>
-  <script src="js/shikigami-book.js?v=v0.4.2"></script>
-  <script src="js/effect-engine.js?v=v0.4.2"></script>
-  <script src="js/data-io.js?v=v0.4.2"></script>
-  <script src="js/effect-builder.js?v=v0.4.2"></script>
-  <script src="js/special-effects.js?v=v0.4.2"></script>
-  <script src="js/shop.js?v=v0.4.2"></script>
-  <script src="js/oracle.js?v=v0.4.2"></script>
-  <script src="js/renyin.js?v=v0.4.2"></script>
-  <script src="js/show-hand.js?v=v0.4.2"></script>
-  <script src="js/charge.js?v=v0.4.2"></script>
-  <script src="js/bonus-panel.js?v=v0.4.2"></script>
-  <script src="js/presets.js?v=v0.4.2"></script>
-  <script src="js/auth.js?v=v0.4.2"></script>
+  <script src="js/constants.js?v=v0.5"></script>
+  <script src="js/card-db.js?v=v0.5"></script>
+  <script src="js/card-tooltip.js?v=v0.5"></script>
+  <script src="js/card-flight.js?v=v0.5"></script>
+  <script src="js/network.js?v=v0.5"></script>
+  <script src="js/game-core.js?v=v0.5"></script>
+  <script src="js/chat.js?v=v0.5"></script>
+  <script src="js/dice.js?v=v0.5"></script>
+  <script src="js/card-deck.js?v=v0.5"></script>
+  <script src="js/shikigami-book.js?v=v0.5"></script>
+  <script src="js/data-io.js?v=v0.5"></script>
+  <script src="js/special-effects.js?v=v0.5"></script>
+  <script src="js/shop.js?v=v0.5"></script>
+  <script src="js/oracle.js?v=v0.5"></script>
+  <script src="js/renyin.js?v=v0.5"></script>
+  <script src="js/show-hand.js?v=v0.5"></script>
+  <script src="js/charge.js?v=v0.5"></script>
+  <script src="js/bonus-panel.js?v=v0.5"></script>
+  <script src="js/presets.js?v=v0.5"></script>
+  <script src="js/my-lib.js?v=v0.5"></script>
+  <script src="js/auth.js?v=v0.5"></script>
 
   </div><!-- /#game-view -->
 
 </body>
 </html>
+
 
 
 

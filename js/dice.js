@@ -924,7 +924,7 @@
         const zone = document.querySelector(`.player-zone[data-player="${playerId}"]`);
         const hpInput = zone?.querySelector('.player-hp-input');
         const hpVal = hpInput?.value.trim();
-        if (hpVal && parseInt(hpVal, 10) > 0) {
+        if (hpVal && !isNaN(parseInt(hpVal, 10))) {
           if (targetingMode === 'heal') {
             applyHealToPlayer(playerId, amount);
           } else {
@@ -1254,23 +1254,6 @@
       const verb = hadKo ? '复活了' : '使';
       const suffix = hadKo ? '。' : '进入了气绝。';
       broadcastSystemMsg(`【系统】${sourceLabel}${verb}「${cardName}」${suffix}`);
-      // 通知效果引擎
-      if (typeof EventBus !== 'undefined') {
-        if (hadKo) {
-          EventBus.emit('shikigami_revived', {
-            playerId: slot.dataset.slotPlayer,
-            slotIndex: parseInt(slot.dataset.slotIndex, 10),
-            slot: slot
-          });
-        } else {
-          EventBus.emit('shikigami_ko', {
-            playerId: slot.dataset.slotPlayer,
-            slotIndex: parseInt(slot.dataset.slotIndex, 10),
-            slot: slot,
-            killer: null
-          });
-        }
-      }
     }
 
     function applyDamageToPlayer(playerId, dmg) {
@@ -1278,7 +1261,8 @@
       if (!zone) return;
       const hpInput = zone.querySelector('.player-hp-input');
       const currentHp = parseInt(hpInput.value, 10) || 0;
-      const newHp = Math.max(0, currentHp - dmg);
+      // 牌手生命值允许为负数（例如 5 血受到 7 伤害 → -2）
+      const newHp = currentHp - dmg;
       hpInput.value = newHp || '';
       // 【特效】伤害动画（定位在牌手头像中心）
       if (typeof DamageEffects !== 'undefined') {
@@ -1291,14 +1275,6 @@
       // 【联机】始终通知对方播放伤害动画
       if (isConnected() && typeof sendToPeer === 'function') {
         sendToPeer({ type: 'player-damage', playerId, dmg });
-      }
-      // 通知效果引擎
-      if (typeof EventBus !== 'undefined') {
-        EventBus.emit('damage_dealt', {
-          source: { playerId: localPlayerId || '1' },
-          target: { playerId: playerId, type: 'player' },
-          amount: dmg
-        });
       }
     }
 
@@ -1344,22 +1320,9 @@
       if (isConnected() && typeof sendToPeer === 'function') {
         sendToPeer({ type: 'card-damage', playerId: slot.dataset.slotPlayer, slotIndex: parseInt(slot.dataset.slotIndex, 10), dmg: finalDmg });
       }
-      // 通知效果引擎
-      if (typeof EventBus !== 'undefined') {
-        EventBus.emit('damage_dealt', {
-          source: { playerId: localPlayerId || '1' },
-          target: {
-            playerId: slot.dataset.slotPlayer,
-            slotIndex: parseInt(slot.dataset.slotIndex, 10),
-            slot: slot,
-            type: 'shikigami'
-          },
-          amount: finalDmg
-        });
-        // 如果生命归零且未气绝，进入气绝状态（重置攻防+倒计时）
-        if (newHp <= 0 && !slot.querySelector('.ko-overlay')) {
-          applyKoToCard(slot);
-        }
+      // 如果生命归零且未气绝，进入气绝状态（重置攻防+倒计时）
+      if (newHp <= 0 && !slot.querySelector('.ko-overlay')) {
+        applyKoToCard(slot);
       }
     }
 
@@ -1383,19 +1346,6 @@
       syncSlotToPeer(slot);
       if (isConnected() && typeof sendToPeer === 'function') {
         sendToPeer({ type: 'card-heal', playerId: slot.dataset.slotPlayer, slotIndex: parseInt(slot.dataset.slotIndex, 10), amount: actual });
-      }
-      // 通知效果引擎
-      if (typeof EventBus !== 'undefined') {
-        EventBus.emit('heal_applied', {
-          source: { playerId: localPlayerId || '1' },
-          target: {
-            playerId: slot.dataset.slotPlayer,
-            slotIndex: parseInt(slot.dataset.slotIndex, 10),
-            slot: slot,
-            type: 'shikigami'
-          },
-          amount: actual
-        });
       }
     }
 

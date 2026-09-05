@@ -175,8 +175,7 @@
       if (!activeSpeakPlayer) return;
       const text = speakInput.value.trim();
       if (!text) { closeSpeakDialog(); return; }
-      addChatMessage(activeSpeakPlayer, text);
-      // 联机同步发言
+      // 发言统一走服务器：服务器打码后回显，自己和对方看到的都是打码后的内容
       if (isConnected()) {
         sendToPeer({
           type: 'chat',
@@ -184,6 +183,8 @@
           text,
           senderName: getPlayerName(activeSpeakPlayer),
         });
+      } else {
+        addChatMessage(activeSpeakPlayer, text);
       }
       closeSpeakDialog();
     }
