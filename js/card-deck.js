@@ -1599,7 +1599,7 @@
         case 'import-deck':
           openCardTextDialog({
             title: `${playerName} 导入卡组`,
-            placeholder: '每行一张牌，例如：\nXXX\nAAA\nCCC\nSSS',
+            placeholder: '每行一张牌，例如：\n【式神A】\nXXX\nAAA\nCCC\n上述表示下面的牌都所属式神A',
             multiline: true,
             hideQuantity: true,
             onConfirm: (text) => importDeck(playerId, text),
