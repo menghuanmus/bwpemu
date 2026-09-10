@@ -562,6 +562,11 @@
         slotType: slot.dataset.slotType || 'shikigami',
         slotFaction: slot.dataset.slotFaction || '',
         chargedCount: (slot._chargedCards || []).length,
+        chargedBy: (slot._chargedCards && slot._chargedCards.length) ? (slot._chargedCards[0].chargedBy || '') : '',
+        // 完整同步蓄力卡（含使用者）：判定决定可操作性，不再让对手端退化成占位
+        chargedCards: (slot._chargedCards || []).map(c => ({
+          cardId: c.cardId, cardName: c.cardName, chargedBy: c.chargedBy, cardData: c.cardData || {},
+        })),
         baseAtk: slot._baseAtk !== undefined ? slot._baseAtk : 0,
         baseHp: slot._baseHp !== undefined ? slot._baseHp : 0,
         armor: slot._armor || 0,
@@ -611,13 +616,24 @@
       if (state.armor !== undefined) slot._armor = state.armor;
       if (state.power !== undefined) slot._power = state.power;
       updateStatusBadges(slot);
-      // 蓄力数量：智能合并真实卡牌（cardId≠-1）和 placeholder
-      if (typeof state.chargedCount === 'number') {
-        if (!slot._chargedCards) slot._chargedCards = [];
-        const realCards = slot._chargedCards.filter(c => c.cardId !== -1);
-        const targetPlaceholders = Math.max(0, state.chargedCount - realCards.length);
-        const placeholders = Array.from({ length: targetPlaceholders }, () => ({
-          cardId: -1, cardName: '?', cardData: {}, chargedBy: '?'
+      // 蓄力：优先使用完整同步的蓄力卡列表（含使用者），保证两端数据一致
+      if (Array.isArray(state.chargedCards)) {
+        slot._chargedCards = state.chargedCards.map(function(c) {
+          return {
+            cardId: c.cardId,
+            cardName: c.cardName,
+            cardData: c.cardData ? JSON.parse(JSON.stringify(c.cardData)) : {},
+            chargedBy: c.chargedBy,
+          };
+        });
+        if (typeof Charge !== 'undefined' && Charge.updateIndicator) Charge.updateIndicator(slot);
+      } else if (typeof state.chargedCount === 'number') {
+        // 兼容旧版（只有数量）：真实卡在前，不足补占位
+        const targetCount = Math.max(0, state.chargedCount | 0);
+        const realCards = (slot._chargedCards || []).filter(c => c.cardId !== -1).slice(0, targetCount);
+        const by = state.chargedBy || (realCards[0] && realCards[0].chargedBy) || '?';
+        const placeholders = Array.from({ length: Math.max(0, targetCount - realCards.length) }, () => ({
+          cardId: -1, cardName: '?', cardData: {}, chargedBy: by
         }));
         slot._chargedCards = realCards.concat(placeholders);
         if (typeof Charge !== 'undefined' && Charge.updateIndicator) Charge.updateIndicator(slot);
@@ -737,6 +753,7 @@
     });
 
     /* 交换卡牌槽内容 */
+    let _slotSwapSuppress = false;      // 应用远端交换时防止回环广播
     function swapSlotContents(a, b) {
       const stateA = getSlotState(a);
       const stateB = getSlotState(b);
@@ -753,9 +770,26 @@
         Charge.updateIndicator(b);
       }
       slotSyncSuppress = false;
+      // 关键顺序：先广播「槽交换」让两端各自完成交换（蓄力随式神迁移），再同步槽细节
+      if (!_slotSwapSuppress && window._gameSocket && window._gameSocket.connected && typeof sendToPeer === 'function') {
+        sendToPeer({
+          type: 'slot-swap',
+          aPlayer: a.dataset.slotPlayer, aIndex: parseInt(a.dataset.slotIndex, 10),
+          bPlayer: b.dataset.slotPlayer, bIndex: parseInt(b.dataset.slotIndex, 10),
+        });
+      }
       syncSlotToPeer(a);
       syncSlotToPeer(b);
     }
+
+    /* 应用远端槽交换：在本地执行同样的交换，保证两端蓄力状态一致 */
+    window.applyRemoteSlotSwap = function(aPlayer, aIndex, bPlayer, bIndex) {
+      const A = getSlotByIndex(aPlayer, aIndex);
+      const B = getSlotByIndex(bPlayer, bIndex);
+      if (!A || !B || A === B) return;
+      _slotSwapSuppress = true;
+      try { swapSlotContents(A, B); } finally { _slotSwapSuppress = false; }
+    };
 
     // ---- 倒计时 / 能量 / 气绝 徽章渲染 ----
     const ICON_CD = '<span class="badge-icon">⏳</span>';

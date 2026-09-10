@@ -118,6 +118,11 @@
         case 'slot-update':
           applyRemoteSlotUpdate(data.playerId, data.slotIndex, data.state);
           break;
+        case 'slot-swap':
+          if (typeof window.applyRemoteSlotSwap === 'function') {
+            window.applyRemoteSlotSwap(data.aPlayer, data.aIndex, data.bPlayer, data.bIndex);
+          }
+          break;
         case 'deck-update':
           applyRemoteDeckState(data.playerId, data.deckCount, data.handCount, data.deckData, data.handData, data.graveData);
           break;

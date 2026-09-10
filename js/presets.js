@@ -196,6 +196,7 @@ const Presets = (() => {
         slotFaction: p.faction,
         baseAtk: p.attack,
         baseHp: p.hp,
+        chargedCards: [],   // 部署/替换式神时清空该槽原有蓄力
       });
     }
 

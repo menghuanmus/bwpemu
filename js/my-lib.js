@@ -9,7 +9,7 @@
 var MyLib = (function () {
   var cache = { shikigami: [], cards: [], others: [] };
   var MAX_UNITS = 1000;
-  var MAX_TEXT = 200;
+  var MAX_TEXT = 300;
 
   // ── 工具 ──
   function $(id) { return document.getElementById(id); }
@@ -104,6 +104,13 @@ var MyLib = (function () {
   function fieldHTML(label, id, inner, required) {
     return '<label class="diy-field"><span>' + label + (required ? ' <i style="color:#FB7185">*</i>' : '') + '</span>' + inner + '</label>';
   }
+  /** 绑定描述字数统计：标题旁动态显示 (n/上限) */
+  function bindCharCount(ta, counter, max) {
+    if (!ta || !counter) return;
+    var upd = function() { counter.textContent = '(' + String(ta.value || '').length + '/' + max + ')'; };
+    ta.addEventListener('input', upd);
+    upd();
+  }
   function inputHTML(id, ph, type, extra) {
     return '<input type="' + (type || 'text') + '" id="' + id + '" placeholder="' + esc(ph || '') + '" ' + (extra || '') + '>';
   }
@@ -116,12 +123,12 @@ var MyLib = (function () {
       fieldHTML('名称', 'diy-f-name', inputHTML('diy-f-name', '必填，不能与官方卡牌同名', 'text', 'maxlength="40"'), true),
       '<div class="diy-row">' +
       fieldHTML('派系', 'diy-f-faction', '<select id="diy-f-faction">' + ['苍叶', '红莲', '青岚', '紫岩', '无相'].map(function (f) { return '<option>' + f + '</option>'; }).join('') + '</select>') +
-      fieldHTML('攻击', 'diy-f-atk', inputHTML('diy-f-atk', '0', 'number', 'min="0" max="99"'), true) +
-      fieldHTML('生命', 'diy-f-hp', inputHTML('diy-f-hp', '1', 'number', 'min="1" max="99"'), true) +
+      fieldHTML('攻击', 'diy-f-atk', inputHTML('diy-f-atk', '', 'number', 'min="0" max="99"'), true) +
+      fieldHTML('生命', 'diy-f-hp', inputHTML('diy-f-hp', '', 'number', 'min="1" max="99"'), true) +
       '</div>',
       '<label class="diy-field diy-check"><input type="checkbox" id="diy-f-summon"><span style="display:inline;margin:0 6px 0 0;">是否为召唤物</span></label>',
-      '<div id="diy-f-owner-wrap" style="display:none">' + fieldHTML('所属式神', 'diy-f-owner', inputHTML('diy-f-owner', '召唤物所属的式神（必填）', 'text', 'maxlength="40"'), true) + '</div>',
-      fieldHTML('能力描述（≤200字）', 'diy-f-text', '<textarea id="diy-f-text" maxlength="200" rows="3" placeholder="能力/效果描述"></textarea>'),
+      '<div id="diy-f-owner-wrap" style="display:none">' + fieldHTML('所属式神', 'diy-f-owner', inputHTML('diy-f-owner', '选填，召唤物所属的式神', 'text', 'maxlength="40"')) + '</div>',
+      '<label class="diy-field"><span class="diy-field__head">能力描述（≤300字）<span class="diy-char-count" id="diy-f-count">(0/300)</span></span><textarea id="diy-f-text" maxlength="300" rows="3" placeholder="能力/效果描述"></textarea></label>',
     ].join(''));
     $('diy-f-name').value = unit ? (unit.name || '') : '';
     $('diy-f-faction').value = (unit && unit.faction) || '苍叶';
@@ -137,6 +144,7 @@ var MyLib = (function () {
     }
     syncOwner();
     $('diy-f-summon').addEventListener('change', syncOwner);
+    bindCharCount($('diy-f-text'), $('diy-f-count'), MAX_TEXT);
 
     m.onOk(function () {
       var name = $('diy-f-name').value.trim();
@@ -144,10 +152,6 @@ var MyLib = (function () {
       if (!err) err = validateText('式神', name, $('diy-f-text').value);
       if (!err && $('diy-f-atk').value === '') err = '请填写攻击力';
       if (!err && !$('diy-f-hp').value) err = '请填写生命值';
-      if (!err && $('diy-f-summon').checked) {
-        var owner = $('diy-f-owner').value.trim();
-        if (!owner) err = '请填写召唤物的所属式神';
-      }
       if (err) { m.err.textContent = err; return; }
       var saved = {
         name: name,
@@ -158,7 +162,8 @@ var MyLib = (function () {
       };
       if ($('diy-f-summon').checked) {
         saved.type = 'summon';
-        saved.owner = $('diy-f-owner').value.trim();
+        var ownerVal = $('diy-f-owner').value.trim();
+        if (ownerVal) saved.owner = ownerVal; // 选填：留空则归入「无归属」
       }
       if (idx >= 0) cache.shikigami[idx] = saved; else cache.shikigami.push(saved);
       m.ov.remove();
@@ -185,7 +190,7 @@ var MyLib = (function () {
       '<label class="diy-field diy-check"><input type="checkbox" id="diy-f-derivative"><span style="display:inline;margin:0;">衍生</span></label>' +
       '</div>',
       '<div id="diy-f-dynamic"></div>',
-      fieldHTML('描述（≤200字）', 'diy-f-text', '<textarea id="diy-f-text" maxlength="200" rows="3" placeholder="卡牌效果描述，保存时自动检测关键词"></textarea>'),
+      '<label class="diy-field"><span class="diy-field__head">描述（≤300字）<span class="diy-char-count" id="diy-f-count">(0/300)</span></span><textarea id="diy-f-text" maxlength="300" rows="3" placeholder="卡牌效果描述，保存时自动检测关键词"></textarea></label>',
       fieldHTML('标签', 'diy-f-tags', inputHTML('diy-f-tags', '额外类型，例如符咒、协战', 'text', 'maxlength="100"')),
     ].join(''));
 
@@ -235,6 +240,7 @@ var MyLib = (function () {
     renderDynamic();
     $('diy-f-type').addEventListener('change', renderDynamic);
     $('diy-f-awakened').addEventListener('change', renderDynamic);
+    bindCharCount($('diy-f-text'), $('diy-f-count'), MAX_TEXT);
 
     m.onOk(function () {
       var name = $('diy-f-name').value.trim();
@@ -296,13 +302,14 @@ var MyLib = (function () {
     var m = openModal('其他' + (idx >= 0 ? '编辑' : '新增'), [
       fieldHTML('类型', 'diy-f-otype', '<select id="diy-f-otype"><option value="keyword">关键词</option><option value="curse">灵咒</option></select>', true),
       fieldHTML('名称', 'diy-f-name', inputHTML('diy-f-name', '必填', 'text', 'maxlength="40"'), true),
-      fieldHTML('效果（≤200字）', 'diy-f-text', '<textarea id="diy-f-text" maxlength="200" rows="3" placeholder="关键词/灵咒的效果说明"></textarea>'),
+      '<label class="diy-field"><span class="diy-field__head">效果（≤300字）<span class="diy-char-count" id="diy-f-count">(0/300)</span></span><textarea id="diy-f-text" maxlength="300" rows="3" placeholder="关键词/灵咒的效果说明"></textarea></label>',
       fieldHTML('所属式神', 'diy-f-owner', inputHTML('diy-f-owner', '选填', 'text', 'maxlength="40"')),
     ].join(''));
     $('diy-f-otype').value = (unit && unit.type === 'curse') ? 'curse' : 'keyword';
     $('diy-f-name').value = unit ? (unit.name || '') : '';
     $('diy-f-text').value = (unit && unit.effect) || '';
     $('diy-f-owner').value = (unit && unit.owner) || '';
+    bindCharCount($('diy-f-text'), $('diy-f-count'), MAX_TEXT);
 
     m.onOk(function () {
       var type = $('diy-f-otype').value;

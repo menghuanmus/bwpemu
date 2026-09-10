@@ -45,10 +45,10 @@ const Renyin = (() => {
   function getCardOwnerName(card) {
     if (!card || !card.name) return null;
     const db = CardDB.lookup(card.name);
-    if (!db) return null;
+    if (!db) return card.owner || null;      // 未录入的牌：用卡上标注的归属
     if (db.type === 'shikigami') return db.name;
     if (db.owner) return db.owner;
-    return null;
+    return card.owner || null;
   }
 
   // ================================================================

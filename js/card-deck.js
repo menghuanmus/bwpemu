@@ -1462,8 +1462,10 @@
       // 支持重复写法：卡名x2 / 卡名X9（x 与 X 均可）＝导入多张
       const myPid = (typeof localPlayerId !== 'undefined' && localPlayerId) ? String(localPlayerId) : '1';
       let sectionOwner = '';
-      let unresolved = 0;
-      const names = [];
+      let unresolvedOwned = 0;    // 未找到，但有【式神】归属
+      let unresolvedLoose = 0;    // 未找到，且无归属
+      const missingOwners = new Set();
+      const items = [];
       rawNames.forEach(function(tok) {
         const sec = tok.match(/^【(.+)】$/);
         if (sec) { sectionOwner = sec[1].trim(); return; }
@@ -1480,16 +1482,28 @@
         if (!resolved && typeof CardDB !== 'undefined' && CardDB.findInPlayerLib) {
           resolved = !!CardDB.findInPlayerLib(myPid, cardName, sectionOwner);
         }
-        if (!resolved) unresolved += qty;
-        for (let i = 0; i < qty; i++) names.push(cardName);
+        if (!resolved) {
+          if (sectionOwner) { unresolvedOwned += qty; missingOwners.add(sectionOwner); }
+          else unresolvedLoose += qty;
+        }
+        for (let i = 0; i < qty; i++) items.push({ name: cardName, owner: sectionOwner });
       });
-      const cards = shuffleCards(names.map(name => createCard(name)));
+      const cards = shuffleCards(items.map(function(it) {
+        const c = createCard(it.name);
+        if (it.owner) c.owner = it.owner;   // 写入【式神】归属，牌库/悬浮窗可显示
+        return c;
+      }));
       getPlayerCardState(playerId).deck.push(...cards);
       updateDeckButtons(playerId);
       refreshOpenListDialog(playerId);
       syncDeckState(playerId);
       let msg = `【系统】${getPlayerName(playerId)}导入了卡组（${cards.length}张）`;
-      if (unresolved > 0) msg += `；其中 ${unresolved} 张未在官方库与你的卡库中找到（按无归属导入）`;
+      if (unresolvedOwned > 0) {
+        msg += `；其中 ${unresolvedOwned} 张未在官方库与你的卡库中找到（已按【${[...missingOwners].join('、')}】归属导入）`;
+      }
+      if (unresolvedLoose > 0) {
+        msg += `；另有 ${unresolvedLoose} 张未找到且未标注式神（按无归属导入）`;
+      }
       broadcastSystemMsg(msg);
     }
 
@@ -1836,7 +1850,7 @@
       const ownerMap = new Map();
       deck.forEach(card => {
         const db = CardDB.lookup(card.name);
-        const owner = (db && db.owner) ? db.owner : '无归属';
+        const owner = (db && db.owner) ? db.owner : (card.owner || '无归属');
         if (!ownerMap.has(owner)) ownerMap.set(owner, new Map());
         const nameMap = ownerMap.get(owner);
         const existing = nameMap.get(card.name);
@@ -2502,7 +2516,7 @@
         drawnCards: [],
         rejectedIndices: new Set(),
       };
-      initialHandCountInput.value = Math.min(3, state.deck.length);
+      initialHandCountInput.value = Math.min(5, state.deck.length);
       initialHandCountInput.max = state.deck.length;
       initialHandCardsBody.innerHTML = '';
       initialHandDrawHint.hidden = true;

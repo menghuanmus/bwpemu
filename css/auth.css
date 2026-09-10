@@ -959,6 +959,10 @@
 .diy-modal-err { color: #FB7185; font-size: 1rem; min-height: 1.2em; margin: 6px 0; }
 .diy-modal-actions { display: flex; gap: 10px; justify-content: flex-end; }
 .diy-hint { font-size: 1rem; color: #5E6278; margin-bottom: 10px; line-height: 1.5; }
+.diy-char-count { margin-left: 6px; font-size: 1rem; color: #7C83FF; font-weight: 600; }
+/* 描述标题行：标题左 + 字数最右，同一行显示 */
+.diy-field .diy-field__head { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
+.diy-field .diy-field__head > .diy-char-count { display: inline; margin: 0; white-space: nowrap; }
 .diy-check { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; }
 .diy-check input[type="checkbox"] { width: 18px; height: 18px; accent-color: #7C83FF; }
 .diy-tag--summon { background: rgba(82,196,172,0.15); color: #7ad8c4; }
