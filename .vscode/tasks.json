@@ -226,6 +226,12 @@
 			"type": "shell",
 			"command": "Set-Location \"d:\\DIY\\百闻牌\\百闻牌模拟器\\menghuanmus.github.io\"; node --check js\\my-lib.js; if ($LASTEXITCODE -ne 0) { exit 1 }; Write-Output \"OK\"",
 			"problemMatcher": []
+		},
+		{
+			"label": "bwpemu-check-rarity-none",
+			"type": "shell",
+			"command": "Set-Location \"d:\\DIY\\百闻牌\\百闻牌模拟器\\menghuanmus.github.io\"; node --check js\\my-lib.js; if ($LASTEXITCODE -ne 0) { exit 1 }; Write-Output \"OK\"",
+			"problemMatcher": []
 		}
 	]
 }
