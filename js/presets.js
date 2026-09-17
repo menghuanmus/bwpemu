@@ -101,6 +101,7 @@ const Presets = (() => {
       energy: state.energy || '',
       baseCountdown: state.baseCountdown || 0,
       baseEnergy: state.baseEnergy || 0,
+      koCountdown: state.koCountdown || 3,
       rarity: slot.dataset.slotRarity || '',
       author: (typeof CardDB !== 'undefined' && CardDB.lookup(state.name) && CardDB.lookup(state.name).author) || '官方',
       // 完整加成快照
@@ -179,6 +180,7 @@ const Presets = (() => {
         energy: p.energy,
         baseCountdown: (p.baseCountdown != null ? p.baseCountdown : (p.countdown ? (parseInt(String(p.countdown), 10) || 0) : 0)),
         baseEnergy: (p.baseEnergy != null ? p.baseEnergy : 0),
+        koCountdown: (p.koCountdown != null ? p.koCountdown : 3),
         ko: p.ko || '',
         curses: p.curses || [],
         awakened: p.awakened || false,

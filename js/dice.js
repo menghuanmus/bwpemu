@@ -1009,6 +1009,13 @@
         broadcastSystemMsg(msg);
       }
 
+      // 0) 回合开始：鬼火重置为 2
+      const fireBefore = (typeof playerFire !== 'undefined' && playerFire[playerId] != null) ? playerFire[playerId] : 2;
+      if (typeof setFireState === 'function') setFireState(playerId, 2);
+      broadcastSystemMsg(fireBefore === 2
+        ? `「${tgtName}」的鬼火重置为 2`
+        : `「${tgtName}」的鬼火重置为 2（${fireBefore} → 2）`);
+
       /** 普通倒计时 -1：动画 + 到期回基础值 + 明细消息 */
       function tickCountdownOnce(slot, cardName) {
         const cdInput = slot.querySelector('.card-badge--countdown input');
@@ -1025,7 +1032,9 @@
           }
         }
         cdInput.value = cdV;
-        broadcastSystemMsg(`【系统】「${cardName}」倒计时 -1（${before} → ${cdV}）`);
+        // 减到 0 = 触发基础倒计时效果（面板里的基础倒计时数值），消息里补一句说明
+        const cdTail = (cdV <= 0) ? '，触发基础倒计时效果' : '';
+        broadcastSystemMsg(`【系统】「${cardName}」倒计时 -1（${before} → ${cdV}）${cdTail}`);
         if (cdV <= 0) {
           cdInput.classList.add('turn-bounce');
           setTimeout(() => {
@@ -1139,7 +1148,7 @@
       if (!art || art.querySelector('.ko-overlay')) return;
       const overlay = document.createElement('div');
       overlay.className = 'ko-overlay';
-      overlay.innerHTML = '<div class="ko-circle"><span class="ko-icon">⏳</span><input type="text" value="' + (value || '1') + '" aria-label="气绝"></div>';
+      overlay.innerHTML = '<div class="ko-circle"><span class="ko-icon">⏳</span><input type="text" value="' + (value || '3') + '" aria-label="气绝"></div>';
       overlay.querySelector('input').addEventListener('change', () => {
         syncSlotToPeer(slot);
       });
@@ -1227,7 +1236,8 @@
           sendToPeer({ type: 'fx-revive', playerId: slot.dataset.slotPlayer, slotIndex: parseInt(slot.dataset.slotIndex, 10) });
         }
       } else {
-        createKoOverlay(slot, '3');
+        // 气绝倒计时初始值：默认 3，可在式神管理面板「倒计时/能量」里调整
+        createKoOverlay(slot, String(slot._baseKoCountdown || 3));
         // 气绝时普通倒计时重置为基础值
         if (slot.querySelector('.card-badge--countdown')) {
           const baseCd = slot._baseCountdown || 2;

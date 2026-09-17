@@ -544,7 +544,9 @@
         energy: enBadge ? (enBadge.querySelector('input').value || '') : '',
         baseCountdown: slot._baseCountdown || 0,
         baseEnergy: slot._baseEnergy || 0,
-        ko: slot.querySelector('.ko-overlay') ? (slot.querySelector('.ko-circle input').value || '1') : '',
+        // 气绝倒计时初始值（默认 3，可在式神管理面板「倒计时/能量」里改）
+        koCountdown: slot._baseKoCountdown || 3,
+        ko: slot.querySelector('.ko-overlay') ? (slot.querySelector('.ko-circle input').value || '3') : '',
         curses: getSlotCurses(slot),
         awakened: slot.classList.contains('awakened'),
         awakenName: slot._awakenCardName || '',
@@ -587,6 +589,8 @@
       // 基础倒计时/能量数值（回合开始到期重置用）
       if (state.baseCountdown !== undefined) slot._baseCountdown = state.baseCountdown;
       if (state.baseEnergy !== undefined) slot._baseEnergy = state.baseEnergy;
+      // 基础气绝倒计时（气绝时从该值开始倒数）
+      if (state.koCountdown !== undefined) slot._baseKoCountdown = state.koCountdown;
       setSlotCurses(slot, state.curses || []);
       // 觉醒标记
       if (state.awakened) { slot.classList.add('awakened'); } else { slot.classList.remove('awakened'); }

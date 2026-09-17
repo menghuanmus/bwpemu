@@ -1703,12 +1703,15 @@
     -webkit-user-select: none;
     user-select: none;
   }
-  /* 占卜弹窗：内容多时弹窗内滚动，滚动到底不再带动背景 */
+  /* 占卜弹窗：限制高度，内部牌组列表各自滑动（不再整窗滑） */
   .divine-dialog {
     max-height: 85dvh;
-    overflow-y: auto;
+    overflow: hidden;
     overscroll-behavior: contain;
     -webkit-overflow-scrolling: touch;
+  }
+  .divine-section__body {
+    max-height: 32dvh;
   }
 
   /* 派系筛选按钮：横排紧凑，高度减半 */

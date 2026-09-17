@@ -160,6 +160,15 @@ const BonusPanel = (() => {
       }
       syncSlotToPeer(ctx.slot);
     }
+    if (e.target.id === 'bonus-base-ko-countdown') {
+      let v = parseInt(e.target.value, 10);
+      if (Number.isNaN(v) || v < 1) v = 3;
+      ctx.slot._baseKoCountdown = v;
+      // 正在气绝中：同步更新遮罩上的数字
+      const koInput = ctx.slot.querySelector('.ko-overlay input');
+      if (koInput) koInput.value = String(v);
+      syncSlotToPeer(ctx.slot);
+    }
     if (e.target.id === 'bonus-has-energy') {
       ctx.slot._baseEnergy = 0;
       if (e.target.checked) {
@@ -656,6 +665,7 @@ const BonusPanel = (() => {
     const hasCountdown = !!ctx.slot.querySelector('.card-badge--countdown');
     const hasEnergy = !!ctx.slot.querySelector('.card-badge--energy');
     const baseCountdown = ctx.slot._baseCountdown || 2;
+    const baseKoCountdown = ctx.slot._baseKoCountdown || 3;
     const awakened = ctx.slot.classList.contains('awakened');
     const baseAbilitySaved = ctx.slot._baseAbility !== undefined ? ctx.slot._baseAbility : '';
     const awakenAbility = ctx.slot._permAbility || '';
@@ -678,6 +688,10 @@ const BonusPanel = (() => {
       <textarea id="bonus-awaken-ability" class="bonus-ability-input" placeholder="觉醒能力" rows="3" ${awakened ? '' : 'style="display:none;"'}>${escapeHTML(awakenAbility)}</textarea>`;
 
     const cdEnergyHTML = `<div class="bonus-cd-energy-row">
+      <span class="bonus-cd-energy-label">基础气绝倒计时：</span>
+      <input type="number" id="bonus-base-ko-countdown" class="bonus-form-stat-input" value="${baseKoCountdown}" min="1" max="99" title="气绝后倒计时从该数值开始（默认 3）">
+    </div>
+    <div class="bonus-cd-energy-row">
       <label class="bonus-summon-label"><input type="checkbox" id="bonus-has-countdown" ${hasCountdown ? 'checked' : ''}> 倒计时</label>
       <span class="bonus-cd-energy-label">基础倒计时：</span>
       <input type="number" id="bonus-base-countdown" class="bonus-form-stat-input" value="${baseCountdown}" min="1" max="99">
@@ -785,6 +799,7 @@ const BonusPanel = (() => {
     const hasCountdown = !!ctx.slot.querySelector('.card-badge--countdown');
     const hasEnergy = !!ctx.slot.querySelector('.card-badge--energy');
     const baseCountdown = ctx.slot._baseCountdown || 2;
+    const baseKoCountdown = ctx.slot._baseKoCountdown || 3;
     const awakened = ctx.slot.classList.contains('awakened');
     const baseAbilitySaved = ctx.slot._baseAbility !== undefined ? ctx.slot._baseAbility : '';
     const awakenAbility = ctx.slot._permAbility || '';
@@ -823,6 +838,10 @@ const BonusPanel = (() => {
           <!-- 倒计时 / 能量 -->
           <div class="bonus-section">
             <div class="bonus-section__label">📊 倒计时 / 能量</div>
+            <div class="bonus-cd-energy-row">
+              <span class="bonus-cd-energy-label">基础气绝倒计时：</span>
+              <input type="number" id="bonus-base-ko-countdown" class="bonus-form-stat-input" value="${baseKoCountdown}" min="1" max="99" title="气绝后倒计时从该数值开始（默认 3）">
+            </div>
             <div class="bonus-cd-energy-row">
               <label class="bonus-summon-label"><input type="checkbox" id="bonus-has-countdown" ${hasCountdown ? 'checked' : ''}> 倒计时</label>
               <span class="bonus-cd-energy-label">基础倒计时：</span>

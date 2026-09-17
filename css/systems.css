@@ -341,13 +341,19 @@
        占卜对话框 (Divine Dialog)
        ================================================================ */
     .divine-dialog {
-      min-width: 380px;
+      min-width: min(380px, 100%);
       max-width: 520px;
+      max-height: 86vh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
     }
 
     .divine-dialog h3 {
       color: #ffd700;
+      flex-shrink: 0;
     }
+    .divine-dialog .speak-dialog-actions { flex-shrink: 0; }
 
     .divine-x-row {
       display: flex;
@@ -355,6 +361,7 @@
       gap: 10px;
       padding: 12px 0 4px;
       flex-wrap: wrap;
+      flex-shrink: 0;
     }
 
     .divine-x-row label {
@@ -416,7 +423,10 @@
       flex-direction: column;
       gap: 14px;
       padding: 8px 0 4px;
-      min-height: 120px;
+      flex: 1 1 auto;
+      min-height: 0;
+      overflow-y: auto;
+      overscroll-behavior: contain;
     }
 
     .divine-section {
@@ -424,6 +434,10 @@
       border-radius: 8px;
       overflow: hidden;
       background: rgba(10, 18, 32, 0.55);
+      display: flex;
+      flex-direction: column;
+      min-height: 0;
+      flex-shrink: 0;
     }
 
     .divine-section--top {
@@ -458,6 +472,11 @@
       display: flex;
       flex-direction: column;
       gap: 4px;
+      /* 牌很多时不再把弹窗摸高，改成列表内滑动 */
+      max-height: 30vh;
+      overflow-y: auto;
+      overscroll-behavior: contain;
+      -webkit-overflow-scrolling: touch;
     }
 
     .divine-section__body:empty::after {
@@ -1666,6 +1685,180 @@
     }
     .card-list-dialog h3 {
       padding-right: 100px; /* 给右上角按钮留空间 */
+    }
+
+    /* 牌库弹窗底部「↕ 移动牌库」按钮：与旁边「关闭」同字号同高度 */
+
+    /* ================================================================
+       ↕ 移动牌库（牌库弹窗的二级弹窗）
+       ================================================================ */
+    #deck-move-overlay {
+      z-index: 620; /* 要盖在牌库弹窗（300）与文本弹窗（610）之上 */
+    }
+    .deck-move-dialog {
+      width: min(560px, 100%);
+      max-height: 86vh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      min-height: 0;
+    }
+    .deck-move-dialog h3 {
+      font-size: 1.1rem;
+      flex-shrink: 0;
+    }
+    .deck-move-body {
+      flex: 1 1 auto;
+      min-height: 0;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;   /* 滚动交给中间的 .deck-move-scroll */
+    }
+    /* 上：定位 / 对象 / 位置提示（固定不滑） */
+    .deck-move-fixed-top,
+    .deck-move-fixed-bottom {
+      flex-shrink: 0;
+    }
+    /* 中：筛选区（滑块） */
+    .deck-move-scroll {
+      flex: 1 1 auto;
+      min-height: 0;
+      overflow-y: auto;
+      overscroll-behavior: contain;
+      -webkit-overflow-scrolling: touch;
+      padding-right: 4px;
+      padding-bottom: 4px;
+    }
+    .deck-move-row {
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-bottom: 10px;
+    }
+    /* 方向行上方加横线，与筛选区分隔 */
+    .deck-move-row--sep {
+      border-top: 1px solid rgba(200, 160, 60, 0.18);
+      padding-top: 10px;
+      margin-top: 2px;
+    }
+    /* 距离：电脑端与方向同排；手机端整体换到下一排（见下方媒体查询） */
+    .deck-move-dist-group {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .deck-move-label {
+      font-size: 1rem;
+      color: #c0a060;
+      white-space: nowrap;
+    }
+    .deck-move-opts {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+    .deck-move-opt {
+      font-size: 1rem;
+      font-family: inherit;
+      padding: 4px 10px;
+      border-radius: 6px;
+      border: 1px solid rgba(200, 160, 60, 0.35);
+      background: rgba(20, 15, 5, 0.6);
+      color: #b9a06a;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+    .deck-move-opt:hover { border-color: rgba(220, 180, 80, 0.7); }
+    .deck-move-opt.active {
+      background: linear-gradient(180deg, #8a7a3a, #6a5a28);
+      border-color: rgba(240, 200, 100, 0.8);
+      color: #fff5d8;
+    }
+    .deck-move-select,
+    .deck-move-num {
+      font-size: 1rem;
+      font-family: inherit;
+      height: 32px;
+      box-sizing: border-box;
+      padding: 0 6px;
+      background: rgba(10, 8, 4, 0.75);
+      color: #f0e0c0;
+      border: 1px solid rgba(200, 160, 60, 0.4);
+      border-radius: 6px;
+    }
+    /* 位置模式的说明文字：与下拉/输入框同字号同色，保证行高不变 */
+    .deck-move-postext {
+      font-size: 1rem;
+      color: #f0e0c0;
+      line-height: 32px;
+    }
+    .deck-move-select { max-width: 240px; }
+    .deck-move-num { width: 64px; text-align: center; }
+    .deck-move-filters {
+      border-top: 1px solid rgba(200, 160, 60, 0.18);
+      padding-top: 10px;
+      margin-bottom: 10px;
+    }
+    .deck-move-filters--off { opacity: 0.45; pointer-events: none; }
+    .deck-move-filter-row {
+      display: flex;
+      align-items: flex-start;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-bottom: 8px;
+    }
+    .deck-move-filter-row .deck-move-label { min-width: 4em; }
+    .deck-move-hint {
+      font-size: 1rem;
+      color: #a09070;
+      display: block;
+      margin: 0 0 10px 4px;
+    }
+    /* 关键词：第一排「标题 + 全部」，第二排其余按钮（抵满左对齐） */
+    .deck-move-filter-row--kw1 {
+      align-items: center;
+    }
+    .deck-move-match {
+      font-size: 1.1rem;
+      color: #9fd6a0;
+      flex-shrink: 0;
+      padding: 8px 0 0;
+      margin-top: 8px;
+      border-top: 1px solid rgba(200, 160, 60, 0.18);
+    }
+    .deck-move-match--warn { color: #fb7185; }
+    #deck-move-overlay .speak-dialog-actions button { font-size: 1rem; }
+    #deck-move-confirm:disabled {
+      opacity: 0.45;
+      cursor: not-allowed;
+    }
+    @media (max-width: 768px) {
+      .deck-move-dialog { width: 100%; max-height: 90vh; }
+      .deck-move-select { max-width: 100%; }
+      /* 手机端：筛选组改成「标题一行、按钮一行」 */
+      .deck-move-filter-row {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 6px;
+      }
+      /* 关键词第一排例外：「全部」仍与标题同一排 */
+      .deck-move-filter-row--kw1 {
+        flex-direction: row;
+        align-items: center;
+        gap: 8px;
+      }
+      /* 手机端：式神/牌名/位置 不显示「对象」两字；位置的两个输入框缩短 */
+      .deck-move-row--obj .deck-move-label {
+        display: none;
+      }
+      .deck-move-row--obj .deck-move-num {
+        width: 52px;
+      }
+      /* 手机端：距离不跟方向同一排，换到下一排 */
+      .deck-move-dist-group {
+        flex-basis: 100%;
+      }
     }
 
     /* ================================================================

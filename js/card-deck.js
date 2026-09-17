@@ -66,6 +66,10 @@
     const cardListTitle = document.getElementById('card-list-dialog-title');
     const cardListBody = document.getElementById('card-list-dialog-body');
     const cardListBreakdownBtn = document.getElementById('card-list-breakdown-btn');
+    const deckMoveListBtn = document.getElementById('card-list-deck-move-btn');
+    const deckMoveOverlay = document.getElementById('deck-move-overlay');
+    const deckMoveBody = document.getElementById('deck-move-body');
+    const deckMoveConfirmBtn = document.getElementById('deck-move-confirm');
     const deckBreakdownPanel = document.getElementById('deck-breakdown-panel');
     const deckBreakdownTitle = document.getElementById('deck-breakdown-title');
     const deckBreakdownBody = document.getElementById('deck-breakdown-body');
@@ -650,6 +654,11 @@
       // 牌表按钮：仅自己牌库可见（查看对手牌库时隐藏）
       cardListBreakdownBtn.hidden = (type !== 'deck' || !isViewingOwnCards(playerId));
       cardListBreakdownBtn.textContent = '📋 查看牌表';
+      // 移动牌库按钮：仅自己的牌库、牌库非空、非观众
+      if (deckMoveListBtn) {
+        const specView = (typeof isSpectator !== 'undefined' && isSpectator);
+        deckMoveListBtn.hidden = (type !== 'deck' || !isViewingOwnCards(playerId) || specView || !getPlayerCardState(playerId).deck.length);
+      }
       // 初始手牌按钮：仅在自己手牌弹窗中显示
       const initialHandBtn = document.getElementById('card-list-initial-hand-btn');
       if (initialHandBtn) {
@@ -672,6 +681,7 @@
     function closeCardListDialog() {
       cardListOverlay.hidden = true;
       cardListContext = null;
+      _deckMoveClose();
       cardListBody.innerHTML = '';
       document.getElementById('deck-summary-header').hidden = true;
       document.getElementById('deck-summary-header').innerHTML = '';
@@ -683,6 +693,307 @@
       if (!cardListContext || cardListContext.playerId !== playerId) return;
       if (cardListContext.type === 'hand') renderHandList(playerId);
       else { renderDeckList(playerId); refreshDeckBreakdown(playerId); }
+    }
+
+    // ================================================================
+    //  ↕ 移动牌库：按「定位 + 筛选」找出牌，整体上移/下移 N 位
+    // ================================================================
+    const DM_LEVELS = [['1', '1级'], ['2', '2级'], ['3', '3级'], ['其他', '其他']];
+    const DM_RARITIES = [['R', 'R'], ['SR', 'SR'], ['SSR', 'SSR'], ['其他', '其他']];
+    const DM_TYPES = [['battle', '战斗'], ['spell', '法术'], ['form', '形态'], ['realm', '幻境'], ['其他', '其他']];
+    const DM_KNOWN_TYPES = ['battle', 'spell', 'form', 'realm'];
+    const DM_NO_KW = '__no_kw__';   // 「无关键词」特殊值（不参与候选列表）
+
+    let deckMoveCtx = null;
+
+    /** 单张牌的匹配元信息（与检索/连引同一口径：先查数据库，再回退卡牌自身字段） */
+    function _deckMoveMeta(card) {
+      const db = (typeof CardDB !== 'undefined' && CardDB.lookup) ? CardDB.lookup(card.name) : null;
+      const lvRaw = (db && db.level != null) ? db.level : card.level;
+      const lv = Number(lvRaw);
+      const typeRaw = String((db && db.type) || card.type || '');
+      const rarRaw = String((db && db.rarity) || card.rarity || '');
+      const owner = String((db && db.owner) || card.owner || '').trim();
+      const kws = (db && Array.isArray(db.keywords)) ? db.keywords : (Array.isArray(card.keywords) ? card.keywords : []);
+      const tgs = (db && Array.isArray(db.tags)) ? db.tags : (Array.isArray(card.tags) ? card.tags : []);
+      return {
+        level: (lv === 1 || lv === 2 || lv === 3) ? String(lv) : '其他',
+        type: DM_KNOWN_TYPES.indexOf(typeRaw) !== -1 ? typeRaw : '其他',
+        rarity: (rarRaw === 'R' || rarRaw === 'SR' || rarRaw === 'SSR') ? rarRaw : '其他',
+        owner: owner || '中立',
+        keywords: kws.filter(Boolean).map(String),
+        tags: tgs.filter(Boolean).map(String),
+      };
+    }
+
+    /** 扫一遍牌库生成候选池（顺带把无效数据过滤回写，保证下标与 state.deck 完全一致） */
+    function _deckMovePool(playerId) {
+      const st = getPlayerCardState(playerId);
+      st.deck = (st.deck || []).filter(c => c && typeof c === 'object');
+      const owners = new Map(), names = new Map(), kws = new Map(), tags = new Map();
+      let noKwCount = 0;
+      st.deck.forEach(card => {
+        const m = _deckMoveMeta(card);
+        owners.set(m.owner, (owners.get(m.owner) || 0) + 1);
+        const nm = String(card.name || '(未命名)');
+        names.set(nm, (names.get(nm) || 0) + 1);
+        if (!m.keywords.length) noKwCount++;
+        new Set(m.keywords).forEach(k => kws.set(k, (kws.get(k) || 0) + 1));
+        new Set(m.tags).forEach(t => tags.set(t, (tags.get(t) || 0) + 1));
+      });
+      return { deck: st.deck, owners, names, kws, tags, noKwCount };
+    }
+
+    function _dmSortEntries(map) {
+      return [...map.entries()].sort((a, b) => String(a[0]).localeCompare(String(b[0]), 'zh'));
+    }
+
+    /** 当前条件下匹配到的牌库下标（升序） */
+    function _deckMoveMatched(ctx) {
+      const deck = ctx.pool.deck;
+      const out = [];
+      if (ctx.locate === 'pos') {
+        const start = Math.min(Math.max(1, ctx.posStart), deck.length) - 1;
+        const count = Math.max(1, Math.min(ctx.posCount, deck.length - start));
+        for (let i = start; i < start + count; i++) out.push(i);
+        return out;
+      }
+      // 关键词：「全部」= 不筛；否则「无关键词」与具体关键词可**自由组合**（命中任一项即可）
+      const selWords = [...ctx.sel.kw].filter(k => k !== DM_NO_KW);
+      const selNone = ctx.sel.kw.has(DM_NO_KW);
+      const kwHit = (m) => {
+        if (selNone && !m.keywords.length) return true;
+        if (selWords.length && m.keywords.some(k => selWords.indexOf(k) !== -1)) return true;
+        return false;
+      };
+      const tagOn = ctx.cand.tag.length > 0 && ctx.sel.tag.size < ctx.cand.tag.length;
+      deck.forEach((card, i) => {
+        const m = _deckMoveMeta(card);
+        if (ctx.locate === 'shikigami' && m.owner !== ctx.ownerVal) return;
+        if (ctx.locate === 'card' && String(card.name || '(未命名)') !== ctx.cardNameVal) return;
+        if (!ctx.sel.level.has(m.level)) return;
+        if (!ctx.sel.rarity.has(m.rarity)) return;
+        if (!ctx.sel.type.has(m.type)) return;
+        if (!ctx.kwAll && !kwHit(m)) return;
+        if (tagOn && !m.tags.some(t => ctx.sel.tag.has(t))) return;
+        out.push(i);
+      });
+      return out;
+    }
+
+    /** 稳定移位：返回新的牌库数组；没有实际位移时返回 null（已在顶/底） */
+    function _deckMoveShift(deck, matched, dir, distance) {
+      const len = deck.length;
+      if (!len || !matched.length) return null;
+      const delta = (dir === 'up' ? -1 : 1) * distance;
+      const target = matched.map(p => Math.max(0, Math.min(len - 1, p + delta)));
+      // 多张牌不能挤到同一格：按移动方向依次错开（保持相对顺序）
+      if (dir === 'up') {
+        for (let i = 0; i < target.length; i++) {
+          const min = i === 0 ? 0 : target[i - 1] + 1;
+          if (target[i] < min) target[i] = min;
+        }
+      } else {
+        for (let i = target.length - 1; i >= 0; i--) {
+          const max = (i === target.length - 1) ? len - 1 : target[i + 1] - 1;
+          if (target[i] > max) target[i] = max;
+        }
+      }
+      if (target.every((v, i) => v === matched[i])) return null;   // 已经在顶/底，无位移
+      const movingIdx = new Set(matched);
+      const movingCards = matched.map(i => deck[i]);
+      const restCards = deck.filter((_, i) => !movingIdx.has(i));
+      const result = new Array(len);
+      const occupied = new Set(target);
+      target.forEach((pos, k) => { result[pos] = movingCards[k]; });
+      let ri = 0;
+      for (let i = 0; i < len; i++) { if (!occupied.has(i)) result[i] = restCards[ri++]; }
+      return result;
+    }
+
+    function _deckMoveFixedPills(dim, defs, sel) {
+      return defs.map(([val, label]) =>
+        `<button type="button" class="deck-move-opt${sel.has(val) ? ' active' : ''}" data-dim="${dim}" data-val="${escapeHTML(val)}">${escapeHTML(label)}</button>`
+      ).join('');
+    }
+
+    function _deckMoveCountPills(dim, entries, sel) {
+      return entries.map(([val, n]) =>
+        `<button type="button" class="deck-move-opt${sel.has(val) ? ' active' : ''}" data-dim="${dim}" data-val="${escapeHTML(String(val))}">${escapeHTML(String(val))}×${n}</button>`
+      ).join('');
+    }
+
+    function _deckMoveRenderBody() {
+      const c = deckMoveCtx;
+      if (!c || !deckMoveBody) return;
+      const locates = [['all', '无限制'], ['shikigami', '式神'], ['card', '牌名'], ['pos', '位置']];
+      const locateHTML = locates.map(([val, label]) =>
+        `<button type="button" class="deck-move-opt${c.locate === val ? ' active' : ''}" data-locate="${val}">${label}</button>`
+      ).join('');
+
+      let valueHTML = '';
+      if (c.locate === 'shikigami') {
+        const opts = _dmSortEntries(c.pool.owners).map(([o, n]) =>
+          `<option value="${escapeHTML(String(o))}"${String(o) === c.ownerVal ? ' selected' : ''}>${escapeHTML(String(o))}（${n}张）</option>`).join('');
+        valueHTML = `<select class="deck-move-select" id="deck-move-select">${opts}</select>`;
+      } else if (c.locate === 'card') {
+        const opts = _dmSortEntries(c.pool.names).map(([nm, n]) =>
+          `<option value="${escapeHTML(String(nm))}"${String(nm) === c.cardNameVal ? ' selected' : ''}>${escapeHTML(String(nm))}（${n}张）</option>`).join('');
+        valueHTML = `<select class="deck-move-select" id="deck-move-select">${opts}</select>`;
+      } else if (c.locate === 'pos') {
+        const maxPos = c.pool.deck.length;
+        valueHTML = `<span class="deck-move-postext">第</span>` +
+          `<input type="number" class="deck-move-num" id="deck-move-pos-start" value="${c.posStart}" min="1" max="${maxPos}">` +
+          `<span class="deck-move-postext">张起，共</span>` +
+          `<input type="number" class="deck-move-num" id="deck-move-pos-count" value="${c.posCount}" min="1" max="${maxPos}">` +
+          `<span class="deck-move-postext">张</span>`;
+      }
+      // 无限制：不限制对象，不需要「对象」行（弹窗会自动收缩）
+      const valueRowHTML = (c.locate === 'all') ? '' :
+        `<div class="deck-move-row deck-move-row--obj"><span class="deck-move-label">对象</span>${valueHTML}</div>`;
+
+      const filtersOff = (c.locate === 'pos');
+      let filtersHTML = `<div class="deck-move-filter-row"><span class="deck-move-label">等级</span><div class="deck-move-opts">${_deckMoveFixedPills('level', DM_LEVELS, c.sel.level)}</div></div>` +
+        `<div class="deck-move-filter-row"><span class="deck-move-label">稀有度</span><div class="deck-move-opts">${_deckMoveFixedPills('rarity', DM_RARITIES, c.sel.rarity)}</div></div>` +
+        `<div class="deck-move-filter-row"><span class="deck-move-label">类型</span><div class="deck-move-opts">${_deckMoveFixedPills('type', DM_TYPES, c.sel.type)}</div></div>`;
+      if (c.cand.kw.length) {
+        // 关键词：第一排 = 标题 + 「全部」；第二排 = 其余按钮
+        // 「全部」高亮只看 kwAll 标记：手动逐个选满时保持各个关键词高亮，不跳到「全部」
+        const allPill = `<button type="button" class="deck-move-opt${c.kwAll ? ' active' : ''}" data-dim="kw" data-special="all">全部</button>`;
+        const restPills = `<button type="button" class="deck-move-opt${c.sel.kw.has(DM_NO_KW) ? ' active' : ''}" data-dim="kw" data-special="none">无关键词×${c.pool.noKwCount || 0}</button>` +
+          _deckMoveCountPills('kw', _dmSortEntries(c.pool.kws), c.kwAll ? new Set() : c.sel.kw);
+        filtersHTML += `<div class="deck-move-filter-row deck-move-filter-row--kw1"><span class="deck-move-label">关键词</span><div class="deck-move-opts">${allPill}</div></div>` +
+          `<div class="deck-move-filter-row deck-move-filter-row--kw2"><div class="deck-move-opts">${restPills}</div></div>`;
+      }
+      if (c.cand.tag.length) {
+        filtersHTML += `<div class="deck-move-filter-row"><span class="deck-move-label">标签</span><div class="deck-move-opts">${_deckMoveCountPills('tag', _dmSortEntries(c.pool.tags), c.sel.tag)}</div></div>`;
+      }
+
+      // 三段式：定位/对象固定在上；筛选区为滚动区；方向/距离固定在下面
+      deckMoveBody.innerHTML = `
+        <div class="deck-move-fixed-top">
+          <div class="deck-move-row"><span class="deck-move-label">定位</span><div class="deck-move-opts">${locateHTML}</div></div>
+          ${valueRowHTML}
+          ${filtersOff ? '<div class="deck-move-hint">位置已确定单张牌，无需筛选</div>' : ''}
+        </div>
+        <div class="deck-move-scroll">
+          <div class="deck-move-filters${filtersOff ? ' deck-move-filters--off' : ''}">
+            ${filtersHTML}
+          </div>
+        </div>
+        <div class="deck-move-fixed-bottom">
+          <div class="deck-move-row deck-move-row--sep">
+            <span class="deck-move-label">方向</span>
+            <div class="deck-move-opts">
+              <button type="button" class="deck-move-opt deck-move-dir${c.dir === 'up' ? ' active' : ''}" data-dir="up">↑ 上移</button>
+              <button type="button" class="deck-move-opt deck-move-dir${c.dir === 'down' ? ' active' : ''}" data-dir="down">↓ 下移</button>
+            </div>
+            <span class="deck-move-dist-group">
+              <span class="deck-move-label">距离</span>
+              <input type="number" class="deck-move-num" id="deck-move-distance" value="${c.distance}" min="1" max="99">
+              <span class="deck-move-postext">位</span>
+            </span>
+          </div>
+        </div>`;
+    }
+
+    /** 刷新「牌库共 N 张牌，匹配 M 张」与确定按钮可用性（不重建 DOM，避免输入时失焦） */
+    function _deckMoveRecalc() {
+      const c = deckMoveCtx;
+      if (!c) return;
+      const el = document.getElementById('deck-move-match');
+      let warn = '';
+      if (c.locate !== 'pos') {
+        if (c.sel.level.size === 0) warn = '请至少选择一个等级';
+        else if (c.sel.rarity.size === 0) warn = '请至少选择一个稀有度';
+        else if (c.sel.type.size === 0) warn = '请至少选择一个类型';
+        else if (c.cand.kw.length && !c.kwAll && c.sel.kw.size === 0) warn = '请至少选择一个关键词';
+        else if (c.cand.tag.length && c.sel.tag.size === 0) warn = '请至少选择一个标签';
+      }
+      const matched = _deckMoveMatched(c);
+      if (el) {
+        const head = '牌库共 ' + c.pool.deck.length + ' 张牌，';
+        el.textContent = head + (warn || (matched.length ? ('匹配 ' + matched.length + ' 张') : '没有匹配的牌'));
+        el.classList.toggle('deck-move-match--warn', !!warn || matched.length === 0);
+      }
+      if (deckMoveConfirmBtn) deckMoveConfirmBtn.disabled = !!warn || matched.length === 0;
+    }
+
+    function _deckMoveOpen(playerId) {
+      if (typeof isSpectator !== 'undefined' && isSpectator) return;
+      if (!deckMoveOverlay || !deckMoveBody) return;
+      const pool = _deckMovePool(playerId);
+      if (!pool.deck.length) {
+        broadcastSystemMsg(`【系统】牌库为空，无需移动`);
+        return;
+      }
+      const owners = _dmSortEntries(pool.owners);
+      const names = _dmSortEntries(pool.names);
+      const candKw = _dmSortEntries(pool.kws).map(e => String(e[0]));
+      const candTag = _dmSortEntries(pool.tags).map(e => String(e[0]));
+      deckMoveCtx = {
+        playerId, pool,
+        locate: 'all',
+        ownerVal: owners.length ? String(owners[0][0]) : '中立',
+        cardNameVal: names.length ? String(names[0][0]) : '',
+        posStart: 1, posCount: 1,
+        cand: { kw: candKw, tag: candTag },
+        sel: {
+          level: new Set(DM_LEVELS.map(d => d[0])),
+          rarity: new Set(DM_RARITIES.map(d => d[0])),
+          type: new Set(DM_TYPES.map(d => d[0])),
+          kw: new Set(candKw),
+          tag: new Set(candTag),
+        },
+        kwAll: true,          // 「全部」是否处于亮着（手动选满关键词时不会变成 true）
+        dir: 'up',
+        distance: 1,
+      };
+      _deckMoveRenderBody();
+      deckMoveOverlay.hidden = false;
+      _deckMoveRecalc();
+    }
+
+    function _deckMoveClose() {
+      if (deckMoveOverlay) deckMoveOverlay.hidden = true;
+      if (deckMoveBody) deckMoveBody.innerHTML = '';
+      deckMoveCtx = null;
+    }
+
+    /** 把定位条件转成一句人话（系统消息与本地提示共用） */
+    function _deckMoveLocateDesc(c, matched) {
+      if (c.locate === 'all') return '定位为无限制';
+      if (c.locate === 'shikigami') {
+        return (c.ownerVal === '中立' || c.ownerVal === '无所属')
+          ? '定位为中立牌'
+          : ('定位为' + c.ownerVal + '式神的牌');
+      }
+      if (c.locate === 'card') return '定位为牌名' + c.cardNameVal + '的牌';
+      const start = matched.length ? (matched[0] + 1) : 1;
+      return '定位为第' + start + '位共' + matched.length + '张的牌';
+    }
+
+    function _deckMoveConfirm() {
+      const c = deckMoveCtx;
+      if (!c) return;
+      const matched = _deckMoveMatched(c);
+      if (!matched.length) return;
+      // 允许「原地移动」：已经在牌库顶/底时也照常走流程，只是不改牌库
+      const next = _deckMoveShift(c.pool.deck, matched, c.dir, c.distance);
+      const pid = c.playerId;
+      if (next) {
+        getPlayerCardState(pid).deck = next;
+        updateDeckButtons(pid);
+        refreshOpenListDialog(pid);
+        if (typeof syncDeckState === 'function') syncDeckState(pid);
+      }
+      // 先关弹窗再发消息：万一消息环节出异常，弹窗不会卡住
+      _deckMoveClose();
+      const moveDesc = `${matched.length} 张牌 ${c.dir === 'up' ? '↑ 上移' : '↓ 下移'} ${c.distance} 位`;
+      const locDesc = _deckMoveLocateDesc(c, matched);
+      // 操作者本人：加一个醒目的本地提示（对方看不到）
+      if (typeof showActionToast === 'function') showActionToast('牌库已调整', `${moveDesc}　${locDesc}`);
+      broadcastSystemMsg(`【系统】${getPlayerName(pid)}调整了牌库顺序（${moveDesc}）（${locDesc}）`);
     }
 
     function drawCard(playerId) {
@@ -1710,6 +2021,87 @@
     });
     document.querySelector('.card-text-placement-cancel').addEventListener('click', closeCardTextDialog);
     document.getElementById('card-list-dialog-close').addEventListener('click', closeCardListDialog);
+
+    // ---- 移动牌库：入口按钮 + 弹窗交互 ----
+    if (deckMoveListBtn) {
+      deckMoveListBtn.addEventListener('click', () => {
+        if (!cardListContext) return;
+        _deckMoveOpen(cardListContext.playerId);
+      });
+    }
+    document.getElementById('deck-move-cancel').addEventListener('click', _deckMoveClose);
+    if (deckMoveConfirmBtn) deckMoveConfirmBtn.addEventListener('click', _deckMoveConfirm);
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && deckMoveOverlay && !deckMoveOverlay.hidden) _deckMoveClose();
+    });
+    if (deckMoveBody) {
+      deckMoveBody.addEventListener('click', (e) => {
+        if (!deckMoveCtx) return;
+        const opt = e.target.closest('.deck-move-opt');
+        if (opt) {
+          if (opt.dataset.locate) {
+            deckMoveCtx.locate = opt.dataset.locate;
+            _deckMoveRenderBody();
+          } else if (opt.dataset.dir) {
+            deckMoveCtx.dir = opt.dataset.dir;
+            deckMoveBody.querySelectorAll('.deck-move-dir').forEach(b => b.classList.toggle('active', b.dataset.dir === deckMoveCtx.dir));
+          } else if (opt.dataset.dim) {
+            const dim = opt.dataset.dim;
+            const set = deckMoveCtx.sel[dim];
+            if (!set) return;
+            if (dim === 'kw') {
+              // 关键词：全部 / 无关键词 / 具体关键词可自由组合，靠重绘同步高亮
+              const cand = deckMoveCtx.cand.kw;
+              const sp = opt.dataset.special;
+              if (sp === 'all') {
+                set.clear();
+                cand.forEach(v => set.add(v));
+                deckMoveCtx.kwAll = true;
+              } else if (sp === 'none') {
+                // 无关键词：与具体关键词可共存（切换式）；若当前是「全部」则以它重新开始
+                const wasAllNone = deckMoveCtx.kwAll;
+                deckMoveCtx.kwAll = false;
+                if (wasAllNone) { set.clear(); set.add(DM_NO_KW); }
+                else if (set.has(DM_NO_KW)) set.delete(DM_NO_KW);
+                else set.add(DM_NO_KW);
+              } else {
+                const val = opt.dataset.val;
+                const wasAll = deckMoveCtx.kwAll;
+                deckMoveCtx.kwAll = false;
+                if (wasAll) { set.clear(); set.add(val); }   // 从「全部」出发 → 以这张重新开始
+                else if (set.has(val)) set.delete(val);
+                else set.add(val);
+              }
+              _deckMoveRenderBody();
+            } else {
+              const val = opt.dataset.val;
+              if (set.has(val)) set.delete(val); else set.add(val);
+              opt.classList.toggle('active');
+            }
+          }
+          _deckMoveRecalc();
+          return;
+        }
+      });
+      deckMoveBody.addEventListener('change', (e) => {
+        if (!deckMoveCtx) return;
+        if (e.target.id === 'deck-move-select') {
+          if (deckMoveCtx.locate === 'shikigami') deckMoveCtx.ownerVal = e.target.value;
+          else if (deckMoveCtx.locate === 'card') deckMoveCtx.cardNameVal = e.target.value;
+          _deckMoveRecalc();
+        }
+      });
+      deckMoveBody.addEventListener('input', (e) => {
+        if (!deckMoveCtx) return;
+        const n = parseInt(e.target.value, 10);
+        const ok = !Number.isNaN(n) && n >= 1;
+        if (e.target.id === 'deck-move-distance') deckMoveCtx.distance = ok ? n : 1;
+        else if (e.target.id === 'deck-move-pos-start') deckMoveCtx.posStart = ok ? n : 1;
+        else if (e.target.id === 'deck-move-pos-count') deckMoveCtx.posCount = ok ? n : 1;
+        else return;
+        _deckMoveRecalc();
+      });
+    }
 
     // 蓄力使用切换按钮
     const chargeToggleBtn = document.getElementById('card-list-charge-toggle');

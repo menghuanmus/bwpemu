@@ -239,6 +239,43 @@
     }
 
     /* ================================================================
+       操作者本地醒目提示（牌库移动等操作的反馈，几秒后自动消失）
+       ================================================================ */
+    .action-toast {
+      position: fixed;
+      left: 50%;
+      top: 12%;
+      transform: translate(-50%, -12px) scale(0.96);
+      opacity: 0;
+      z-index: 900;
+      pointer-events: none;
+      padding: 12px 28px;
+      border-radius: 12px;
+      background: linear-gradient(160deg, rgba(62, 50, 18, 0.96), rgba(38, 30, 10, 0.96));
+      border: 2px solid rgba(255, 210, 100, 0.75);
+      box-shadow: 0 8px 30px rgba(0, 0, 0, 0.55), 0 0 22px rgba(255, 200, 80, 0.3);
+      text-align: center;
+      max-width: min(86vw, 520px);
+      transition: opacity 0.28s ease, transform 0.28s cubic-bezier(0.2, 0.9, 0.3, 1.2);
+    }
+    .action-toast--in {
+      opacity: 1;
+      transform: translate(-50%, 0) scale(1);
+    }
+    .action-toast__title {
+      font-size: 1.25rem;
+      font-weight: 700;
+      color: #ffe9a8;
+      letter-spacing: 1px;
+    }
+    .action-toast__detail {
+      font-size: 1.05rem;
+      color: #f2dca8;
+      margin-top: 6px;
+      line-height: 1.4;
+    }
+
+    /* ================================================================
        弹出对话框（发言、输入文本、列表）
        ================================================================ */
     .speak-dialog-overlay {

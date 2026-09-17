@@ -319,16 +319,25 @@
     function syncFireState(playerId) {
       sendToPeer({ type: 'fire-update', playerId: playerId, count: playerFire[playerId] });
     }
-    function applyRemoteFireState(playerId, count) {
-      playerFire[playerId] = Math.max(0, Math.min(5, count));
+    /** 按当前数值重绘某玩家的鬼火图标 */
+    function renderFireIcons(playerId) {
       var area = document.querySelector('.player-zone[data-player="' + playerId + '"] .player-fire-area');
       if (!area) return;
       var iconsRow = area.querySelector('.fire-icons-row');
-      if (iconsRow) {
-        iconsRow.innerHTML = Array.from({ length: 5 }, function(_, i) {
-          return '<span class="fire-icon" style="visibility:' + (i >= playerFire[playerId] ? 'hidden' : 'visible') + '">🔥</span>';
-        }).join('');
-      }
+      if (!iconsRow) return;
+      iconsRow.innerHTML = Array.from({ length: 5 }, function(_, i) {
+        return '<span class="fire-icon" style="visibility:' + (i >= playerFire[playerId] ? 'hidden' : 'visible') + '">🔥</span>';
+      }).join('');
+    }
+    /** 设置鬼火数量：本地重绘 + 同步给对方（回合开始重置等使用） */
+    function setFireState(playerId, count) {
+      playerFire[playerId] = Math.max(0, Math.min(5, count));
+      renderFireIcons(playerId);
+      syncFireState(playerId);
+    }
+    function applyRemoteFireState(playerId, count) {
+      playerFire[playerId] = Math.max(0, Math.min(5, count));
+      renderFireIcons(playerId);
     }
 
     // ================================================================

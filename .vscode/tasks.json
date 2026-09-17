@@ -232,6 +232,86 @@
 			"type": "shell",
 			"command": "Set-Location \"d:\\DIY\\百闻牌\\百闻牌模拟器\\menghuanmus.github.io\"; node --check js\\my-lib.js; if ($LASTEXITCODE -ne 0) { exit 1 }; Write-Output \"OK\"",
 			"problemMatcher": []
+		},
+		{
+			"label": "bwpemu-check-turnstart",
+			"type": "shell",
+			"command": "Set-Location \"d:\\DIY\\百闻牌\\百闻牌模拟器\\menghuanmus.github.io\"; node --check js\\dice.js; node --check js\\network.js; node --check js\\chat.js; if ($LASTEXITCODE -ne 0) { exit 1 }; Write-Output \"OK\"",
+			"problemMatcher": []
+		},
+		{
+			"label": "bwpemu-check-turnstart2",
+			"type": "shell",
+			"command": "Set-Location \"d:\\DIY\\百闻牌\\百闻牌模拟器\\menghuanmus.github.io\"; node --check js\\dice.js; node --check js\\network.js; node --check js\\chat.js; Write-Output \"OK\"",
+			"problemMatcher": []
+		},
+		{
+			"label": "bwpemu-check-cdmsg",
+			"type": "shell",
+			"command": "Set-Location \"d:\\DIY\\百闻牌\\百闻牌模拟器\\menghuanmus.github.io\"; node --check js\\dice.js; Write-Output \"OK\"",
+			"problemMatcher": []
+		},
+		{
+			"label": "bwpemu-check-deckmove",
+			"type": "shell",
+			"command": "Set-Location \"d:\\DIY\\百闻牌\\百闻牌模拟器\\menghuanmus.github.io\"; node --check js\\card-deck.js; Write-Output \"OK\"",
+			"problemMatcher": []
+		},
+		{
+			"label": "bwpemu-check-deckmove2",
+			"type": "shell",
+			"command": "Set-Location \"d:\\DIY\\百闻牌\\百闻牌模拟器\\menghuanmus.github.io\"; node --check js\\card-deck.js; Write-Output \"OK\"",
+			"problemMatcher": []
+		},
+		{
+			"label": "bwpemu-check-deckmove3",
+			"type": "shell",
+			"command": "Set-Location \"d:\\DIY\\百闻牌\\百闻牌模拟器\\menghuanmus.github.io\"; node --check js\\card-deck.js; Write-Output \"OK\""
+		},
+		{
+			"label": "bwpemu-check-deckmove4",
+			"type": "shell",
+			"command": "Set-Location \"d:\\DIY\\百闻牌\\百闻牌模拟器\\menghuanmus.github.io\"; node --check js\\card-deck.js; Write-Output \"OK\""
+		},
+		{
+			"label": "bwpemu-check-deckmove5",
+			"type": "shell",
+			"command": "Set-Location \"d:\\DIY\\百闻牌\\百闻牌模拟器\\menghuanmus.github.io\"; node --check js\\card-deck.js; Write-Output \"OK\""
+		},
+		{
+			"label": "bwpemu-check-deckmove6",
+			"type": "shell",
+			"command": "Set-Location \"d:\\DIY\\百闻牌\\百闻牌模拟器\\menghuanmus.github.io\"; node --check js\\card-deck.js; Write-Output \"OK\""
+		},
+		{
+			"label": "bwpemu-check-deckmove7",
+			"type": "shell",
+			"command": "Set-Location \"d:\\DIY\\百闻牌\\百闻牌模拟器\\menghuanmus.github.io\"; node --check js\\card-deck.js; Write-Output \"OK\""
+		},
+		{
+			"label": "bwpemu-check-deckmove8",
+			"type": "shell",
+			"command": "Set-Location \"d:\\DIY\\百闻牌\\百闻牌模拟器\\menghuanmus.github.io\"; node --check js\\card-deck.js; Write-Output \"OK\""
+		},
+		{
+			"label": "bwpemu-check-toast",
+			"type": "shell",
+			"command": "Set-Location \"d:\\DIY\\百闻牌\\百闻牌模拟器\\menghuanmus.github.io\"; node --check js\\card-deck.js; node --check js\\chat.js; Write-Output \"OK\""
+		},
+		{
+			"label": "bwpemu-check-deckmove9",
+			"type": "shell",
+			"command": "Set-Location \"d:\\DIY\\百闻牌\\百闻牌模拟器\\menghuanmus.github.io\"; node --check js\\card-deck.js; Write-Output \"OK\""
+		},
+		{
+			"label": "bwpemu-check-deckmove10",
+			"type": "shell",
+			"command": "Set-Location \"d:\\DIY\\百闻牌\\百闻牌模拟器\\menghuanmus.github.io\"; node --check js\\card-deck.js; Write-Output \"OK\""
+		},
+		{
+			"label": "bwpemu-check-deckmove11",
+			"type": "shell",
+			"command": "Set-Location \"d:\\DIY\\百闻牌\\百闻牌模拟器\\menghuanmus.github.io\"; node --check js\\card-deck.js; Write-Output \"OK\""
 		}
 	]
 }

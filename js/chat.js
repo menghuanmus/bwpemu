@@ -142,12 +142,44 @@
       }
     }
 
+    /**
+     * 操作者本地的醒目提示（只显示在操作者屏幕上，几秒后自动消失）
+     * @param {string} title 主标题
+     * @param {string} [detail] 明细文字
+     */
+    function showActionToast(title, detail) {
+      try {
+        const el = document.createElement('div');
+        el.className = 'action-toast';
+        const t = document.createElement('div');
+        t.className = 'action-toast__title';
+        t.textContent = title;
+        el.appendChild(t);
+        if (detail) {
+          const d = document.createElement('div');
+          d.className = 'action-toast__detail';
+          d.textContent = detail;
+          el.appendChild(d);
+        }
+        document.body.appendChild(el);
+        // 入场动画：用定时器而非 requestAnimationFrame（后台标签页里 rAF 不会触发）
+        setTimeout(() => el.classList.add('action-toast--in'), 20);
+        setTimeout(() => {
+          el.classList.remove('action-toast--in');
+          setTimeout(() => el.remove(), 420);
+        }, 2800);
+      } catch (e) {
+        console.error('[Toast] 显示本地提示失败:', e);
+      }
+    }
+
     /* 系统消息：本地显示 + 同步给对方（单人模式仅本地） */
     function broadcastSystemMsg(msg, food) {
       console.log('[SysMsg]', msg);
       // 如果处于消息分组中，收集为子消息（由 endMessageGroup 统一同步，不单独发送）
       if (_msgGroup) {
-        _msgGroup.subMsgs.push(msg);
+        // 分组内的子条目不再重复「【系统】」前缀（标题行已带）
+        _msgGroup.subMsgs.push(String(msg).replace(/^【系统】\s*/, ''));
         return;
       }
       // 联机：同步给对方
