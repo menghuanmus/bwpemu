@@ -500,6 +500,7 @@
   $('ready-leave-btn').addEventListener('click', function() {
     socket.emit('leave-room');
     isReadyMode = false; readyRoomCode = null;
+    if (typeof window.resetStackRules === 'function') window.resetStackRules();   // 新开一局从零开始
     showLobby(window._gameNickname || '');
   });
 
@@ -794,6 +795,7 @@
       if (window._gameSocket) { window._gameSocket.emit('leave-room'); }
       isSoloMode = false; isHost = false; isSpectator = false; localPlayerId = null;
       isReadyMode = false; readyRoomCode = null;
+      if (typeof window.resetStackRules === 'function') window.resetStackRules();   // 新开一局从零开始
       showLobby(window._gameNickname || '');
     };
     // 设置按钮

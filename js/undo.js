@@ -132,6 +132,7 @@
       bounty: 0, bountyActive: false,
       nightfallActive: false, nightfallValue: '0',
       oracleActive: false, oracleHands: [],
+      stackRules: {},
       shop: null,
     };
     try {
@@ -155,9 +156,10 @@
       if (typeof oracleActive !== 'undefined') p.oracleActive = !!oracleActive[pid];
       if (typeof oracleHands !== 'undefined' && Array.isArray(oracleHands[pid])) {
         p.oracleHands = oracleHands[pid].map(function (cd) {
-          return { id: cd.id, name: cd.name, curses: (cd.curses || []).slice(), _stack: cd._stack, _maxStack: cd._maxStack };
+          return { id: cd.id, name: cd.name, curses: (cd.curses || []).slice(), _stack: cd._stack, _maxStack: cd._maxStack, _maxStackManual: !!cd._maxStackManual };
         });
       }
+      if (typeof getStackRulesSnapshot === 'function') p.stackRules = cloneValue(getStackRulesSnapshot(pid), 0) || {};
       p.shop = snapshotShop(pid);
       var zone = document.querySelector('.player-zone[data-player="' + pid + '"]');
       if (zone) {
@@ -233,6 +235,8 @@
           c.grave = cloneValue(p.grave, 0);
         }
       }
+      // 堆叠条目表跟着卡牌一起还原（旧快照没这个字段 → 空表）
+      if (typeof setStackRulesSnapshot === 'function') setStackRulesSnapshot(pid, p.stackRules || {});
       if (typeof applyRemotePlayerInfo === 'function') applyRemotePlayerInfo(pid, p.name || '', p.hp || '');
       if (p.avatar && typeof setAvatarImage === 'function') setAvatarImage(pid, p.avatar);
       if (typeof applyRemoteEffectsState === 'function') applyRemoteEffectsState(pid, cloneValue(p.effects, 0));
@@ -265,6 +269,9 @@
       if (typeof window.applyGraveTargets === 'function') window.applyGraveTargets(cloneValue(snap.graveTargets, 0) || {});
       if (typeof updateCardIdCounter === 'function') updateCardIdCounter();
       if (typeof updateAllDeckButtons === 'function') updateAllDeckButtons();
+      // 开着的牌库/手牌弹窗跟着刷新（否则撤销后列表还是旧内容）
+      if (typeof refreshOpenListDialog === 'function') { refreshOpenListDialog('1'); refreshOpenListDialog('2'); }
+      if (window.StackManage && StackManage.refreshOpen) StackManage.refreshOpen();
     } catch (e) {
       console.error('[Undo] 还原整桌失败:', e);
     } finally {

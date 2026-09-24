@@ -118,6 +118,8 @@
           deckData: deck.filter(c => c && typeof c === 'object'),
           handData: hand.filter(c => c && typeof c === 'object'),
           graveData: (grave || []).filter(c => c && typeof c === 'object'),
+          // 本局堆叠条目表（跟着牌库状态一起发，不额外开通道）
+          stackRules: (typeof getStackRulesSnapshot === 'function') ? getStackRulesSnapshot(playerId) : undefined,
         });
       } catch(e) {
         console.error('[SyncDeck] 发送失败:', e);
@@ -125,12 +127,16 @@
     }
 
     /* 接收对方的牌库/手牌/坟场计数，更新本地按钮 */
-    function applyRemoteDeckState(playerId, deckCount, handCount, deckData, handData, graveData) {
+    function applyRemoteDeckState(playerId, deckCount, handCount, deckData, handData, graveData, stackRuleTable) {
       try {
         const state = getPlayerCardState(playerId);
         state.deck = Array.isArray(deckData) ? deckData.filter(c => c && typeof c === 'object') : [];
         state.hand = Array.isArray(handData) ? handData.filter(c => c && typeof c === 'object') : [];
         state.grave = Array.isArray(graveData) ? graveData.filter(c => c && typeof c === 'object') : (state.grave || []);
+        // 对方的本局堆叠条目表一并收下（旧版本不发这个字段，忽略即可）
+        if (stackRuleTable && typeof setStackRulesSnapshot === 'function') {
+          setStackRulesSnapshot(playerId, stackRuleTable);
+        }
         if (typeof updateCardIdCounter === 'function') updateCardIdCounter();
         updateDeckButtons(playerId);
         if (typeof window.refreshGraveButtons === 'function') window.refreshGraveButtons();
@@ -172,7 +178,6 @@
         item.querySelector('.effect-value').value = eff.value;
         panel.appendChild(item);
       });
-      if (typeof applyStackLimitEffects === 'function') applyStackLimitEffects(playerId, false);
     }
 
     // ---- JS-1.7：状态同步 —— 玩家名称/生命值 ----
@@ -224,7 +229,6 @@
         const name = item.querySelector('.effect-name').value || '未命名';
         item.remove();
         syncEffectsState(playerId);
-        if (typeof applyStackLimitEffects === 'function') applyStackLimitEffects(playerId, true);
         broadcastSystemMsg(`【系统】${getPlayerName(playerId)}移除了幻境/效果「${name}」`);
       });
       // 观众视角下视觉变灰
@@ -308,7 +312,6 @@
         const panel = zone.querySelector('.effects-panel');
         panel.appendChild(createEffectItem());
         syncEffectsState(zone.dataset.player);
-        if (typeof applyStackLimitEffects === 'function') applyStackLimitEffects(zone.dataset.player, true);
         broadcastSystemMsg(`【系统】${getPlayerName(zone.dataset.player)}添加了幻境/效果`);
       });
     });
@@ -316,125 +319,10 @@
     // 为两个幻境/效果面板挂上拖拽排序委托
     document.querySelectorAll('.effects-panel').forEach(panel => _initEffectsPanelDrag(panel));
 
-    // ---- JS-1.6b：特定效果「堆叠上限：卡牌名」 ----
-
-    /** 应用堆叠上限效果：效果名称「堆叠上限：卡牌名」+ 数值（最低 1） */
-    function applyStackLimitEffects(playerId, doSync) {
-      const zone = document.querySelector(`.player-zone[data-player="${playerId}"]`);
-      if (!zone) return;
-      const state = getPlayerCardState(playerId);
-      if (!state) return;
-      const deck = state.deck || [];
-      const hand = state.hand || [];
-
-      // 收集规则：卡牌名 -> 上限（同名多条取最后一条；数值最低 1；未填数值不生效）
-      const limits = {};
-      zone.querySelectorAll('.effect-item').forEach(function(item) {
-        const name = (item.querySelector('.effect-name')?.value || '').trim();
-        const m = name.match(/^堆叠上限[：:](.+)$/);
-        if (!m) return;
-        const cardName = m[1].trim();
-        if (!cardName) return;
-        const rawVal = (item.querySelector('.effect-value')?.value || '').trim();
-        if (!rawVal) return;
-        let val = parseInt(rawVal, 10);
-        if (Number.isNaN(val)) return;
-        if (val < 1) val = 1;
-        limits[cardName] = val;
-      });
-
-      let splitCount = 0;
-      const splitNames = [];
-      const applyTo = function(card, isHand) {
-        if (!card || typeof card !== 'object') return;
-        const db = (typeof CardDB !== 'undefined' && CardDB.lookup) ? CardDB.lookup(card.name) : null;
-        const dbMax = (db && db.maxStack) ? db.maxStack : 0;
-        const newMax = (limits[card.name] !== undefined) ? limits[card.name] : dbMax;
-        if (newMax <= 0) { card._maxStack = 0; return; }
-        if (!card._stack) card._stack = 1;
-        card._maxStack = newMax;
-        if (!isHand || card._stack <= newMax) return;
-        // 超上限：拆成多个堆叠（每叠 <= 新上限，余数单独成叠，最低 1 层）
-        const parts = [];
-        let remain = card._stack;
-        while (remain > 0) {
-          const layer = Math.min(remain, newMax);
-          parts.push(layer);
-          remain -= layer;
-        }
-        card._stack = parts[0];
-        const baseIdx = hand.indexOf(card);
-        for (let i = 1; i < parts.length; i++) {
-          const nc = createCard(card.name);
-          nc._stack = parts[i];
-          nc._maxStack = newMax;
-          hand.splice(baseIdx + i, 0, nc);
-          splitCount++;
-        }
-        if (splitNames.indexOf(card.name) === -1) splitNames.push(card.name);
-      };
-      deck.forEach(function(c) { applyTo(c, false); });
-      hand.slice().forEach(function(c) { applyTo(c, true); });
-
-      updateDeckButtons(playerId);
-      if (typeof refreshOpenListDialog === 'function') refreshOpenListDialog(playerId);
-      if (doSync) {
-        if (typeof syncDeckStateForce === 'function') syncDeckStateForce(playerId);
-        else if (typeof syncDeckState === 'function') syncDeckState(playerId);
-      }
-      if (splitCount > 0) {
-        const names = splitNames.join('、');
-        broadcastSystemMsg(`【系统】${getPlayerName(playerId)}的「${names}」堆叠上限调整，超出的${splitCount}叠已拆分`);
-      }
-    }
-
-    // ---- 特定效果说明书（后续可继续加条目） ----
-    const EFFECT_MANUAL = [
-      {
-        title: '堆叠上限：卡牌名',
-        body: '仅对具有堆叠的卡牌有效。\n填写该效果后，数值则为该卡牌新的堆叠上限。数值留空则不生效。\n若手牌中已有堆叠超过新上限，多出的层数会自动拆分为新的堆叠。删除效果后恢复为卡牌数据中的默认上限。\n【示例】堆叠上限：生命精华',
-      },
-    ];
-
-    function openEffectManual() {
-      let ov = document.getElementById('effect-manual-overlay');
-      if (!ov) {
-        ov = document.createElement('div');
-        ov.id = 'effect-manual-overlay';
-        ov.className = 'effect-manual-overlay';
-        ov.hidden = true;
-        ov.innerHTML = '<div class="effect-manual-dialog">' +
-          '<div class="effect-manual-header"><span>📖 特定效果说明</span><button type="button" class="effect-manual-close">✕</button></div>' +
-          '<div class="effect-manual-body"></div></div>';
-        document.body.appendChild(ov);
-        ov.querySelector('.effect-manual-close').addEventListener('click', function() { ov.hidden = true; });
-        ov.addEventListener('click', function(e) { if (e.target === ov) ov.hidden = true; });
-        const body = ov.querySelector('.effect-manual-body');
-        EFFECT_MANUAL.forEach(function(sec) {
-          const secEl = document.createElement('div');
-          secEl.className = 'effect-manual-sec';
-          const t = document.createElement('div');
-          t.className = 'effect-manual-sec__title';
-          t.textContent = sec.title;
-          const b = document.createElement('div');
-          b.className = 'effect-manual-sec__body';
-          b.textContent = sec.body;
-          secEl.appendChild(t);
-          secEl.appendChild(b);
-          body.appendChild(secEl);
-        });
-      }
-      ov.hidden = false;
-    }
-    window.openEffectManual = openEffectManual;
-
-    document.addEventListener('click', function(e) {
-      const b = e.target.closest ? e.target.closest('.btn-effect-manual') : null;
-      if (!b) return;
-      e.preventDefault();
-      e.stopPropagation();
-      openEffectManual();
-    });
+    // ---- （已移除）特定效果「堆叠上限：卡牌名」与「📖 特定效果说明」弹窗 ----
+    // 2026-09-24：堆叠上限改到「堆叠管理窗」里的本局条目表（见 card-deck.js 的 stackRules），
+    //              效果面板不再解析这类条目；具体的上限重算走 window.refreshStackLimits()。
+    //              「📖 特定效果说明」按钮与弹窗里的内容只有堆叠相关，已整体删除。
 
     function getCardArt(slot) {
       return slot.querySelector('.card-art');
@@ -1302,20 +1190,7 @@
       // 效果面板输入
       if (e.target.closest('.effect-item')) {
         const zone = e.target.closest('.player-zone');
-        if (zone) {
-          // 填「堆叠上限：卡牌名」且数值为空 → 自动带入数据库默认上限
-          if (e.target.classList.contains('effect-name')) {
-            const item = e.target.closest('.effect-item');
-            const valueInput = item.querySelector('.effect-value');
-            const m = (e.target.value || '').trim().match(/^堆叠上限[：:](.+)$/);
-            if (m && !(valueInput.value || '').trim()) {
-              const db = (typeof CardDB !== 'undefined' && CardDB.lookup) ? CardDB.lookup(m[1].trim()) : null;
-              if (db && db.maxStack) valueInput.value = String(db.maxStack);
-            }
-          }
-          syncEffectsState(zone.dataset.player);
-          if (typeof applyStackLimitEffects === 'function') applyStackLimitEffects(zone.dataset.player, true);
-        }
+        if (zone) syncEffectsState(zone.dataset.player);
         return;
       }
       // 玩家名称 / 生命值

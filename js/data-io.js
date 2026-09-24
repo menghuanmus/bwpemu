@@ -62,7 +62,8 @@
           shopSlotCount: p1shop.slotCount,
           shopStocks: p1shopStocks,
           oracleActive: oracleActive['1'] || false,
-          oracleHands: (oracleHands['1'] || []).map(c => ({ id: c.id, name: c.name, curses: c.curses || [], _stack: c._stack, _maxStack: c._maxStack })),
+          oracleHands: (oracleHands['1'] || []).map(c => ({ id: c.id, name: c.name, curses: c.curses || [], _stack: c._stack, _maxStack: c._maxStack, _maxStackManual: !!c._maxStackManual })),
+          stackRules: (typeof getStackRulesSnapshot === 'function') ? getStackRulesSnapshot('1') : {},
           slots: [],
         },
         player2: {
@@ -85,7 +86,8 @@
           shopSlotCount: p2shop.slotCount,
           shopStocks: p2shopStocks,
           oracleActive: oracleActive['2'] || false,
-          oracleHands: (oracleHands['2'] || []).map(c => ({ id: c.id, name: c.name, curses: c.curses || [], _stack: c._stack, _maxStack: c._maxStack })),
+          oracleHands: (oracleHands['2'] || []).map(c => ({ id: c.id, name: c.name, curses: c.curses || [], _stack: c._stack, _maxStack: c._maxStack, _maxStackManual: !!c._maxStackManual })),
+          stackRules: (typeof getStackRulesSnapshot === 'function') ? getStackRulesSnapshot('2') : {},
           slots: [],
         },
       };
@@ -152,6 +154,7 @@
         _foodIngredients: c._foodIngredients || '',
         _stack: typeof c._stack === 'number' ? c._stack : 0,
         _maxStack: typeof c._maxStack === 'number' ? c._maxStack : 0,
+        _maxStackManual: !!c._maxStackManual,
       };
     }
 
@@ -168,6 +171,8 @@
           if (p.avatar) setAvatarImage(pid, p.avatar);
           if (p.fire !== undefined) { playerFire[pid] = p.fire; applyRemoteFireState(pid, p.fire); }
           if (p.effects) applyRemoteEffectsState(pid, p.effects);
+          // 恢复本局堆叠条目表（旧存档没这个字段 → 空表，下面会按卡牌数据重新推算）
+          if (typeof setStackRulesSnapshot === 'function') setStackRulesSnapshot(pid, p.stackRules || {});
           if (p.bounty !== undefined) { playerBounty[pid] = p.bounty; }
           // 恢复赏金图标显示
           if (p.bountyActive) {
@@ -223,7 +228,7 @@
           if (Array.isArray(p.oracleHands) && typeof oracleHands !== 'undefined') {
             oracleHands[pid] = p.oracleHands.map(c => ({
               id: c.id, name: c.name, curses: c.curses || [],
-              _stack: c._stack, _maxStack: c._maxStack,
+              _stack: c._stack, _maxStack: c._maxStack, _maxStackManual: !!c._maxStackManual,
             }));
           }
           if (Array.isArray(p.deck)) {
@@ -252,6 +257,8 @@
               if (slot) setSlotState(slot, s);
             });
           }
+          // 全部恢复完再按条目表重算一次上限（手牌层数超上限会被压回上限）
+          if (typeof refreshStackLimits === 'function') refreshStackLimits(pid, false);
           updateDeckButtons(pid);
         });
         // 更新卡牌ID计数器，避免后续生成卡牌ID冲突
@@ -285,7 +292,7 @@
           });
           // 牌库手牌
           var cards = getPlayerCardState(pid);
-          fullState.playerCards[pid] = { deck: cards.deck, hand: cards.hand, grave: cards.grave || [] };
+          fullState.playerCards[pid] = { deck: cards.deck, hand: cards.hand, grave: cards.grave || [], stackRules: (typeof getStackRulesSnapshot === 'function') ? getStackRulesSnapshot(pid) : {} };
           // 玩家信息
           fullState.playerInfo[pid] = getPlayerInfo(pid);
           // 鬼火

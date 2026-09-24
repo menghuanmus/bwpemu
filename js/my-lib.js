@@ -199,6 +199,7 @@ var MyLib = (function () {
       '<div class="diy-row">' +
       '<span id="diy-f-awakened-wrap" style="display:inline-block;"><label class="diy-field diy-check"><input type="checkbox" id="diy-f-awakened"><span style="display:inline;margin:0;">觉醒</span></label></span>' +
       '<span id="diy-f-derivative-wrap" style="display:inline-block;"><label class="diy-field diy-check"><input type="checkbox" id="diy-f-derivative"><span style="display:inline;margin:0;">衍生</span></label></span>' +
+      '<span id="diy-f-stack-wrap" style="display:inline-block;"><label class="diy-field diy-check"><input type="checkbox" id="diy-f-stack"><span style="display:inline;margin:0;">堆叠</span></label></span>' +
       '</div>',
       '<div id="diy-f-dynamic"></div>',
       '<label class="diy-field"><span class="diy-field__head">描述（≤300字）<span class="diy-char-count" id="diy-f-count">(0/300)</span></span><textarea id="diy-f-text" maxlength="300" rows="3" placeholder="卡牌效果描述，保存时自动检测关键词"></textarea></label>',
@@ -284,6 +285,20 @@ var MyLib = (function () {
           '</div>' +
           '<div style="margin:2px 0 4px;font-size:1rem;line-height:1.5;color:#a99f86;">分化牌指协战牌使用时选择的两张牌，使用时会按照名字在数据库内查找（不会自动创建对应的卡牌，若有需求，可以自己新建）。</div>';
       }
+      // 协战牌不提供堆叠：隐藏勾选行并取消勾选（因此下面也不会出现上限输入框）
+      var _sw = $('diy-f-stack-wrap'); if (_sw) _sw.style.display = (type === 'bond') ? 'none' : 'inline-block';
+      if (type === 'bond') { var _sc = $('diy-f-stack'); if (_sc) _sc.checked = false; }
+
+      // 堆叠上限（勾了「堆叠」才出现，不限卡牌类型；默认 3；重绘时保留已填的值）
+      // ⚠? 必须拼进 html 后再一次性赋值：之前用 innerHTML += 会把上面刚给协战牌输入框
+      //     绑的 input 监听一起冲掉（自动描述就不再更新了）
+      var msCur = $('diy-f-maxstack') ? String($('diy-f-maxstack').value).trim() : '';
+      if ($('diy-f-stack') && $('diy-f-stack').checked) {
+        var ms = msCur !== '' ? msCur : ((unit && unit.maxStack != null && unit.maxStack > 0) ? unit.maxStack : 3);
+        html += '<div class="diy-row">' +
+          fieldHTML('堆叠上限', 'diy-f-maxstack', inputHTML('diy-f-maxstack', '1~999，默认 3', 'number', 'min="1" max="999" value="' + ms + '"'), true) +
+          '</div>';
+      }
       $('diy-f-dynamic').innerHTML = html;
       if (type === 'bond') {
         ['diy-f-bond-a', 'diy-f-bond-b', 'diy-f-bond-v1', 'diy-f-bond-v2'].forEach(function (id) {
@@ -305,6 +320,7 @@ var MyLib = (function () {
     $('diy-f-rarity').value = (unit && ['R', 'SR', 'SSR', ''].indexOf(unit.rarity) !== -1) ? unit.rarity : 'R';
     $('diy-f-awakened').checked = !!(unit && unit.awakened);
     $('diy-f-derivative').checked = !!(unit && unit.derivative);
+    $('diy-f-stack').checked = !!(unit && unit.maxStack != null && unit.maxStack > 0);
     $('diy-f-text').value = (unit && unit.effect) || '';
     $('diy-f-tags').value = (unit && unit.tags) ? normalizeTags(unit.tags).join('、') : '';
     // 老数据若描述正是自动文案（含旧的单行格式），记为「自动填的」，改字段时会跟着更新
@@ -323,6 +339,7 @@ var MyLib = (function () {
     renderDynamic();
     $('diy-f-type').addEventListener('change', renderDynamic);
     $('diy-f-awakened').addEventListener('change', renderDynamic);
+    $('diy-f-stack').addEventListener('change', renderDynamic);
     bindCharCount($('diy-f-text'), $('diy-f-count'), MAX_TEXT);
 
     m.onOk(function () {
@@ -344,6 +361,21 @@ var MyLib = (function () {
         keywords: detectKeywords($('diy-f-text').value),
         tags: parseTags($('diy-f-tags').value)
       };
+      // 堆叠：勾了就必须填上限（1~999），并自动把「堆叠」加进关键词；不勾则不写 maxStack
+      if ($('diy-f-stack').checked) {
+        var msEl = $('diy-f-maxstack');
+        var msRaw = msEl ? String(msEl.value).trim() : '';
+        var msVal = parseInt(msRaw, 10);
+        if (msRaw === '') err = '请填写堆叠上限';
+        else if (Number.isNaN(msVal) || msVal < 1 || msVal > 999) err = '堆叠上限需在 1~999 之间';
+        else {
+          saved.maxStack = msVal;
+          if (saved.keywords.indexOf('堆叠') === -1) saved.keywords.push('堆叠');
+        }
+      } else {
+        delete saved.maxStack;
+      }
+      if (err) { m.err.textContent = err; return; }
       if (type === 'spell') {
         if (saved.awakened) {
           if ($('diy-f-atkbonus').value.trim() === '') err = '请填写觉醒加成的力量';
@@ -393,6 +425,7 @@ var MyLib = (function () {
           delete saved.owner;      // 协战牌不存单值 owner
           saved.derivative = false;
           saved.awakened = false;  // 协战牌不是觉醒牌
+          delete saved.maxStack;   // 协战牌不提供堆叠
           // 分化牌只写名字：库里有就用，没有也不自动创建（玩家自己建）
         }
       }
@@ -471,6 +504,7 @@ var MyLib = (function () {
       if (unit.owner) tags += '<span class="diy-tag">' + esc(unit.owner) + '</span>';
       if (unit.awakened) tags += '<span class="diy-tag diy-tag--awakened">觉醒</span>';
       if (unit.derivative) tags += '<span class="diy-tag diy-tag--derivative">衍生</span>';
+      if (unit.maxStack > 0) tags += '<span class="diy-tag diy-tag--stack">堆叠' + esc(unit.maxStack) + '</span>';
     } else {
       tags = '<span class="diy-tag">' + (unit.type === 'curse' ? '灵咒' : '关键词') + '</span>';
       if (unit.owner) tags += '<span class="diy-tag">' + esc(unit.owner) + '</span>';

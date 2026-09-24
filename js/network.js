@@ -133,7 +133,7 @@
           }
           break;
         case 'deck-update':
-          applyRemoteDeckState(data.playerId, data.deckCount, data.handCount, data.deckData, data.handData, data.graveData);
+          applyRemoteDeckState(data.playerId, data.deckCount, data.handCount, data.deckData, data.handData, data.graveData, data.stackRules);
           break;
         case 'revealed-cards':
           if (data.playerId && Array.isArray(data.cardIds) && typeof playerRevealedCards !== 'undefined') {
@@ -499,7 +499,8 @@
           sendToPeer({ type: 'slot-update', playerId: pid, slotIndex: parseInt(slot.dataset.slotIndex, 10), state: state });
         });
         var cards = getPlayerCardState(pid);
-        var dummies = function(arr) { return arr.map(function(c) { return { id: c.id, name: '未知', curses: c.curses || [] }; }); };
+        // 观众只能看到「张数 + 层数」，看不到牌名：堆叠层数要带过去（否则观众看不到层数）
+        var dummies = function(arr) { return arr.map(function(c) { return { id: c.id, name: '未知', curses: c.curses || [], _stack: c._stack, _maxStack: c._maxStack, _maxStackManual: !!c._maxStackManual }; }); };
         sendToPeer({ type: 'deck-update', playerId: pid, deckCount: cards.deck.length, handCount: cards.hand.length, deckData: dummies(cards.deck), handData: dummies(cards.hand), graveData: (cards.grave || []).filter(function(c) { return c && typeof c === 'object'; }) });
         sendToPeer({ type: 'effects-update', playerId: pid, effects: getEffectsState(pid) });
         var info = getPlayerInfo(pid); sendToPeer({ type: 'player-info', playerId: pid, name: info.name, hp: info.hp });
@@ -528,9 +529,30 @@
           local.deck = Array.isArray(pc.deck) ? pc.deck : [];
           local.hand = Array.isArray(pc.hand) ? pc.hand : [];
           local.grave = Array.isArray(pc.grave) ? pc.grave : [];
+          // 本局堆叠条目表：先「从牌身上的标记反推」（含 0 值墓碑，旧服务端只能靠这个），
+          // 再用服务端带的条目表覆盖（服务端有的键以服务端为准）。
+          // 注意：空表不覆盖——否则刚反推出来的东西会被一个没内容的表冲掉。
+          if (typeof rebuildStackRulesFromCards === 'function') rebuildStackRulesFromCards(pid);
+          if (pc.stackRules && typeof setStackRulesSnapshot === 'function'
+              && Object.keys(pc.stackRules).length) {
+            setStackRulesSnapshot(pid, pc.stackRules);
+          }
           updateDeckButtons(pid);
         });
         if (typeof updateCardIdCounter === 'function') updateCardIdCounter();
+        // 断线重连/刷新页面：把拿不到的那部分堆叠设置从牌上反推回来（不覆盖已有的）
+        if (typeof rebuildStackRulesFromCards === 'function') {
+          rebuildStackRulesFromCards('1');
+          rebuildStackRulesFromCards('2');
+        }
+        if (typeof refreshStackLimits === 'function') {
+          refreshStackLimits('1', false);
+          refreshStackLimits('2', false);
+        }
+        if (typeof refreshOpenListDialog === 'function') {
+          refreshOpenListDialog('1');
+          refreshOpenListDialog('2');
+        }
       }
       if (state.playerInfo) { ['1', '2'].forEach(function(pid) { if (state.playerInfo[pid]) applyRemotePlayerInfo(pid, state.playerInfo[pid].name, state.playerInfo[pid].hp); }); }
       if (state.playerFire) { ['1', '2'].forEach(function(pid) { if (state.playerFire[pid] !== undefined) applyRemoteFireState(pid, state.playerFire[pid]); }); }

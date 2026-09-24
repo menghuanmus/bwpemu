@@ -968,6 +968,7 @@
 .diy-tag--summon { background: rgba(82,196,172,0.15); color: #7ad8c4; }
 .diy-tag--awakened { background: rgba(220,180,60,0.15); color: #dcc04c; }
 .diy-tag--derivative { background: rgba(255,130,180,0.15); color: #ffa8c8; }
+.diy-tag--stack { background: rgba(255,200,100,0.16); color: #ffd98a; }
 /* 卡牌类型四色 */
 .diy-tag--spell  { background: rgba(86,158,255,0.16); color: #9ec9ff; }
 .diy-tag--battle { background: rgba(255,116,116,0.16); color: #ffa8a8; }

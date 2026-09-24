@@ -25,6 +25,13 @@
     let _activeOraclePlayer = null;
     let _oracleActionMode = '';   // 启悟手牌操作互斥模式：'' / discard / tohand / todeck
 
+    /** 堆叠上限/层数变化后刷新开着的启悟弹窗（由 card-deck.js 的 refreshStackLimits 调用） */
+    window.refreshOracleStackView = function (playerId) {
+      if (!oracleOverlay || oracleOverlay.hidden) return;
+      if (_activeOraclePlayer && playerId != null && String(_activeOraclePlayer) !== String(playerId)) return;
+      renderOracleCards(_activeOraclePlayer || playerId);
+    };
+
     // 拖拽状态
     let _draggingOracle = false;
     let _dragOX = 0, _dragOY = 0, _dialogOX = 0, _dialogOY = 0;
@@ -128,11 +135,19 @@
         }
         info.appendChild(nameEl);
 
-        // 堆叠层数显示
-        if (canView && card._maxStack > 0) {
+        // 堆叠层数：自己/单人可调；观众只读（点数字都能开管理窗）
+        const oracleCanEdit = (own || solo) && !spec;
+        const oracleLim = (typeof window.StackManage === 'object') ? window.StackManage.limitOf(playerId, card, oracleCanEdit) : (card._maxStack || 0);
+        if (canView && oracleLim > 0 && typeof window.StackManage === 'object') {
+          let ctl = null;
+          ctl = window.StackManage.buildInline(playerId, card, oracleCanEdit, function () {
+            if (ctl && ctl.__stackRefresh) ctl.__stackRefresh();
+          });
+          info.appendChild(ctl);
+        } else if (canView && card._maxStack > 0) {
           const stackSpan = document.createElement('span');
-          stackSpan.style.cssText = 'font-size:11px;color:#c0a860;margin-left:4px;white-space:nowrap;';
-          stackSpan.textContent = (card._stack || 1) + '/' + card._maxStack;
+          stackSpan.style.cssText = 'font-size:13px;color:#c0a860;margin-left:4px;white-space:nowrap;';
+          stackSpan.textContent = '堆叠：' + (card._stack || 1) + '/' + card._maxStack;
           info.appendChild(stackSpan);
         }
 
@@ -358,8 +373,10 @@
     function pushCardToOracle(playerId, card) {
       if (!card || !card.name) return;
       if (!oracleHands[playerId]) oracleHands[playerId] = [];
-      const db = (typeof CardDB !== 'undefined') ? CardDB.lookup(card.name) : null;
-      const maxStack = (db && db.maxStack) ? db.maxStack : 0;
+      // 上限统一走「本叠手动 > 本局条目(0=禁用) > 数据库」
+      const maxStack = (typeof window.getCardMaxStack === 'function')
+        ? window.getCardMaxStack(playerId, card)
+        : (() => { const db = (typeof CardDB !== 'undefined') ? CardDB.lookup(card.name) : null; return (db && db.maxStack) ? db.maxStack : 0; })();
 
       if (maxStack > 0) {
         const incomingStack = card._stack || 1;

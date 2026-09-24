@@ -299,6 +299,7 @@
       const specView = (typeof isSpectator !== 'undefined' && isSpectator);
       hand.forEach((card, idx) => {
         if (!card || typeof card !== 'object') return;
+        let stackCtl = null;   // 本行的「− 堆叠：n/max +」控件（管理窗改完后用它就地刷新）
         const item = document.createElement('div');
         item.className = 'card-list-item';
         const info = document.createElement('div');
@@ -322,10 +323,19 @@
           name.style.color = 'var(--text-muted, #888)';
         }
         info.appendChild(name);
-        // 堆叠层数显示
-        if ((ownCards || specView) && card._stack && card._maxStack) {
+        // 堆叠层数：自己 = 「− 堆叠：n/max +」可调；对手被展示的牌 = 只读文本（§6 #7）
+        const handCanEdit = ownCards && !specView;
+        const handCanSee = ownCards || specView || isShown;
+        if (handCanSee && typeof window.StackManage === 'object'
+            && window.StackManage.limitOf(playerId, card, handCanEdit) > 0) {
+          stackCtl = window.StackManage.buildInline(playerId, card, handCanEdit, function () {
+            if (stackCtl && stackCtl.__stackRefresh) stackCtl.__stackRefresh();
+          });
+          info.appendChild(stackCtl);
+        } else if ((ownCards || specView) && card._stack && card._maxStack) {
+          // 兼容：StackManage 未加载时退回旧文本
           const stackSpan = document.createElement('span');
-          stackSpan.style.cssText = 'font-size:11px;color:#c0a860;margin-left:4px;white-space:nowrap;';
+          stackSpan.style.cssText = 'font-size:13px;color:#c0a860;margin-left:4px;white-space:nowrap;';
           stackSpan.textContent = '堆叠：' + card._stack + '/' + card._maxStack;
           info.appendChild(stackSpan);
         }
@@ -438,6 +448,25 @@
         toDeckBtn.dataset.toDeckBtn = 'true';
         toDeckBtn.addEventListener('click', () => moveToDeckFromHand(playerId, card.id));
         actions.appendChild(toDeckBtn);
+        // 堆叠按钮：仅「设置堆叠」模式下显示（只给自己的牌）
+        const stackBtn = document.createElement('button');
+        stackBtn.type = 'button';
+        stackBtn.className = 'btn-card-action btn-card-stack';
+        stackBtn.textContent = '堆叠';
+        stackBtn.title = '调整这一叠的层数 / 本叠上限，或修改本局的堆叠设置';
+        stackBtn.hidden = true;   // 默认隐藏，由「设置堆叠」互斥开关控制
+        stackBtn.dataset.stackBtn = 'true';
+        stackBtn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          if (window.StackManage) {
+            window.StackManage.open(playerId, card, {
+              canEdit: ownCards && !specView,
+              // 窗内改层数 / 上限后，就地刷新本行（不整表重绘）
+              onChanged: function () { if (stackCtl && stackCtl.__stackRefresh) stackCtl.__stackRefresh(); },
+            });
+          }
+        });
+        actions.appendChild(stackBtn);
         // 启悟机制激活时，显示"置入启悟"按钮（默认隐藏，由互斥开关控制）
         if (typeof oracleActive !== 'undefined' && oracleActive[playerId] && typeof moveToOracle === 'function') {
           const oracleMoveBtn = document.createElement('button');
@@ -563,6 +592,18 @@
         }
         row.appendChild(nameSpan);
 
+        // 堆叠层数：只在牌名已公开的行上显示（自己调的牌库弹窗里名字是“未知”的不显示）
+        const deckOwn = isViewingOwnCards(playerId) && !specView;
+        const deckNameShown = specView || isRevealed || isFateRevealed;
+        if (deckNameShown && typeof window.StackManage === 'object'
+            && window.StackManage.limitOf(playerId, card, deckOwn) > 0) {
+          let ctl = null;
+          ctl = window.StackManage.buildInline(playerId, card, deckOwn, function () {
+            if (ctl && ctl.__stackRefresh) ctl.__stackRefresh();
+          });
+          row.appendChild(ctl);
+        }
+
         // 弃牌按钮（自己牌库可点；观众可见但不可点）
         if (isViewingOwnCards(playerId) || specView) {
           const discardBtn = document.createElement('button');
@@ -628,20 +669,19 @@
       _mobileHandMode = '';
       const chargeToggleBtn = document.getElementById('card-list-charge-toggle');
       if (chargeToggleBtn) {
-        chargeToggleBtn.hidden = (type !== 'hand' || !isViewingOwnCards(playerId));
-        chargeToggleBtn.style.background = 'linear-gradient(180deg,#3a2a10,#2a1a08)';
-        chargeToggleBtn.style.color = '#c0a060';
-        chargeToggleBtn.style.borderColor = 'rgba(200,160,60,0.4)';
+        chargeToggleBtn.hidden = false;   // 显隐由整排（#hand-action-toggles2）统一控制
       }
       const toggleBtn = document.getElementById('card-list-renyin-toggle');
       if (toggleBtn) {
-        toggleBtn.hidden = (type !== 'hand' || !isViewingOwnCards(playerId));
-        toggleBtn.style.background = 'linear-gradient(180deg,#4a3a6a,#3a2a5a)';
-        toggleBtn.style.color = '#c0b0e0';
+        toggleBtn.hidden = false;         // 同上：样式与其它互斥开关统一
       }
       // 手机端互斥开关排：仅自己手牌显示
       const togglesRow = document.getElementById('hand-action-toggles');
-      if (togglesRow) togglesRow.hidden = (type !== 'hand' || !isViewingOwnCards(playerId));
+      const togglesRow2 = document.getElementById('hand-action-toggles2');
+      // 两排开关（调度/弃置/置入牌库/置入启悟区 + 蓄力/连引/设置堆叠）：仅自己的手牌显示
+      const showHandToggles = (type === 'hand' && isViewingOwnCards(playerId));
+      if (togglesRow) togglesRow.hidden = !showHandToggles;
+      if (togglesRow2) togglesRow2.hidden = !showHandToggles;
       // 观众：灵咒工具栏（输入框+随机结附+优先不重复）置灰禁点
       const specLock = (typeof isSpectator !== 'undefined' && isSpectator);
       const curseBar = document.getElementById('curse-random-bar');
@@ -699,9 +739,12 @@
     }
 
     function refreshOpenListDialog(playerId) {
-      if (!cardListContext || cardListContext.playerId !== playerId) return;
-      if (cardListContext.type === 'hand') renderHandList(playerId);
-      else { renderDeckList(playerId); refreshDeckBreakdown(playerId); }
+      if (!cardListContext) return;
+      // 用字符串比较：调用方传 number/string 都要能刷到（否则会默默不刷新）
+      if (cardListContext.playerId != null && playerId != null
+          && String(cardListContext.playerId) !== String(playerId)) return;
+      if (cardListContext.type === 'hand') renderHandList(cardListContext.playerId);
+      else { renderDeckList(cardListContext.playerId); refreshDeckBreakdown(cardListContext.playerId); }
     }
 
     // ================================================================
@@ -1836,6 +1879,9 @@
         return c;
       }));
       getPlayerCardState(playerId).deck.push(...cards);
+      // 导入卡组时：把卡组里出现的、库里带堆叠的牌名补进本局条目表（只补缺失的键）
+      scanStackCardsFor(playerId, cards.map(function (c) { return c.name; }));
+      refreshStackLimits(playerId, false);
       updateDeckButtons(playerId);
       refreshOpenListDialog(playerId);
       syncDeckState(playerId);
@@ -1875,68 +1921,279 @@
       }
     }
 
-    /** 计算卡牌当前有效的堆叠上限：卡牌自带 > 效果面板规则 > 数据库默认 */
+    // ══════════════════════════════════════════════════════════════
+    //  堆叠：本局条目表（每个玩家一份；0 = 墓碑 / 已删除 → 该牌名回到普通牌）
+    //  取上限顺序：本叠手动设置 > 本局条目(0=禁用) > 数据库 maxStack
+    // ══════════════════════════════════════════════════════════════
+    const MAX_STACK_LIMIT = 999;   // 堆叠上限的最大值
+    const stackRules = { '1': {}, '2': {} };
+
+    function _stackRuleTable(playerId) {
+      const pid = String(playerId == null ? '1' : playerId);
+      if (!stackRules[pid]) stackRules[pid] = {};
+      return stackRules[pid];
+    }
+
+    /** 取本局条目：没这个牌名 → null；0 → 已删除（该牌名回到普通牌） */
+    function getStackRule(playerId, name) {
+      const t = _stackRuleTable(playerId);
+      return Object.prototype.hasOwnProperty.call(t, name) ? t[name] : null;
+    }
+
+    /** 写入本局条目（数值非法或 <1 → 记为 0 = 禁用）；会重算该玩家的上限 */
+    function setStackRule(playerId, name, limit) {
+      if (!name) return;
+      const v = parseInt(limit, 10);
+      _stackRuleTable(playerId)[name] = (Number.isNaN(v) || v < 1) ? 0 : Math.min(MAX_STACK_LIMIT, v);
+      refreshStackLimits(playerId, true);
+    }
+
+    /** 删除本局条目 = 该牌名回到普通牌（列表里直接消失，但留 0 值墓碑，防止被自动补回） */
+    function removeStackRule(playerId, name, noRefresh) {
+      if (!name) return;
+      _stackRuleTable(playerId)[name] = 0;
+      if (!noRefresh) refreshStackLimits(playerId, true);
+    }
+
+    /** 手动新增本局条目（可以被删过的牌名重新加回，默认上限 3） */
+    function addStackRule(playerId, name, limit) {
+      if (!name) return false;
+      const t = _stackRuleTable(playerId);
+      const cur = Object.prototype.hasOwnProperty.call(t, name) ? t[name] : null;
+      if (cur !== null && cur > 0) return false;   // 列表里已有同名（墓碑不算）
+      const v = parseInt(limit, 10);
+      t[name] = (Number.isNaN(v) || v < 1) ? 3 : Math.min(MAX_STACK_LIMIT, v);
+      refreshStackLimits(playerId, true);
+      return true;
+    }
+
+    /** 把「库里带堆叠」的牌名补进条目表：只补表里完全没有该键的（删过的/改过的不动） */
+    function scanStackCardsFor(playerId, names) {
+      const t = _stackRuleTable(playerId);
+      let added = 0;
+      (names || []).forEach(function (n) {
+        if (!n || Object.prototype.hasOwnProperty.call(t, n)) return;
+        const db = (typeof CardDB !== 'undefined' && CardDB.lookup) ? CardDB.lookup(n) : null;
+        const max = (db && db.maxStack) ? db.maxStack : 0;
+        if (max > 0) { t[n] = Math.min(MAX_STACK_LIMIT, max); added++; }
+      });
+      return added;
+    }
+
+    /** 官方牌（含中立）里带堆叠的 → 补进双方条目表（卡牌库就绪后跑一次）
+     *  DIY 卡不算：开局默认只补「官方」牌；DIY 的带堆叠牌在导入卡组时才会算（scanStackCardsFor） */
+    function scanOfficialStackCards() {
+      if (typeof CardDB === 'undefined' || !CardDB.getAll) return 0;
+      let added = 0;
+      (CardDB.getAll() || []).forEach(function (c) {
+        if (!c || !c.name || c._custom || c._lib) return;      // 玩家卡库里的不算
+        const author = String(c.author || '官方').trim();
+        if (author && author !== '官方') return;               // DIY 卡（作者栏有值）不算
+        if (!(c.maxStack > 0)) return;
+        added += scanStackCardsFor('1', [c.name]);
+        added += scanStackCardsFor('2', [c.name]);
+      });
+      // 卡库就绪后总是全量重算一次：把开局卡库还没就绪时按不到数据的牌补上
+      refreshStackLimits('1', false);
+      refreshStackLimits('2', false);
+      return added;
+    }
+
+    /**
+     * 断线重连 / 刷新页面后：从「牌身上的堆叠标记」反推本局条目表
+     * （服务器只存牌，不存规则表；标记反推能拿回绝大多数设置，含 0 值墓碑）
+     *  · 非手动（跟随中）+ _maxStack > 0  → 该牌名本局上限 = _maxStack
+     *  · 非手动 + _maxStack = 0、且卡牌数据里本来能堆叠 → 记 0（本局禁用/删过）
+     *  只补「表里还没有的牌名」，不覆盖任何已有设置
+     */
+    function rebuildStackRulesFromCards(playerId) {
+      const pid = String(playerId == null ? '1' : playerId);
+      const t = _stackRuleTable(pid);
+      const dbReady = !(typeof CardDB !== 'undefined' && CardDB.isReady && !CardDB.isReady());
+      const seen = {};
+      let added = 0;
+      const add = function (card) {
+        if (!card || !card.name || card._maxStackManual) return;          // 手动设过的不参与反推
+        const n = card.name;
+        if (Object.prototype.hasOwnProperty.call(t, n) || seen[n]) return;
+        const stamp = card._maxStack || 0;
+        if (stamp > 0) { t[n] = Math.min(MAX_STACK_LIMIT, stamp); seen[n] = 1; added++; return; }
+        if (!dbReady) return;                                             // 卡库没好，分辨不出「本局禁用」
+        const db = CardDB.lookup(n);
+        if (db && db.maxStack > 0) { t[n] = 0; seen[n] = 1; added++; }     // 本来能堆叠现在标记是 0 → 墓碑
+      };
+      const st = getPlayerCardState(pid);
+      if (st) {
+        (st.hand || []).forEach(add);
+        (st.deck || []).forEach(add);
+        (st.grave || []).forEach(add);
+      }
+      if (typeof oracleHands !== 'undefined' && Array.isArray(oracleHands[pid])) {
+        oracleHands[pid].forEach(add);
+      }
+      return added;
+    }
+
+    /** 存档 / 撤销用的快照（含 0 值墓碑） */
+    function getStackRulesSnapshot(playerId) {
+      const t = _stackRuleTable(playerId);
+      const out = {};
+      Object.keys(t).forEach(function (k) { out[k] = t[k]; });
+      return out;
+    }
+
+    /** 还原快照（读旧档没有该字段时传空对象即可，不影响官方默认补全） */
+    function setStackRulesSnapshot(playerId, table) {
+      const pid = String(playerId == null ? '1' : playerId);
+      const out = {};
+      if (table && typeof table === 'object') {
+        Object.keys(table).forEach(function (k) {
+          const v = parseInt(table[k], 10);
+          if (!k) return;
+          out[k] = (Number.isNaN(v) || v < 1) ? 0 : Math.min(MAX_STACK_LIMIT, v);
+        });
+      }
+      stackRules[pid] = out;
+      refreshStackLimits(pid, false);
+    }
+
+    /** 重算某玩家所有牌的堆叠上限，并把超出上限的层数压到上限（不拆叠） */
+    function refreshStackLimits(playerId, doSync) {
+      const pid = String(playerId == null ? '1' : playerId);
+      const state = getPlayerCardState(pid);
+      if (!state) return;
+      // 卡库没就绪：不能按卡牌数据算（否则会把所有牌当成「不能堆叠」把层数压坏），
+      // 但「本叠手动 / 本局条目」是本地就知道的 → 照样要生效（旧牌跟着开启堆叠），
+      // 只有本局没设置过、也没手动设过的牌才不动（等卡库就绪后会自动全量重算一次）。
+      const dbReady = !(typeof CardDB !== 'undefined' && CardDB.isReady && !CardDB.isReady());
+      const applyTo = function (card) {
+        if (!card || typeof card !== 'object' || !card.name) return;
+        if (!dbReady && !card._maxStackManual && getStackRule(pid, card.name) === null) return;
+        const lim = getCardMaxStack(pid, card);
+        card._maxStack = (lim > 0) ? lim : 0;
+        if (lim <= 0) {
+          if ((card._stack || 0) > 1) card._stack = 1;   // 层数最低 1
+          return;
+        }
+        if (!card._stack) card._stack = 1;
+        if (card._stack > lim) card._stack = lim;        // 超上限：压到上限
+      };
+      (state.deck || []).forEach(applyTo);
+      (state.hand || []).forEach(applyTo);
+      (state.grave || []).forEach(applyTo);
+      if (typeof oracleHands !== 'undefined' && Array.isArray(oracleHands[pid])) {
+        oracleHands[pid].forEach(applyTo);
+      }
+      if (typeof updateDeckButtons === 'function') updateDeckButtons(pid);
+      if (typeof refreshOpenListDialog === 'function') refreshOpenListDialog(pid);
+      if (typeof window.refreshGraveButtons === 'function') window.refreshGraveButtons();
+      // 开着的坟场弹窗 / 启悟弹窗也跟着刷新（撤销/读档/收到同步也会走到这里）
+      if (graveCtx && graveOverlay && !graveOverlay.hidden) _graveRenderList();
+      if (typeof window.refreshOracleStackView === 'function') window.refreshOracleStackView(pid);
+      // 堆叠管理窗开着时一并刷新
+      if (window.StackManage && StackManage.refreshOpen) StackManage.refreshOpen();
+      if (doSync) {
+        if (window.Undo && Undo.noteSync) Undo.noteSync();
+        if (typeof syncDeckStateForce === 'function') syncDeckStateForce(pid);
+        else if (typeof syncDeckState === 'function') syncDeckState(pid);
+      }
+    }
+
+    /** 算卡牌当前有效的堆叠上限：本叠手动设置 > 本局条目（0=禁用）> 数据库 */
     function getCardMaxStack(playerId, card) {
       if (!card || !card.name) return 0;
-      // 1) 卡牌对象已带上限（之前入手/效果改过）
-      if (card._maxStack > 0) return card._maxStack;
-      // 2) 效果面板规则「堆叠上限：卡牌名」
-      const zone = document.querySelector(`.player-zone[data-player="${playerId}"]`);
-      if (zone) {
-        let limit = 0;
-        zone.querySelectorAll('.effect-item').forEach(function(item) {
-          const name = (item.querySelector('.effect-name')?.value || '').trim();
-          const m = name.match(/^堆叠上限[：:](.+)$/);
-          if (!m || m[1].trim() !== card.name) return;
-          const rawVal = (item.querySelector('.effect-value')?.value || '').trim();
-          if (!rawVal) return;
-          const val = parseInt(rawVal, 10);
-          if (!Number.isNaN(val) && val >= 1) limit = val;
-        });
-        if (limit > 0) return limit;
+      // 1) 这一叠手动设过（含「取消这叠的堆叠」：_maxStack 为 0）
+      if (card._maxStackManual) {
+        const v = parseInt(card._maxStack, 10);
+        return (Number.isNaN(v) || v < 1) ? 0 : Math.min(MAX_STACK_LIMIT, v);
       }
+      // 2) 本局条目表（0 = 本局禁用 → 不再往下查）
+      const rule = getStackRule(playerId, card.name);
+      if (rule !== null) return (rule > 0) ? rule : 0;
       // 3) 数据库默认
       const db = (typeof CardDB !== 'undefined' && CardDB.lookup) ? CardDB.lookup(card.name) : null;
-      return (db && db.maxStack) ? db.maxStack : 0;
+      return (db && db.maxStack) ? Math.min(MAX_STACK_LIMIT, db.maxStack) : 0;
     }
 
     /** 将卡牌置入手牌，自动处理最大堆叠 */
     function pushCardToHand(playerId, card, fromShop) {
       if (!card || !card.name) return;
       const state = getPlayerCardState(playerId);
-      const maxStack = getCardMaxStack(playerId, card);
+      const inMax = getCardMaxStack(playerId, card);   // 新进来这张的上限
 
-      if (maxStack > 0) {
+      if (inMax > 0) {
         // 从商店购买时，卡牌本身可能已有层数
-        const incomingStack = card._stack || 1;
-        let remaining = incomingStack;
+        let remaining = card._stack || 1;
 
-        // 先尝试填充手牌中已有的同名牌堆叠
-        const existing = state.hand.filter(hc => hc.name === card.name && (hc._stack || 0) < maxStack);
+        // 先填充手牌里已有的同名叠：每叠按它自己的上限（这样手动加过堆叠的那一叠也能继续装）
+        const existing = state.hand.filter(hc => hc && hc.name === card.name);
         for (const hc of existing) {
           if (remaining <= 0) break;
-          const space = maxStack - (hc._stack || 1);
+          const hcMax = getCardMaxStack(playerId, hc);
+          if (hcMax <= 0) continue;                     // 这一叠没有堆叠能力（禁用/未开）
+          const cur = hc._stack || 1;
+          const space = hcMax - cur;
+          if (space <= 0) continue;                     // 这一叠已满
           const add = Math.min(remaining, space);
-          hc._stack = (hc._stack || 1) + add;
-          hc._maxStack = maxStack;
+          hc._stack = cur + add;
+          hc._maxStack = hcMax;
           remaining -= add;
         }
 
-        // 剩余的创建新堆叠
+        // 剩余的创建新堆叠（每叠不超过上限）
         while (remaining > 0) {
-          const stack = Math.min(remaining, maxStack);
+          const stack = Math.min(remaining, inMax);
           const newCard = createCard(card.name);
           newCard._stack = stack;
-          newCard._maxStack = maxStack;
+          newCard._maxStack = inMax;
           newCard._shop = card._shop || false;
           state.hand.push(newCard);
           remaining -= stack;
         }
       } else {
-        // 无堆叠：直接加入
+        // 无堆叠（本局禁用/该牌本身不能堆叠）：直接加入，顺手清掉带进来的堆叠标记
+        if (card._stack) card._stack = 1;
+        card._maxStack = 0;
         state.hand.push(card);
       }
     }
+
+    // 对外暴露（管理窗/存档/撤销/测试用）
+    window.getStackRule = getStackRule;
+    window.setStackRule = setStackRule;
+    window.removeStackRule = removeStackRule;
+    window.addStackRule = addStackRule;
+    window.scanStackCardsFor = scanStackCardsFor;
+    window.scanOfficialStackCards = scanOfficialStackCards;
+    window.getStackRulesSnapshot = getStackRulesSnapshot;
+    window.rebuildStackRulesFromCards = rebuildStackRulesFromCards;
+    /** 退出房间/开新局：清空双方的本局堆叠条目（刷新页面/断线重连不会走到这里） */
+    window.resetStackRules = function () {
+      setStackRulesSnapshot('1', {});
+      setStackRulesSnapshot('2', {});
+    };
+    window.setStackRulesSnapshot = setStackRulesSnapshot;
+    window.refreshStackLimits = refreshStackLimits;
+    window.getCardMaxStack = getCardMaxStack;
+
+    // 卡牌库就绪后跑一次「官方堆叠牌 → 本局条目」补全（只补缺失的键）
+    (function _waitCardsReadyThenScanStack() {
+      let tries = 0;
+      const tick = function () {
+        if (typeof CardDB !== 'undefined' && CardDB.isReady && CardDB.isReady()) {
+          try {
+            // 先「从牌上反推」还原本局条目（含墓碑），再补官方默认，最后全量重算
+            rebuildStackRulesFromCards('1');
+            rebuildStackRulesFromCards('2');
+            scanOfficialStackCards();
+          } catch (e) { console.warn('[Stack] 开局还原/扫描失败:', e); }
+          return;
+        }
+        if (++tries > 150) return;   // 约 30 秒后放弃
+        setTimeout(tick, 200);
+      };
+      tick();
+    })();
 
     function addToDeck(playerId, text, qty, placement) {
       const name = text.trim();
@@ -2151,6 +2408,7 @@
         else if (_mobileHandMode === 'redraw') btn.hidden = !btn.classList.contains('btn-card-redraw');
         else if (_mobileHandMode === 'todeck') btn.hidden = !btn.classList.contains('btn-card-to-deck');
         else if (_mobileHandMode === 'tooracle') btn.hidden = !btn.classList.contains('btn-card-move-oracle');
+        else if (_mobileHandMode === 'stack') btn.hidden = !(btn.dataset.stackBtn === 'true');
         else if (_mobileHandMode === 'charge') btn.hidden = !(btn.dataset.chargeBtn === 'true');
         else if (_mobileHandMode === 'renyin') btn.hidden = !(btn.dataset.renyinBtn === 'true');
         else btn.hidden = true;
@@ -2158,8 +2416,6 @@
       document.querySelectorAll('.hand-toggle-btn').forEach(b => {
         b.classList.toggle('active', _mobileHandMode === b.dataset.handMode);
       });
-      if (chargeToggleBtn) chargeToggleBtn.classList.toggle('active', _mobileHandMode === 'charge');
-      if (renyinToggleBtn) renyinToggleBtn.classList.toggle('active', _mobileHandMode === 'renyin');
     }
 
     /** 互斥切换（再点一次取消），手机/电脑端通用 */
@@ -2169,11 +2425,9 @@
       _refreshCardListBtnTexts();
     }
 
-    /** 按钮文字：手机端去掉 emoji 图标，电脑端保留 */
+    /** 按钮文字：手机端去掉 emoji 图标，电脑端保留（蓄力/连引/设置堆叠已在互斥开关排里，不动文字） */
     function _refreshCardListBtnTexts() {
       const isMobile = MOBILE_HAND_MQ.matches;
-      if (chargeToggleBtn) chargeToggleBtn.textContent = isMobile ? ('蓄力使用' + (_mobileHandMode === 'charge' ? ' ✓' : '')) : ('🔋 蓄力使用' + (_mobileHandMode === 'charge' ? ' ✓' : ''));
-      if (renyinToggleBtn) renyinToggleBtn.textContent = isMobile ? ('连引使用' + (_mobileHandMode === 'renyin' ? ' ✓' : '')) : ('🔗 连引使用' + (_mobileHandMode === 'renyin' ? ' ✓' : ''));
       const initBtn = document.getElementById('card-list-initial-hand-btn');
       if (initBtn) initBtn.textContent = isMobile ? '初始手牌' : '🎴 初始手牌';
       const bcr = document.getElementById('btn-curse-random');
@@ -2206,21 +2460,12 @@
       _applyMobileHandMode();
     };
     if (chargeToggleBtn) {
-      chargeToggleBtn.style.background = 'linear-gradient(180deg,#3a2a10,#2a1a08)';
-      chargeToggleBtn.style.color = '#c0a060';
-      chargeToggleBtn.style.borderColor = 'rgba(200,160,60,0.4)';
-      chargeToggleBtn.addEventListener('click', () => { _setHandActionMode('charge'); });
+      // 样式与其它互斥开关统一（css/chat.css .hand-toggle-btn）；点击由上面的通用监听处理
     }
 
     // 连引使用切换按钮
     const renyinToggleBtn = document.getElementById('card-list-renyin-toggle');
     let renyinBtnsVisible = false;
-    if (renyinToggleBtn) {
-      // 初始样式
-      renyinToggleBtn.style.background = 'linear-gradient(180deg,#4a3a6a,#3a2a5a)';
-      renyinToggleBtn.style.color = '#c0b0e0';
-      renyinToggleBtn.addEventListener('click', () => { _setHandActionMode('renyin'); });
-    }
 
     // 随机结附灵咒
     let curseRandomRepeat = false; // false=优先不重复, true=全随机
@@ -2339,6 +2584,22 @@
             countSpan.className = 'breakdown-card-row__count';
             countSpan.textContent = '×' + entry.count;
             row.appendChild(countSpan);
+          }
+
+          // 堆叠：自己的牌表看得见牌名 → 显示本局生效上限（点一下开堆叠管理窗）
+          const bdOwn = isViewingOwnCards(playerId);
+          const bdSpec = (typeof isSpectator !== 'undefined' && isSpectator);
+          if (showName && typeof window.StackManage === 'object'
+              && window.StackManage.limitOf(playerId, sampleCard, bdOwn && !bdSpec) > 0) {
+            const limSpan = document.createElement('span');
+            limSpan.className = 'breakdown-card-row__stack';
+            limSpan.textContent = '堆叠上限 ' + window.StackManage.limitOf(playerId, sampleCard, bdOwn && !bdSpec);
+            limSpan.title = '点击打开堆叠管理（改本叠 / 本局上限）';
+            limSpan.addEventListener('click', (e) => {
+              e.stopPropagation();
+              window.StackManage.open(playerId, sampleCard, { canEdit: bdOwn && !bdSpec });
+            });
+            row.appendChild(limSpan);
           }
 
           // 已揭示时显示灵咒
@@ -3468,7 +3729,7 @@
       body.addEventListener('pointerdown', (e) => {
         if (!graveReorder || !graveCtx) return;
         if (typeof isSpectator !== 'undefined' && isSpectator) return;
-        if (e.target.closest('.grave-item-btn, .btn-card-curse-add')) return;
+        if (e.target.closest('.grave-item-btn, .btn-card-curse-add, .stack-inline__btn, .stack-inline__label--click')) return;
         const item = e.target.closest('.grave-item');
         if (!item) return;
         // 释放触摸指针的隐式捕获，否则 pointermove 永远只落在初始元素上（手机拖不动的根因）
@@ -3603,11 +3864,30 @@
             <span class="card-list-item__name grave-item__name">${escapeHTML(_displayCardName(card.name || '未知卡牌'))}</span>
             ${curseTagsHtml}
           </span>
+          <span class="grave-item__stackslot"></span>
           ${curseBtn}
           ${actionBtn}
         </div>`;
       });
       body.innerHTML = html || '<div class="grave-empty">坟场为空</div>';
+      // 堆叠层数控件（自己可调、观众只读）：用 DOM 方式追加，避免拼字符串
+      if (typeof window.StackManage === 'object') {
+        const specNow = (typeof isSpectator !== 'undefined' && isSpectator);
+        const gOwn = isViewingOwnCards(graveCtx.playerId) && !specNow;
+        body.querySelectorAll('.grave-item').forEach(function (item) {
+          const gIdx = parseInt(item.dataset.graveIdx, 10);
+          const gCard = grave[gIdx];
+          if (!gCard) return;
+          if (!(window.StackManage.limitOf(graveCtx.playerId, gCard, gOwn) > 0)) return;
+          const slot = item.querySelector('.grave-item__stackslot');
+          if (!slot) return;
+          let ctl = null;
+          ctl = window.StackManage.buildInline(graveCtx.playerId, gCard, gOwn, function () {
+            if (ctl && ctl.__stackRefresh) ctl.__stackRefresh();
+          });
+          slot.appendChild(ctl);
+        });
+      }
     }
 
     /** 坟场中某张牌的灵咒管理（复用通用灵咒面板） */
