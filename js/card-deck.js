@@ -90,6 +90,11 @@
       return { id: ++cardIdCounter, name: name.trim(), curses: [] };
     }
 
+    /** 牌面列表显示名：分化牌加「协战*」前缀（系统消息里不加） */
+    function _displayCardName(name) {
+      return (window.Bond && Bond.displayName) ? Bond.displayName(name) : name;
+    }
+
     function shuffleCards(cards) {
       for (let i = cards.length - 1; i > 0; i -= 1) {
         const j = Math.floor(Math.random() * (i + 1));
@@ -307,7 +312,7 @@
         const name = document.createElement('span');
         name.className = 'card-list-item__name';
         if (ownCards || specView || isShown) {
-          name.textContent = card.name || '(未命名)';
+          name.textContent = _displayCardName(card.name || '(未命名)');
           // 食材牌/佳肴：存储数据供浮窗显示
           if (card._food) {
             name.dataset.food = JSON.stringify(card);
@@ -371,7 +376,11 @@
         useBtn.type = 'button';
         useBtn.className = 'btn-card-action btn-card-use';
         useBtn.textContent = '使用';
-        useBtn.addEventListener('click', () => removeFromHand(playerId, card.id, 'use'));
+        useBtn.addEventListener('click', () => {
+          // 协战牌：先弹分化窗（关闭 = 不使用，牌留在手牌）
+          if (window.Bond && Bond.tryUse(playerId, card, () => removeFromHand(playerId, card.id, 'use'))) return;
+          removeFromHand(playerId, card.id, 'use');
+        });
         const chargeBtn = document.createElement('button');
         chargeBtn.type = 'button';
         chargeBtn.className = 'btn-card-action btn-card-charge';
@@ -700,8 +709,8 @@
     // ================================================================
     const DM_LEVELS = [['1', '1级'], ['2', '2级'], ['3', '3级'], ['其他', '其他']];
     const DM_RARITIES = [['R', 'R'], ['SR', 'SR'], ['SSR', 'SSR'], ['其他', '其他']];
-    const DM_TYPES = [['battle', '战斗'], ['spell', '法术'], ['form', '形态'], ['realm', '幻境'], ['其他', '其他']];
-    const DM_KNOWN_TYPES = ['battle', 'spell', 'form', 'realm'];
+    const DM_TYPES = [['battle', '战斗'], ['spell', '法术'], ['form', '形态'], ['realm', '幻境'], ['bond', '协战'], ['其他', '其他']];
+    const DM_KNOWN_TYPES = ['battle', 'spell', 'form', 'realm', 'bond'];
     const DM_NO_KW = '__no_kw__';   // 「无关键词」特殊值（不参与候选列表）
 
     let deckMoveCtx = null;
@@ -713,14 +722,25 @@
       const lv = Number(lvRaw);
       const typeRaw = String((db && db.type) || card.type || '');
       const rarRaw = String((db && db.rarity) || card.rarity || '');
-      const owner = String((db && db.owner) || card.owner || '').trim();
       const kws = (db && Array.isArray(db.keywords)) ? db.keywords : (Array.isArray(card.keywords) ? card.keywords : []);
-      const tgs = (db && Array.isArray(db.tags)) ? db.tags : (Array.isArray(card.tags) ? card.tags : []);
+      const _dmTagArr = v => Array.isArray(v) ? v.filter(Boolean) : (typeof v === 'string' ? v.split(/[,，、\s]+/).filter(Boolean) : []);
+      const _dbTags = _dmTagArr(db && db.tags);
+      const tgs = _dbTags.length ? _dbTags : _dmTagArr(card.tags);
+      // 归属：协战牌 = bondOwners 集合（不看 card.owner）；普通牌 = 牌面 owner（导入指定）优先 → 数据库
+      const _isBond = !!(db && db.type === 'bond');
+      const _bondOwners = (_isBond && Array.isArray(db.bondOwners)) ? db.bondOwners.filter(Boolean).map(String) : [];
+      const _ownerFace = String(card.owner || '').trim();
+      const _ownerDb = String((db && db.owner) || '').trim();
+      const owners = _isBond
+        ? (_bondOwners.length ? _bondOwners : (_ownerFace ? [_ownerFace] : (_ownerDb ? [_ownerDb] : [])))
+        : (_ownerFace ? [_ownerFace] : (_ownerDb ? [_ownerDb] : []));
       return {
         level: (lv === 1 || lv === 2 || lv === 3) ? String(lv) : '其他',
         type: DM_KNOWN_TYPES.indexOf(typeRaw) !== -1 ? typeRaw : '其他',
         rarity: (rarRaw === 'R' || rarRaw === 'SR' || rarRaw === 'SSR') ? rarRaw : '其他',
-        owner: owner || '中立',
+        owner: owners[0] || '中立',   // 兼容旧用法（单值）
+        owners: owners,               // 归属集合（匹配用这个）
+        bond: _isBond,
         keywords: kws.filter(Boolean).map(String),
         tags: tgs.filter(Boolean).map(String),
       };
@@ -734,7 +754,8 @@
       let noKwCount = 0;
       st.deck.forEach(card => {
         const m = _deckMoveMeta(card);
-        owners.set(m.owner, (owners.get(m.owner) || 0) + 1);
+        const ownList = (m.owners && m.owners.length) ? m.owners : ['中立'];
+        ownList.forEach(o => owners.set(o, (owners.get(o) || 0) + 1));
         const nm = String(card.name || '(未命名)');
         names.set(nm, (names.get(nm) || 0) + 1);
         if (!m.keywords.length) noKwCount++;
@@ -769,7 +790,7 @@
       const tagOn = ctx.cand.tag.length > 0 && ctx.sel.tag.size < ctx.cand.tag.length;
       deck.forEach((card, i) => {
         const m = _deckMoveMeta(card);
-        if (ctx.locate === 'shikigami' && m.owner !== ctx.ownerVal) return;
+        if (ctx.locate === 'shikigami' && (!m.owners || m.owners.indexOf(ctx.ownerVal) === -1)) return;
         if (ctx.locate === 'card' && String(card.name || '(未命名)') !== ctx.cardNameVal) return;
         if (!ctx.sel.level.has(m.level)) return;
         if (!ctx.sel.rarity.has(m.rarity)) return;
@@ -945,7 +966,7 @@
           kw: new Set(candKw),
           tag: new Set(candTag),
         },
-        kwAll: true,          // 「全部」是否处于亮着（手动选满关键词时不会变成 true）
+        kwAll: true,          
         dir: 'up',
         distance: 1,
       };
@@ -1083,6 +1104,8 @@
           // 从坟场使用：由坟场逻辑统一播报，这里不重复
         } else if (window._searchUseInProgress) {
           // 从检索使用：由检索逻辑统一播报，这里不重复
+        } else if (window._bondUseInProgress) {
+          // 协战牌分化使用：由 Bond 统一播报「使用了协战牌「xx」——「yy」」，这里不重复
         } else if (typeof startMessageGroup === 'function') {
           startMessageGroup(mainMsg, window.getFoodNote ? window.getFoodNote(card) : null);
         } else {
@@ -1721,6 +1744,7 @@
       // 操作者和牌主自己看到详细信息（牌名）
       const prefix = isHelp ? `【系统】${opName}完成了对${playerName}的占卜${xVal}` : `【系统】${playerName}完成了占卜`;
       addSystemChatMessage(`${prefix} —— 牌库顶：[${topNames}]，牌库底：[${bottomNames}]`);
+      if (window.Undo && Undo.noteMessage) Undo.noteMessage('完成占卜');
 
       // 其他人（对手/观众）看到摘要信息（只有数量，不知道牌名）
       if (!isSoloMode && isConnected() && typeof sendToPeer === 'function') {
@@ -1799,9 +1823,16 @@
         }
         for (let i = 0; i < qty; i++) items.push({ name: cardName, owner: sectionOwner });
       });
+      let bondIgnoredOwners = [];
       const cards = shuffleCards(items.map(function(it) {
         const c = createCard(it.name);
-        if (it.owner) c.owner = it.owner;   // 写入【式神】归属，牌库/悬浮窗可显示
+        const dbc = (typeof CardDB !== 'undefined' && CardDB.lookup) ? CardDB.lookup(it.name) : null;
+        if (dbc && dbc.type === 'bond') {
+          // 协战牌归属固定为两名所属式神：【式神名】对它不生效（不写入 owner）
+          if (it.owner) bondIgnoredOwners.push(it.name + '（忽略【' + it.owner + '】）');
+        } else if (it.owner) {
+          c.owner = it.owner;   // 写入【式神】归属，牌库/悬浮窗可显示
+        }
         return c;
       }));
       getPlayerCardState(playerId).deck.push(...cards);
@@ -1814,6 +1845,9 @@
       }
       if (unresolvedLoose > 0) {
         msg += `；另有 ${unresolvedLoose} 张未找到且未标注式神（按无归属导入）`;
+      }
+      if (bondIgnoredOwners.length) {
+        msg += `；协战牌归属固定为两名式神，已忽略【式神名】：${[...new Set(bondIgnoredOwners)].join('、')}`;
       }
       broadcastSystemMsg(msg);
     }
@@ -2242,7 +2276,14 @@
       const ownerMap = new Map();
       deck.forEach(card => {
         const db = CardDB.lookup(card.name);
-        const owner = (db && db.owner) ? db.owner : (card.owner || '无归属');
+        let owner;
+        if (db && db.type === 'bond') {
+          // 协战牌：固定归到「A×B」一组（不受导入区段头影响）
+          const bo = Array.isArray(db.bondOwners) ? db.bondOwners.filter(Boolean) : [];
+          owner = bo.length ? bo.join('×') : ((db.owner) || card.owner || '无归属');
+        } else {
+          owner = String(card.owner || (db && db.owner) || '无归属');
+        }
         if (!ownerMap.has(owner)) ownerMap.set(owner, new Map());
         const nameMap = ownerMap.get(owner);
         const existing = nameMap.get(card.name);
@@ -2281,7 +2322,7 @@
           nameSpan.className = 'breakdown-card-row__name';
           // 自己的牌表全部可见；对手的牌表仅揭示牌可见
           const showName = isViewingOwnCards(playerId) || isRevealed;
-          nameSpan.textContent = showName ? name : '未知';
+          nameSpan.textContent = showName ? _displayCardName(name) : '未知';
           if (!showName) {
             nameSpan.style.color = 'var(--text-muted, #888)';
             nameSpan.style.cursor = 'default';
@@ -2499,6 +2540,7 @@
       const summaryMsg = `【系统】${playerName}为「${cardName}」置入了一张${level}级食材牌`;
       if (isMyOp) {
         addSystemChatMessage(detailMsg, window.getFoodNote ? window.getFoodNote(foodCard) : null);
+        if (window.Undo && Undo.noteMessage) Undo.noteMessage('置入食材');
         if (!isSoloMode && isConnected() && typeof sendToPeer === 'function') {
           sendToPeer({ type: 'sysmsg', text: summaryMsg });
         }
@@ -2549,6 +2591,7 @@
       if (isMyOp) {
         // 我为自己烹饪：我看到详细，对手看到摘要
         addSystemChatMessage(detailMsg, window.getFoodNote ? window.getFoodNote(foodCard) : null);
+        if (window.Undo && Undo.noteMessage) Undo.noteMessage('烹饪');
         if (!isSoloMode && isConnected() && typeof sendToPeer === 'function') {
           sendToPeer({ type: 'sysmsg', text: summaryMsg });
         }
@@ -2596,6 +2639,7 @@
             }
           }
           addSystemChatMessage(detailFeast, window.getFoodNote ? window.getFoodNote(feast) : null);
+        if (window.Undo && Undo.noteMessage) Undo.noteMessage('合成佳肴');
           if (!isSoloMode && isConnected() && typeof sendToPeer === 'function') {
             sendToPeer({ type: 'sysmsg', text: summaryFeast });
           }
@@ -3152,6 +3196,7 @@
 
       // 本地显示详细信息
       addSystemChatMessage(detailMsg);
+      if (window.Undo && Undo.noteMessage) Undo.noteMessage('抽取初始手牌');
 
       // 发送给对手：仅摘要
       if (!isSoloMode && isConnected() && typeof sendToPeer === 'function') {
@@ -3555,7 +3600,7 @@
           <span class="grave-item__no">${viewNo}</span>
           ${tag}
           <span class="grave-item__namewrap">
-            <span class="card-list-item__name grave-item__name">${escapeHTML(card.name || '未知卡牌')}</span>
+            <span class="card-list-item__name grave-item__name">${escapeHTML(_displayCardName(card.name || '未知卡牌'))}</span>
             ${curseTagsHtml}
           </span>
           ${curseBtn}
@@ -3618,6 +3663,31 @@
       broadcastSystemMsg(`【系统】${getPlayerName(pid)}向坟场置入了「${name}」`);
     }
 
+    /** 坟场「使用」的实际执行体（协战牌由 Bond 选定分化牌后调用） */
+    function _graveUseCommit(playerId, grave, idx, card, filterText) {
+      const state = getPlayerCardState(playerId);
+      const playerName = getPlayerName(playerId);
+      const gi = grave.findIndex(c => c && c.id === card.id);
+      if (gi === -1) return;
+      // 从坟场使用：放回手牌走现有“使用牌”流程（不再回坟场、不重复播报）
+      grave.splice(gi, 1);
+      state.hand.push(card);
+      window._graveUseInProgress = true;
+      try {
+        removeFromHand(playerId, card.id, 'use');
+      } finally {
+        window._graveUseInProgress = false;
+      }
+      // 跨玩家操作时强制同步给对方（removeFromHand 内部只同步己方）
+      if (typeof syncDeckStateForce === 'function' && typeof isMyZone === 'function' && !isMyZone(playerId)) {
+        syncDeckStateForce(playerId);
+      }
+      if (!window._bondUseInProgress) {
+        broadcastSystemMsg(`【系统】${playerName}从坟场（${filterText}）使用了卡牌「${card.name}」`);
+      }
+      _graveRenderList();
+    }
+
     function _graveDoAction(idx) {
       if (!graveCtx) return;
       if (typeof isSpectator !== 'undefined' && isSpectator) return;
@@ -3636,20 +3706,9 @@
       };
 
       if (graveActionMode === 'use') {
-        // 从坟场使用：放回手牌走现有“使用牌”流程（不再回坟场、不重复播报）
-        grave.splice(idx, 1);
-        state.hand.push(card);
-        window._graveUseInProgress = true;
-        try {
-          removeFromHand(playerId, card.id, 'use');
-        } finally {
-          window._graveUseInProgress = false;
-        }
-        // 跨玩家操作时强制同步给对方（removeFromHand 内部只同步己方）
-        if (typeof syncDeckStateForce === 'function' && typeof isMyZone === 'function' && !isMyZone(playerId)) {
-          syncDeckStateForce(playerId);
-        }
-        broadcastSystemMsg(`【系统】${playerName}从坟场（${filterText}）使用了卡牌「${card.name}」`);
+        // 协战牌：先弹分化窗（关闭 = 不使用，牌留在坟场）
+        if (window.Bond && Bond.tryUse(playerId, card, () => _graveUseCommit(playerId, grave, idx, card, filterText))) return;
+        _graveUseCommit(playerId, grave, idx, card, filterText);
       } else if (graveActionMode === 'hand') {
         grave.splice(idx, 1);
         state.hand.push(card);
@@ -3728,7 +3787,7 @@
     let searchFilters = {
       shikigami: { all: true, neutral: false, names: [] },
       levels: { '1': true, '2': true, '3': true, '其他': true },
-      types: { battle: true, spell: true, realm: true, form: true, '其他': true },
+      types: { battle: true, spell: true, realm: true, form: true, bond: true, '其他': true },
       rarities: { 'R': true, 'SR': true, 'SSR': true, '其他': true },
     };
 
@@ -3959,7 +4018,7 @@
       optsLevel.innerHTML = html;
 
       html = '';
-      const typeNames = { battle: '战斗', spell: '法术', realm: '幻境', form: '形态', '其他': '其他' };
+      const typeNames = { battle: '战斗', spell: '法术', realm: '幻境', form: '形态', bond: '协战', '其他': '其他' };
       Object.keys(typeNames).forEach(function(t) {
         html += `<button type="button" class="search-range-btn${f.types[t] ? ' active' : ''}" data-rg="type" data-v="${t}">${typeNames[t]}</button>`;
       });
@@ -3978,14 +4037,18 @@
       const state = getPlayerCardState(pid);
       const deck = state.deck || [];
       const f = searchFilters;
-      const KNOWN_TYPES = ['battle', 'spell', 'realm', 'form'];
+      const KNOWN_TYPES = ['battle', 'spell', 'realm', 'form', 'bond'];
       const out = [];
       deck.forEach(function(card) {
         if (!card || typeof card !== 'object') return;
         const db = (typeof CardDB !== 'undefined' && CardDB.lookup) ? CardDB.lookup(card.name) : null;
         const typeRaw = (db && db.type) || card.type || '';
         const levelRaw = (db && db.level) || card.level || null;
-        const owner = (db && db.owner) || card.owner || '中立';
+        const isBond = !!(db && db.type === 'bond');
+        const bondOwners = (isBond && Array.isArray(db.bondOwners)) ? db.bondOwners.filter(Boolean).map(String) : [];
+        const owners = isBond
+          ? (bondOwners.length ? bondOwners : [String((db && db.owner) || card.owner || '').trim()].filter(Boolean))
+          : ([String(card.owner || (db && db.owner) || '').trim()].filter(Boolean));
         const dbRarity = (db && db.rarity) || card.rarity || '';
         // 未记录的等级/类型/稀有度归入「其他」
         const type = KNOWN_TYPES.indexOf(typeRaw) !== -1 ? typeRaw : '其他';
@@ -3995,12 +4058,12 @@
         if (!f.levels[level]) return;
         if (!f.rarities[rarity]) return;
         if (f.shikigami.all) { out.push(card); return; }
-        const isNeutral = (!owner || owner === '中立' || owner === '无相');
+        const isNeutral = (!owners.length || owners.every(o => o === '中立' || o === '无相'));
         if (isNeutral) {
           if (f.shikigami.neutral) out.push(card);
           return;
         }
-        if (f.shikigami.names.indexOf(owner) !== -1) out.push(card);
+        if (owners.some(o => f.shikigami.names.indexOf(o) !== -1)) out.push(card);
       });
       return out;
     }
@@ -4008,7 +4071,7 @@
     function _searchValidate() {
       const f = searchFilters;
       const anyLevel = f.levels['1'] || f.levels['2'] || f.levels['3'] || f.levels['其他'];
-      const anyType = f.types.battle || f.types.spell || f.types.realm || f.types.form || f.types['其他'];
+      const anyType = f.types.battle || f.types.spell || f.types.realm || f.types.form || f.types.bond || f.types['其他'];
       const anyShiki = f.shikigami.all || f.shikigami.neutral || f.shikigami.names.length > 0;
       const anyRarity = f.rarities['R'] || f.rarities['SR'] || f.rarities['SSR'] || f.rarities['其他'];
       if (!anyLevel || !anyType || !anyShiki || !anyRarity) {
@@ -4097,7 +4160,7 @@
         html += `<div class="search-item">
           <span class="search-item__no">${i + 1}</span>
           <div class="search-item__main">
-            <span class="search-item__name">${escapeHTML(card.name || '未知卡牌')}</span>
+            <span class="search-item__name">${escapeHTML(_displayCardName(card.name || '未知卡牌'))}</span>
             ${tags ? '<span class="search-item__tags">' + tags + '</span>' : ''}
           </div>
           <span class="search-item__btns">
@@ -4117,6 +4180,13 @@
 
     function _searchUseCard(card) {
       const pid = _searchPid();
+      // 协战牌：先弹分化窗（关闭 = 不使用，牌子留在牌库原位）
+      if (window.Bond && Bond.tryUse(pid, card, () => _searchUseCardCommit(pid, card))) return;
+      _searchUseCardCommit(pid, card);
+    }
+
+    /** 检索「使用」的实际执行体（协战牌由 Bond 选定分化牌后调用） */
+    function _searchUseCardCommit(pid, card) {
       const state = getPlayerCardState(pid);
       const idx = state.deck.findIndex(function(c) { return c && c.id === card.id; });
       if (idx === -1) { _searchDropCard(card); return; }
@@ -4129,8 +4199,10 @@
       } finally {
         window._searchUseInProgress = false;
       }
-      // 使用牌双方都能看到，公开播报具体牌名（「」内牌名自动高亮可点击查看）
-      broadcastSystemMsg(`【系统】${getPlayerName(pid)}通过检索从牌库使用了卡牌「${card.name}」`);
+      // 协战牌由 Bond 统一播报，这里跳过（避免两条消息）
+      if (!window._bondUseInProgress) {
+        broadcastSystemMsg(`【系统】${getPlayerName(pid)}通过检索从牌库使用了卡牌「${card.name}」`);
+      }
       _searchDropCard(card);
     }
 

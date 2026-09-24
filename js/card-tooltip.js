@@ -74,7 +74,7 @@
             return;
           }
           // 手牌/牌库/牌表/聊天等列表中的卡牌名：点击显示悬浮窗
-          const nameHit = e.target.closest ? e.target.closest('.card-list-item__name, .breakdown-card-row__name, .deck-group__name, .chat-card-name, .charge-card-name, .divine-card-item__name') : null;
+          const nameHit = e.target.closest ? e.target.closest('.card-list-item__name, .breakdown-card-row__name, .deck-group__name, .chat-card-name, .charge-card-name, .divine-card-item__name, .bond-opt') : null;
           if (nameHit) {
             if (_findCardName(e.target)) { _onMouseOver(e); }
             return;
@@ -105,6 +105,11 @@
         return !!target.closest('input, textarea, select, button, .card-form-badge, .curse-badge, .charge-indicator, .card-badge:not(.card-badge--name)');
       }
 
+      /** 去掉牌面列表的「协战*」前缀，便于按真名查库 */
+      function _stripBondPrefix(text) {
+        return String(text == null ? '' : text).replace(/^协战\*/, '');
+      }
+
       function _findCardName(target) {
         if (!target) return null;
         // 食材牌/佳肴：通过 data-food 属性获取
@@ -117,18 +122,18 @@
         }
         // 直接命中
         if (target.classList.contains('card-name')) return target.value;
-        if (target.classList.contains('card-list-item__name')) return target.textContent;
+        if (target.classList.contains('card-list-item__name')) return _stripBondPrefix(target.textContent);
         if (target.classList.contains('breakdown-card-row__name')) {
-          const t = target.textContent.trim();
+          const t = _stripBondPrefix(target.textContent).trim();
           if (t === '未知' || !t) return null; // 未揭示不弹窗
           return t;
         }
         if (target.classList.contains('deck-group__name')) {
           // 对手牌库中的已揭示卡牌，去掉"（已占卜）"后缀
-          return target.textContent.replace(/（已占卜）$/, '');
+          return _stripBondPrefix(target.textContent).replace(/（已占卜）$/, '');
         }
         // 占卜界面中的卡牌名
-        if (target.classList.contains('divine-card-item__name')) return target.textContent;
+        if (target.classList.contains('divine-card-item__name')) return _stripBondPrefix(target.textContent);
         if (target.classList.contains('chat-card-name')) {
           // 系统消息中的食材/佳肴：通过隐藏备注实时生成真实效果
           if (target.dataset.food) {
@@ -162,6 +167,12 @@
         if (target.classList.contains('card-badge--name')) {
           const input = target.querySelector('.card-name');
           if (input) return input.value;
+        }
+        // 协战牌分化选择窗：悬浮/点击选项任意位置都能看牌（按钮上不弹，避免挡住“使用”操作）
+        const bondOpt = target.closest ? target.closest('.bond-opt') : null;
+        if (bondOpt && !(target.closest && target.closest('button'))) {
+          const bnm = bondOpt.querySelector('.bond-opt__name');
+          if (bnm) return _stripBondPrefix(bnm.textContent);
         }
         // 卡牌槽内任意位置
         const slot = target.closest('.card-slot');

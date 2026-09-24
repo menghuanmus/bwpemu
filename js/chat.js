@@ -72,17 +72,19 @@
       if (!_msgGroup) return;
       const group = _msgGroup;
       _msgGroup = null;
+      // 撤销功能：登记本步的标题与明细（作为撤销提示的展开内容）
+      if (window.Undo && Undo.noteMessage) Undo.noteMessage(group.mainMsg, group.subMsgs);
       if (group.subMsgs.length === 0) {
         addSystemChatMessage(group.mainMsg, group.food);
         // 无子消息也需同步给对方
-        if (!isSoloMode && isConnected() && typeof sendToPeer === 'function') {
+        if (!isSoloMode && typeof isConnected === 'function' && isConnected() && typeof sendToPeer === 'function') {
           sendToPeer({ type: 'sysmsg', text: group.mainMsg, food: group.food || undefined });
         }
         return;
       }
       _renderGroupedMessage(group);
       // 联机同步：将分组消息发给对方
-      if (!isSoloMode && isConnected() && typeof sendToPeer === 'function') {
+      if (!isSoloMode && typeof isConnected === 'function' && isConnected() && typeof sendToPeer === 'function') {
         sendToPeer({ type: 'sysmsg-group', mainMsg: group.mainMsg, subMsgs: group.subMsgs, food: group.food || undefined });
       }
     }
@@ -183,9 +185,11 @@
         return;
       }
       // 联机：同步给对方
-      if (!isSoloMode && isConnected() && typeof sendToPeer === 'function') {
+      if (!isSoloMode && typeof isConnected === 'function' && isConnected() && typeof sendToPeer === 'function') {
         sendToPeer({ type: 'sysmsg', text: msg, food: food || undefined });
       }
+      // 撤销功能：登记本步的描述
+      if (window.Undo && Undo.noteMessage) Undo.noteMessage(msg);
       addSystemChatMessage(msg, food);
     }
 

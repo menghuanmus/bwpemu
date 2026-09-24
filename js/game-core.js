@@ -66,7 +66,9 @@
 
     /* 同步单个卡牌槽状态到对方 */
     function syncSlotToPeer(slot) {
-      if (slotSyncSuppress || !window._gameSocket || !window._gameSocket.connected) return;
+      if (slotSyncSuppress) return;
+      if (window.Undo && Undo.noteSync) Undo.noteSync();
+      if (!window._gameSocket || !window._gameSocket.connected) return;
       const playerId = slot.dataset.slotPlayer;
       const slotIndex = parseInt(slot.dataset.slotIndex, 10);
       const state = getSlotState(slot);
@@ -92,13 +94,15 @@
 
     /* 发送牌库/手牌计数给对方（仅己方） */
     function syncDeckState(playerId) {
-      if (!window._gameSocket || !window._gameSocket.connected) return;
       if (!isMyZone(playerId)) return;
+      if (window.Undo && Undo.noteSync) Undo.noteSync();
+      if (!window._gameSocket || !window._gameSocket.connected) return;
       _sendDeckUpdate(playerId);
     }
 
     /* 强制同步牌库/手牌（跨玩家操作如烹饪也需同步） */
     function syncDeckStateForce(playerId) {
+      if (window.Undo && Undo.noteSync) Undo.noteSync();
       if (!window._gameSocket || !window._gameSocket.connected) return;
       _sendDeckUpdate(playerId);
     }
@@ -148,6 +152,7 @@
     }
 
     function syncEffectsState(playerId) {
+      if (window.Undo && Undo.noteSync) Undo.noteSync();
       if (!window._gameSocket || !window._gameSocket.connected) return;
       sendToPeer({
         type: 'effects-update',
@@ -184,6 +189,7 @@
     }
 
     function syncPlayerInfo(playerId) {
+      if (window.Undo && Undo.noteSync) Undo.noteSync();
       if (!window._gameSocket || !window._gameSocket.connected) return;
       const info = getPlayerInfo(playerId);
       sendToPeer({
@@ -761,6 +767,9 @@
     function swapSlotContents(a, b) {
       const stateA = getSlotState(a);
       const stateB = getSlotState(b);
+      // 移动标记（撤销提示用）：先记下交换前两边是谁
+      const nameA = String(stateA.name || '').trim();
+      const nameB = String(stateB.name || '').trim();
       // 交换蓄力数据，确保蓄力状态跟式神走
       const chargedA = a._chargedCards;
       const chargedB = b._chargedCards;
@@ -784,6 +793,16 @@
       }
       syncSlotToPeer(a);
       syncSlotToPeer(b);
+      // 撤销标记：移动式神 = 一步，撤销提示只说“移动”，不再刷一串属性变化
+      if (!_slotSwapSuppress && typeof broadcastSystemMsg === 'function') {
+        const who = (typeof localPlayerId !== 'undefined' && localPlayerId && typeof getPlayerName === 'function') ? getPlayerName(localPlayerId) : '玩家';
+        let label;
+        if (nameA && nameB) label = '移动了式神：「' + nameA + '」与「' + nameB + '」互换位置';
+        else if (nameA) label = '将「' + nameA + '」移动到了空位';
+        else if (nameB) label = '将「' + nameB + '」移动到了空位';
+        else label = '调整了空位';
+        broadcastSystemMsg('【系统】' + who + ' ' + label);
+      }
     }
 
     /* 应用远端槽交换：在本地执行同样的交换，保证两端蓄力状态一致 */

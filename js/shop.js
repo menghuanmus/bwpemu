@@ -644,6 +644,7 @@
       const isMyOp = (typeof isMyZone === 'function') ? isMyZone(playerId) : true;
       if (isMyOp) {
         addSystemChatMessage(detailBuy);
+        if (window.Undo && Undo.noteMessage) Undo.noteMessage('商店购买');
         if (!isSoloMode && isConnected() && typeof sendToPeer === 'function') {
           sendToPeer({ type: 'sysmsg', text: summaryBuy });
         }
@@ -696,6 +697,7 @@
       const isMyOp2 = (typeof isMyZone === 'function') ? isMyZone(playerId) : true;
       if (isMyOp2) {
         addSystemChatMessage(detailRefresh);
+        if (window.Undo && Undo.noteMessage) Undo.noteMessage('商店刷新');
         if (!isSoloMode && isConnected() && typeof sendToPeer === 'function') {
           sendToPeer({ type: 'sysmsg', text: detailRefresh });
         }

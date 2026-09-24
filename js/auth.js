@@ -747,7 +747,7 @@
       if (p.gone) { setPlayerConnStatus(peerSlot, false, '已退出'); addSystemChatMessage('【系统】对手已退出房间'); }
       else { setPlayerConnStatus(peerSlot, false, '离线'); addSystemChatMessage('【系统】对手已离线'); }
     });
-    socket.on('error-msg', function(m) { console.warn('[Game]', m); addSystemChatMessage('【系统】⚠️ ' + m); });
+    socket.on('error-msg', function(m) { console.warn('[Game]', m); addSystemChatMessage('【系统】⚠️ ' + m); if (window.Undo && Undo.noteServerError) Undo.noteServerError(m); });
 
     // 设置双方默认值（不覆盖已从 room-state 恢复的数据）
     ['1','2'].forEach(function(pid) {

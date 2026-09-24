@@ -144,6 +144,8 @@
     }
     .dropdown-other__item:hover { background: rgba(190, 160, 110, 0.15); }
     .dropdown-other__item[hidden] { display: none; }
+    .dropdown-other__item[disabled] { opacity: 0.45; cursor: not-allowed; }
+    .dropdown-other__item[disabled]:hover { background: transparent; }
 
     /* 添加机制 下拉菜单（倒计时 / 能量） */
     .dropdown-mechanic {

@@ -71,15 +71,15 @@
       for (const card of allCards) {
         if (card._custom) continue;
         if (card.type === 'shikigami') continue;
-        if (card.type === 'curse') {
-          if (card.owner && map.has(card.owner)) {
-            map.get(card.owner).curses.push(card);
-          }
-        } else {
-          if (card.owner && map.has(card.owner)) {
-            map.get(card.owner).cards.push(card);
-          }
-        }
+        // 协战牌：按两名所属式神同时入两组（同一对象引用，不复制）
+        const owners = (card.type === 'bond' && Array.isArray(card.bondOwners))
+          ? card.bondOwners.filter(Boolean)
+          : (card.owner ? [card.owner] : []);
+        owners.forEach(function (o) {
+          if (!map.has(o)) return;
+          if (card.type === 'curse') map.get(o).curses.push(card);
+          else map.get(o).cards.push(card);
+        });
       }
 
       return map;
@@ -96,11 +96,14 @@
       }
       const cards = CardDB.getPlayerLibCards(myPid);
       for (const c of cards) {
-        if (c.type === 'curse') {
-          if (c.owner && map.has(c.owner)) map.get(c.owner).curses.push(c);
-        } else if (c.owner && map.has(c.owner)) {
-          map.get(c.owner).cards.push(c);
-        }
+        const owners = (c.type === 'bond' && Array.isArray(c.bondOwners))
+          ? c.bondOwners.filter(Boolean)
+          : (c.owner ? [c.owner] : []);
+        owners.forEach(function (o) {
+          if (!map.has(o)) return;
+          if (c.type === 'curse') map.get(o).curses.push(c);
+          else map.get(o).cards.push(c);
+        });
       }
       return map;
     }
@@ -526,11 +529,11 @@
       typeEl.textContent = typeCN;
       head.appendChild(typeEl);
 
-      // 名字
+      // 名字（分化牌带「协战*」前缀）
       const nameEl = document.createElement('span');
       nameEl.className = 'shikigami-book__card-name';
       if (card.awakened) nameEl.classList.add('shikigami-book__card-name--awakened');
-      nameEl.textContent = card.name;
+      nameEl.textContent = (window.Bond && Bond.displayName) ? Bond.displayName(card.name) : card.name;
       head.appendChild(nameEl);
 
       // 标签
@@ -546,7 +549,8 @@
         if (card.derivative) {
           const t = document.createElement('span');
           t.className = 'shikigami-book__tag sbtag--derivative';
-          t.textContent = '衍生';
+          t.textContent = card.bondOf ? '协战分化' : '衍生';
+          if (card.bondOf) t.title = '协战来源：' + card.bondOf;
           tags.appendChild(t);
         }
         head.appendChild(tags);

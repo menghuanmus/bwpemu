@@ -404,13 +404,28 @@ const Charge = (() => {
     if (idx < 0 || idx >= cards.length) return;
 
     const charged = cards[idx];
+    // 协战牌：先弹分化窗（关闭 = 不使用，牌留在蓄力区）
+    if (window.Bond && Bond.isBondCard({ name: charged.cardName })) {
+      Bond.tryUse(playerId, { name: charged.cardName }, (picked) => _completeChargeCommit(slot, idx, playerId, charged, picked.name));
+      return;
+    }
+    _completeChargeCommit(slot, idx, playerId, charged, null);
+  }
+
+  /** 蓄力完成的实际执行体（协战牌由 Bond 选定分化牌后调用；splitName = 分化牌名） */
+  function _completeChargeCommit(slot, idx, playerId, charged, splitName) {
+    const cards = slot._chargedCards || [];
+    if (idx < 0 || idx >= cards.length) return;
+    const again = cards[idx];
+    if (!again || again.cardId !== charged.cardId) return;
     cards.splice(idx, 1);
 
-    // 将牌放回手牌，然后走标准使用流程（removeFromHand 会广播使用消息、处理形态/觉醒/幻境等）
+    // 将牌放回手牌，然后走标准使用流程（形态/觉醒/幻境等；协战牌由 Bond 统一播报）
     const state = getPlayerCardState(playerId);
     if (state && state.hand) {
       const tempCard = JSON.parse(JSON.stringify(charged.cardData || { name: charged.cardName }));
       tempCard.id = charged.cardId;
+      if (splitName) { tempCard._bondFrom = charged.cardName; tempCard.name = splitName; }
       state.hand.push(tempCard);
       // 设置标记，让 removeFromHand 知道这是蓄力完成
       window._chargeCompleting = true;

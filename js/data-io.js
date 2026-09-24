@@ -120,6 +120,7 @@
           try {
             const state = JSON.parse(e.target.result);
             _restoreGameState(state);
+            if (window.Undo && Undo.reset) Undo.reset('导入对局');
             broadcastSystemMsg('【系统】对局已导入');
           } catch (err) {
             broadcastSystemMsg('【系统】导入失败：文件格式错误');

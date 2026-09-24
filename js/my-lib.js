@@ -73,10 +73,21 @@ var MyLib = (function () {
     return found;
   }
 
-  /** 标签输入 → 数组（按逗号/顿号/空格切分） */
+  /** 标签输入 → 数组（以顿号「、」分隔；逗号/空格也兼容，自动去重） */
   function parseTags(text) {
     if (!text) return [];
-    return String(text).split(/[,，、\s]+/).map(function (t) { return t.trim(); }).filter(Boolean);
+    var out = [];
+    String(text).split(/[,，、\s]+/).forEach(function (t) {
+      t = t.trim();
+      if (t && out.indexOf(t) === -1) out.push(t);
+    });
+    return out;
+  }
+
+  /** 标签（数组 / 旧版整串字符串）→ 数组 */
+  function normalizeTags(v) {
+    if (Array.isArray(v)) return parseTags(v.join('、'));
+    return parseTags(v);
   }
 
   // ── 弹窗基座 ──
@@ -173,26 +184,58 @@ var MyLib = (function () {
   }
 
   // ═══════════════ 卡牌 ═══════════════
-  var CARD_TYPES = [['spell', '法术'], ['battle', '战斗'], ['form', '形态'], ['realm', '幻境']];
+  var CARD_TYPES = [['spell', '法术'], ['battle', '战斗'], ['form', '形态'], ['realm', '幻境'], ['bond', '协战']];
 
   function openCardEdit(idx) {
     var unit = cache.cards[idx];
     var m = openModal('卡牌' + (idx >= 0 ? '编辑' : '新增'), [
       fieldHTML('名称', 'diy-f-name', inputHTML('diy-f-name', '必填，不能与官方卡牌同名', 'text', 'maxlength="40"'), true),
-      fieldHTML('所属式神', 'diy-f-owner', inputHTML('diy-f-owner', '选填', 'text', 'maxlength="40"')),
+      '<div id="diy-f-owner-wrap">' + fieldHTML('所属式神', 'diy-f-owner', inputHTML('diy-f-owner', '选填', 'text', 'maxlength="40"')) + '</div>',
       '<div class="diy-row">' +
       fieldHTML('等级', 'diy-f-level', '<select id="diy-f-level"><option>1</option><option>2</option><option>3</option></select>', true) +
       fieldHTML('类型', 'diy-f-type', '<select id="diy-f-type">' + CARD_TYPES.map(function (t) { return '<option value="' + t[0] + '">' + t[1] + '</option>'; }).join('') + '</select>', true) +
       fieldHTML('稀有度', 'diy-f-rarity', '<select id="diy-f-rarity"><option value="R">R</option><option value="SR">SR</option><option value="SSR">SSR</option><option value="">无</option></select>', true) +
       '</div>',
       '<div class="diy-row">' +
-      '<label class="diy-field diy-check"><input type="checkbox" id="diy-f-awakened"><span style="display:inline;margin:0;">觉醒</span></label>' +
-      '<label class="diy-field diy-check"><input type="checkbox" id="diy-f-derivative"><span style="display:inline;margin:0;">衍生</span></label>' +
+      '<span id="diy-f-awakened-wrap" style="display:inline-block;"><label class="diy-field diy-check"><input type="checkbox" id="diy-f-awakened"><span style="display:inline;margin:0;">觉醒</span></label></span>' +
+      '<span id="diy-f-derivative-wrap" style="display:inline-block;"><label class="diy-field diy-check"><input type="checkbox" id="diy-f-derivative"><span style="display:inline;margin:0;">衍生</span></label></span>' +
       '</div>',
       '<div id="diy-f-dynamic"></div>',
       '<label class="diy-field"><span class="diy-field__head">描述（≤300字）<span class="diy-char-count" id="diy-f-count">(0/300)</span></span><textarea id="diy-f-text" maxlength="300" rows="3" placeholder="卡牌效果描述，保存时自动检测关键词"></textarea></label>',
-      fieldHTML('标签', 'diy-f-tags', inputHTML('diy-f-tags', '额外类型，例如符咒、协战', 'text', 'maxlength="100"')),
+      fieldHTML('标签', 'diy-f-tags', inputHTML('diy-f-tags', '多个标签用顿号「、」隔开，例如：符咒、其他', 'text', 'maxlength="100"')),
     ].join(''));
+
+    // 协战牌：描述按官方排版自动填（第一行「选择一项使用：」，之后每张分化牌一行）；玩家改过就不再覆盖
+    var autoDesc = '';
+    function bondVal(id) { var el = $(id); return el ? el.value.trim() : ''; }
+    function bondParts() {
+      var parts = [];
+      var boA = bondVal('diy-f-bond-a'), bv1 = bondVal('diy-f-bond-v1');
+      var boB = bondVal('diy-f-bond-b'), bv2 = bondVal('diy-f-bond-v2');
+      if (boA && bv1) parts.push(boA + '-' + bv1);
+      if (boB && bv2) parts.push(boB + '-' + bv2);
+      return parts;
+    }
+    /** 当前应该自动生成的描述（官方排版） */
+    function bondAutoText(parts) { return parts.length ? ('选择一项使用：\n' + parts.join('\n')) : ''; }
+    function syncBondDesc() {
+      var ta = $('diy-f-text'); if (!ta) return;
+      var type = $('diy-f-type').value;
+      var next = '';
+      if (type === 'bond') next = bondAutoText(bondParts());
+      // 协战牌的描述是「标题 + 每张牌一行」，给描述框多留一行，避免出现小滚动条
+      ta.rows = (type === 'bond') ? 4 : 3;
+      var cur = ta.value.trim();
+      // 只有「空着」或「还是上次自动填的内容」时才动它
+      if (cur === '' || cur === autoDesc) {
+        if (cur !== next) {
+          ta.value = next;
+          var cnt = $('diy-f-count');
+          if (cnt) cnt.textContent = '(' + ta.value.length + '/' + MAX_TEXT + ')';
+        }
+        autoDesc = next;
+      }
+    }
 
     function renderDynamic() {
       var type = $('diy-f-type').value;
@@ -224,19 +267,59 @@ var MyLib = (function () {
       } else if (type === 'realm') {
         var dur = (unit && unit.durability != null) ? unit.durability : 1;
         html = fieldHTML('耐久', 'diy-f-durability', inputHTML('diy-f-durability', '1', 'number', 'min="1" max="99" value="' + dur + '"'), true);
+      } else if (type === 'bond') {
+        var boA = (unit && Array.isArray(unit.bondOwners) && unit.bondOwners[0]) || '';
+        var boB = (unit && Array.isArray(unit.bondOwners) && unit.bondOwners[1]) || '';
+        var v1 = (unit && Array.isArray(unit.bondVersions) && unit.bondVersions[0]) || {};
+        var v2 = (unit && Array.isArray(unit.bondVersions) && unit.bondVersions[1]) || {};
+        html =
+          // 一排：式神① + 分化牌①；下一排：式神② + 分化牌②
+          '<div class="diy-row">' +
+            fieldHTML('所属式神 ①', 'diy-f-bond-a', inputHTML('diy-f-bond-a', '必填', 'text', 'maxlength="40" value="' + esc(boA) + '"'), true) +
+            fieldHTML('分化牌 ①', 'diy-f-bond-v1', inputHTML('diy-f-bond-v1', '必填，只填名称', 'text', 'maxlength="40" value="' + esc(v1.name || '') + '"'), true) +
+          '</div>' +
+          '<div class="diy-row">' +
+            fieldHTML('所属式神 ②', 'diy-f-bond-b', inputHTML('diy-f-bond-b', '必填', 'text', 'maxlength="40" value="' + esc(boB) + '"'), true) +
+            fieldHTML('分化牌 ②', 'diy-f-bond-v2', inputHTML('diy-f-bond-v2', '必填，只填名称', 'text', 'maxlength="40" value="' + esc(v2.name || '') + '"'), true) +
+          '</div>' +
+          '<div style="margin:2px 0 4px;font-size:1rem;line-height:1.5;color:#a99f86;">分化牌指协战牌使用时选择的两张牌，使用时会按照名字在数据库内查找（这里只写名字，不会自动创建；需要就去卡库里自己建，查不到会显示「未录入」，一样能用）。</div>';
       }
       $('diy-f-dynamic').innerHTML = html;
+      if (type === 'bond') {
+        ['diy-f-bond-a', 'diy-f-bond-b', 'diy-f-bond-v1', 'diy-f-bond-v2'].forEach(function (id) {
+          var el = $(id); if (el) el.addEventListener('input', syncBondDesc);
+        });
+      }
+      // 协战牌：不展示单值所属式神 /「衍生」/「觉醒」（协战牌不是觉醒牌）
+      var _ow = $('diy-f-owner-wrap'); if (_ow) _ow.style.display = (type === 'bond') ? 'none' : '';
+      var _dw = $('diy-f-derivative-wrap'); if (_dw) _dw.style.display = (type === 'bond') ? 'none' : '';
+      var _aw = $('diy-f-awakened-wrap'); if (_aw) _aw.style.display = (type === 'bond') ? 'none' : '';
+      if (type === 'bond') { var _ac = $('diy-f-awakened'); if (_ac) _ac.checked = false; }
+      syncBondDesc();
     }
 
     $('diy-f-name').value = unit ? (unit.name || '') : '';
     $('diy-f-owner').value = (unit && unit.owner) || '';
     $('diy-f-level').value = (unit && unit.level) || '1';
-    $('diy-f-type').value = (unit && unit.type && ['spell', 'battle', 'form', 'realm'].indexOf(unit.type) !== -1) ? unit.type : 'spell';
+    $('diy-f-type').value = (unit && unit.type && ['spell', 'battle', 'form', 'realm', 'bond'].indexOf(unit.type) !== -1) ? unit.type : 'spell';
     $('diy-f-rarity').value = (unit && ['R', 'SR', 'SSR', ''].indexOf(unit.rarity) !== -1) ? unit.rarity : 'R';
     $('diy-f-awakened').checked = !!(unit && unit.awakened);
     $('diy-f-derivative').checked = !!(unit && unit.derivative);
     $('diy-f-text').value = (unit && unit.effect) || '';
-    $('diy-f-tags').value = (unit && Array.isArray(unit.tags)) ? unit.tags.join('、') : '';
+    $('diy-f-tags').value = (unit && unit.tags) ? normalizeTags(unit.tags).join('、') : '';
+    // 老数据若描述正是自动文案（含旧的单行格式），记为「自动填的」，改字段时会跟着更新
+    if (unit && unit.type === 'bond') {
+      var _o = Array.isArray(unit.bondOwners) ? unit.bondOwners : [];
+      var _v = Array.isArray(unit.bondVersions) ? unit.bondVersions : [];
+      var _p = [];
+      if (_o[0] && _v[0] && _v[0].name) _p.push(_o[0] + '-' + _v[0].name);
+      if (_o[1] && _v[1] && _v[1].name) _p.push(_o[1] + '-' + _v[1].name);
+      var _newAuto = _p.length ? ('选择一项使用：\n' + _p.join('\n')) : '';
+      var _oldAuto = _p.length ? ('选择使用一项：' + _p.join(' ')) : '';
+      var _eff = (unit.effect || '').trim();
+      if (_eff && _eff === _newAuto) autoDesc = _newAuto;
+      else if (_eff && _eff === _oldAuto) autoDesc = _oldAuto;   // 旧自动文案：改字段时重生成新排版
+    }
     renderDynamic();
     $('diy-f-type').addEventListener('change', renderDynamic);
     $('diy-f-awakened').addEventListener('change', renderDynamic);
@@ -287,6 +370,31 @@ var MyLib = (function () {
       } else if (type === 'realm') {
         if ($('diy-f-durability').value.trim() === '') err = '请填写幻境耐久';
         else saved.durability = parseInt($('diy-f-durability').value, 10) || 1;
+      } else if (type === 'bond') {
+        // 四项全必填（分化牌只填名称，类型由卡库里的那张牌决定）
+        var boA = $('diy-f-bond-a').value.trim();
+        var bv1 = $('diy-f-bond-v1').value.trim();
+        var boB = $('diy-f-bond-b').value.trim();
+        var bv2 = $('diy-f-bond-v2').value.trim();
+        if (!boA) err = '请填写所属式神 ①';
+        else if (!bv1) err = '请填写分化牌 ①';
+        else if (!boB) err = '请填写所属式神 ②';
+        else if (!bv2) err = '请填写分化牌 ②';
+        else if (boB === boA) err = '两名所属式神不能相同';
+        else if (bv2 === bv1) err = '两张分化牌不能同名';
+        else {
+          var e1 = validateName('分化牌', bv1); if (e1) err = e1;
+          if (!err) { var e2 = validateName('分化牌', bv2); if (e2) err = e2; }
+        }
+        if (!err) {
+          saved.type = 'bond';
+          saved.bondOwners = [boA, boB];
+          saved.bondVersions = [{ owner: boA, name: bv1 }, { owner: boB, name: bv2 }];
+          delete saved.owner;      // 协战牌不存单值 owner
+          saved.derivative = false;
+          saved.awakened = false;  // 协战牌不是觉醒牌
+          // 分化牌只写名字：库里有就用，没有也不自动创建（玩家自己建）
+        }
       }
       if (err) { m.err.textContent = err; return; }
       if (idx >= 0) cache.cards[idx] = saved; else cache.cards.push(saved);
@@ -353,7 +461,7 @@ var MyLib = (function () {
       if (unit.faction) tags += '<span class="diy-tag">' + esc(unit.faction) + '</span>';
       if (unit.attack != null && unit.hp != null) tags += '<span class="diy-tag">' + esc(unit.attack) + '/' + esc(unit.hp) + '</span>';
     } else if (kind === 'card') {
-      var typeNames = { spell: '法术', battle: '战斗', form: '形态', realm: '幻境' };
+      var typeNames = { spell: '法术', battle: '战斗', form: '形态', realm: '幻境', bond: '协战' };
       var typeLabel = (typeNames[unit.type] || unit.type) + (unit.level ? '·Lv' + unit.level : '');
       // 稀有度「无」：不显示稀有度标签
       if (unit.rarity && ['R', 'SR', 'SSR'].indexOf(unit.rarity) !== -1) {
@@ -392,9 +500,13 @@ var MyLib = (function () {
     cache.shikigami.forEach(function (s, si) {
       if (s.type === 'summon') return; // 召唤物归到其所属式神下面展示
       var children = [];
-      // 1) 卡牌（等级从小到大）
+      // 1) 卡牌（等级从小到大）；协战牌按两名所属式神同时挂到两个式神下（同一条记录，不复制）
       cardsByLevel().forEach(function (e) {
-        if (e.u.owner === s.name && matchesSearch(e.u)) children.push(itemHTMLFor('card', e.u, e.i, 1));
+        var u = e.u;
+        var owned = (u.type === 'bond' && Array.isArray(u.bondOwners))
+          ? u.bondOwners.indexOf(s.name) !== -1
+          : (u.owner === s.name);
+        if (owned && matchesSearch(u)) children.push(itemHTMLFor('card', u, e.i, 1));
       });
       // 2) 召唤物
       cache.shikigami.forEach(function (sm, smi) {
@@ -417,7 +529,15 @@ var MyLib = (function () {
     var loose = [];
     // 无归属区同样排序：卡牌(等级小→大) → 召唤物 → 关键词 → 灵咒
     cardsByLevel().forEach(function (e) {
-      if ((!e.u.owner || !shiNames[e.u.owner]) && matchesSearch(e.u)) loose.push(itemHTMLFor('card', e.u, e.i, 0));
+      var u = e.u;
+      var isLoose;
+      if (u.type === 'bond' && Array.isArray(u.bondOwners) && u.bondOwners.length) {
+        // 协战牌：两名所属式神都不在库才归「无归属」
+        isLoose = !u.bondOwners.some(function (o) { return !!shiNames[o]; });
+      } else {
+        isLoose = (!u.owner || !shiNames[u.owner]);
+      }
+      if (isLoose && matchesSearch(u)) loose.push(itemHTMLFor('card', u, e.i, 0));
     });
     cache.shikigami.forEach(function (sm, smi) {
       if (sm.type === 'summon' && (!sm.owner || !shiNames[sm.owner]) && matchesSearch(sm)) loose.push(itemHTMLFor('shikigami', sm, smi, 0));
@@ -478,7 +598,7 @@ var MyLib = (function () {
 
   function previewHTML(kind, unit) {
     if (!unit) return '';
-    var typeNames = { shikigami: '式神', summon: '召唤物', spell: '法术', battle: '战斗', form: '形态', realm: '幻境', curse: '灵咒', keyword: '关键词' };
+    var typeNames = { shikigami: '式神', summon: '召唤物', spell: '法术', battle: '战斗', form: '形态', realm: '幻境', curse: '灵咒', keyword: '关键词', bond: '协战' };
     function pill(text, mod) {
       return '<span class="diy-tag' + (mod ? ' ' + mod : '') + '">' + esc(text) + '</span>';
     }
@@ -498,7 +618,10 @@ var MyLib = (function () {
       if (unit.rarity && ['R', 'SR', 'SSR'].indexOf(unit.rarity) !== -1) meta.push(pill(unit.rarity, 'diy-tag--rar-' + unit.rarity.toLowerCase()));
       var typeLabel = (typeNames[unit.type] || unit.type) + (unit.level ? '·Lv' + unit.level : '');
       meta.push(pill(typeLabel, 'diy-tag--' + unit.type));
-      if (unit.owner) meta.push(pill('所属：' + unit.owner));
+      if (unit.type === 'bond') {
+        var _bo = Array.isArray(unit.bondOwners) ? unit.bondOwners.filter(Boolean) : [];
+        if (_bo.length) meta.push(pill('协战 ' + _bo.join('×')));
+      } else if (unit.owner) meta.push(pill('所属：' + unit.owner));
       // 觉醒（有加成合并为一个标签；法术觉醒两个数字都显示；都为 0 只显示“觉醒”）
       if (unit.awakened) {
         var ab = (unit.type === 'spell' && unit.atkBonus != null) ? unit.atkBonus : 0;
@@ -520,11 +643,15 @@ var MyLib = (function () {
     var html = '<div class="diy-preview__name">' + esc(unit.name) + '</div>' +
       '<div class="diy-preview__meta">' + meta.join('') + '</div>';
     if (effect) html += '<div class="diy-preview__effect">' + esc(effect) + '</div>';
+    if (kind !== 'shikigami' && unit.type === 'bond' && Array.isArray(unit.bondVersions) && unit.bondVersions.length) {
+      html += '<div class="diy-preview__kws">协战分化：' + esc(unit.bondVersions.map(function (v) { return v.name; }).join(' / ')) + '</div>';
+    }
     if (kind !== 'shikigami' && Array.isArray(unit.keywords) && unit.keywords.length) {
       html += '<div class="diy-preview__kws">关键词：' + esc(unit.keywords.join('、')) + '</div>';
     }
-    if (kind !== 'shikigami' && Array.isArray(unit.tags) && unit.tags.length) {
-      html += '<div class="diy-preview__kws">标签：' + esc(unit.tags.join('、')) + '</div>';
+    var _tagList = normalizeTags(unit && unit.tags);
+    if (kind !== 'shikigami' && _tagList.length) {
+      html += '<div class="diy-preview__kws">标签：' + esc(_tagList.join('、')) + '</div>';
     }
     return html;
   }
@@ -582,7 +709,16 @@ var MyLib = (function () {
     var msg;
     if (kind === 'shikigami') {
       var related = cache.cards.filter(function (c) { return c.owner === unit.name; }).length;
-      msg = '确定删除' + (unit.type === 'summon' ? '召唤物' : '式神') + '「' + unit.name + '」？' + (related > 0 ? '其名下 ' + related + ' 张卡牌会一并删除。' : '');
+      // 协战牌不属于「名片」，删式神不连删，只提示（另一名所属式神可能还在用）
+      var bondLinks = cache.cards.filter(function (c) {
+        return c.type === 'bond' && Array.isArray(c.bondOwners) && c.bondOwners.indexOf(unit.name) !== -1;
+      }).length;
+      msg = '确定删除' + (unit.type === 'summon' ? '召唤物' : '式神') + '「' + unit.name + '」？' +
+        (related > 0 ? '其名下 ' + related + ' 张卡牌会一并删除。' : '') +
+        (bondLinks > 0 ? '另有 ' + bondLinks + ' 张协战牌与它相关（协战牌不会自动删除，请自行处理）。' : '');
+    } else if (kind === 'card' && unit.type === 'bond') {
+      var derivs = cache.cards.filter(function (c) { return c.bondOf === unit.name; });
+      msg = '确定删除协战牌「' + unit.name + '」？' + (derivs.length > 0 ? '它的 ' + derivs.length + ' 张协战分化牌会一并删除。' : '');
     } else {
       msg = '确定删除「' + unit.name + '」？';
     }
@@ -590,6 +726,9 @@ var MyLib = (function () {
     if (kind === 'shikigami') {
       cache.cards = cache.cards.filter(function (c) { return c.owner !== unit.name; });
       cache.shikigami.splice(idx, 1);
+    } else if (kind === 'card' && unit.type === 'bond') {
+      // 连带删除它的分化牌（只删 bondOf 指向它的，其它协战牌的分化牌不动）
+      cache.cards = cache.cards.filter(function (c) { return c !== unit && c.bondOf !== unit.name; });
     } else {
       arr.splice(idx, 1);
     }

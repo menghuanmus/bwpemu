@@ -41,6 +41,9 @@
         // 加载本地自定义卡牌（最后加载，优先级最高）
         _loadCustom();
 
+        // 协战牌归一化（补 owner 兼容别名等）
+        _normalizeBonds();
+
       }
 
       function _loadCustom() {
@@ -75,6 +78,28 @@
           if (card._custom) customs.push(card);
         }
         localStorage.setItem(STORAGE_KEY, JSON.stringify(customs));
+      }
+
+      // ═══════════ 协战牌（bond）归一化 ═══════════
+      /** 协战牌：补 bondOwners/bondVersions 容错 + owner 兼容别名（运行时注入，不写回数据） */
+      function _normalizeBond(card) {
+        if (!card || card.type !== 'bond') return card;
+        if (!Array.isArray(card.bondOwners)) card.bondOwners = [];
+        if (!Array.isArray(card.bondVersions)) card.bondVersions = [];
+        // owner 兼容别名：仅给还在读单值 owner 的旧代码显示兜底，不参与任何匹配
+        if (!card.owner) card.owner = card.bondOwners[0] || '';
+        return card;
+      }
+
+      /** 扫一遍官方库 + 双方玩家库，统一归一化协战牌 */
+      function _normalizeBonds() {
+        for (const card of _cards.values()) _normalizeBond(card);
+        ['1', '2'].forEach(function (pid) {
+          const lib = _playerLibs[pid];
+          if (!lib) return;
+          if (lib.shikigami) lib.shikigami.forEach(function (c) { _normalizeBond(c); });
+          if (lib.cards) lib.cards.forEach(function (arr) { (arr || []).forEach(function (c) { _normalizeBond(c); }); });
+        });
       }
 
       /** 查询卡牌：官方库精确 → 玩家库精确（牌主优先）→ 官方库模糊 */
@@ -182,6 +207,7 @@
           });
         }
         _playerLibs[playerId] = { shikigami: shikigami, cards: cards, curses: curses };
+        _normalizeBonds();
         console.log('[CardDB] 玩家 ' + playerId + ' 卡库已加载：' + shikigami.size + ' 式神 / ' + cards.size + ' 卡牌 / ' + curses.size + ' 灵咒');
       }
 
@@ -250,6 +276,7 @@
         if (existing && !existing._custom) return false;
         card._custom = true;
         if (card.reviewed === undefined) card.reviewed = false;
+        _normalizeBond(card);   // 协战牌：补 bondVersions/owner 兼容别名
         _cards.set(card.name, card);
         _saveCustom();
         return true;

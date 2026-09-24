@@ -674,6 +674,8 @@
     padding: 9px 10px;
     font-size: 13px !important;
   }
+  /* 撤销菜单项：手机端不显示图标，只留文字 */
+  .dropdown-other__item .undo-icon { display: none; }
 
   /* ── 机制菜单：下拉框撑满全屏宽，每排 5 个按钮 ── */
   .dropdown-mechanic { position: static; }   /* 菜单改相对中间栏定位 */

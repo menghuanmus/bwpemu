@@ -1,0 +1,142 @@
+/* ================================================================
+   css/bond.css — 协战牌（bond）分化选择窗
+   字体规范：标签/按钮 ≥ 1rem，正文 ≥ 1.1rem
+   ================================================================ */
+
+.bond-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.55);
+  backdrop-filter: blur(2px);
+}
+
+.bond-dialog {
+  width: min(560px, 92vw);
+  max-height: 86vh;
+  display: flex;
+  flex-direction: column;
+  /* 与游戏内其他弹窗（.speak-dialog）一致的蓝色主题 */
+  background: linear-gradient(160deg, #243050, #1a2540);
+  border: 2px solid rgba(150, 180, 220, 0.5);
+  border-radius: 12px;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.45);
+  color: #e6edf8;
+  overflow: hidden;
+}
+
+.bond-dialog__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 12px 14px;
+  border-bottom: 1px solid rgba(150, 180, 220, 0.25);
+  background: linear-gradient(180deg, rgba(120, 160, 220, 0.18), transparent);
+}
+
+.bond-dialog__title {
+  font-size: 1.15rem;
+  font-weight: 600;
+  color: rgba(255, 215, 0, 0.95);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.bond-dialog__close {
+  flex: 0 0 auto;
+  width: 32px;
+  height: 32px;
+  font-size: 1.1rem;
+  line-height: 1;
+  color: #cfddf0;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(150, 180, 220, 0.4);
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.bond-dialog__close:hover { background: rgba(255, 255, 255, 0.16); }
+
+.bond-dialog__effect {
+  padding: 10px 14px;
+  font-size: 1.1rem;
+  line-height: 1.5;
+  color: #c8d6ea;
+  white-space: pre-wrap;
+  word-break: break-word;
+  overflow-y: auto;
+  max-height: 26vh;
+}
+
+.bond-dialog__effect:empty { display: none; }
+
+.bond-dialog__tip {
+  /* 底部多留空隙，别贴着弹窗边缘 */
+  padding: 6px 14px 16px;
+  font-size: 1rem;
+  line-height: 1.5;
+  color: #8fa3bd;
+}
+
+.bond-options {
+  padding: 8px 14px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  overflow-y: auto;
+}
+
+.bond-opt {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 12px;
+  background: rgba(120, 160, 220, 0.10);
+  border: 1px solid rgba(150, 180, 220, 0.32);
+  border-radius: 10px;
+}
+
+.bond-opt__info { min-width: 0; }
+
+.bond-opt__name {
+  font-size: 1.15rem;
+  font-weight: 600;
+  color: #eaf1fb;
+  cursor: help;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.bond-opt__meta {
+  margin-top: 2px;
+  font-size: 1rem;
+  color: #8fa3bd;
+}
+
+.bond-opt__use {
+  flex: 0 0 auto;
+  padding: 8px 16px;
+  font-size: 1.05rem;
+  font-weight: 600;
+  color: #fff;
+  background: linear-gradient(180deg, #5a7fb5, #3d5a80);
+  border: 1px solid #6b8cae;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.bond-opt__use:hover { background: linear-gradient(180deg, #6a8fc5, #4d6a90); }
+.bond-opt__use:active { transform: translateY(1px); }
+
+@media (max-width: 768px) {
+  .bond-dialog { width: 94vw; max-height: 90vh; }
+  .bond-opt { flex-direction: column; align-items: stretch; gap: 8px; }
+  .bond-opt__use { width: 100%; }
+}

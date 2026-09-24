@@ -312,6 +312,12 @@
 			"label": "bwpemu-check-deckmove11",
 			"type": "shell",
 			"command": "Set-Location \"d:\\DIY\\百闻牌\\百闻牌模拟器\\menghuanmus.github.io\"; node --check js\\card-deck.js; Write-Output \"OK\""
+		},
+		{
+			"label": "check-js-syntax",
+			"type": "shell",
+			"command": "node --check js/chat.js; node --check js/card-deck.js; node --check server/server.js; echo SYNTAX_OK",
+			"problemMatcher": []
 		}
 	]
 }

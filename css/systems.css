@@ -8,7 +8,7 @@
        ================================================================ */
     .card-tooltip {
       position: fixed;
-      z-index: 2200; /* tooltip — 高于所有弹窗遮罩 */
+      z-index: 9500; /* tooltip — 高于所有弹窗遮罩（含协战窗 9000），否则会被遮罩盖住看不见 */
       min-width: 280px;
       max-width: 420px;
       padding: 16px 18px;
@@ -107,6 +107,7 @@
       line-height: 1.55;
       padding-top: 6px;
       border-top: 1px solid rgba(255, 255, 255, 0.08);
+      white-space: pre-wrap;
     }
 
     /* 系统消息中可悬浮的卡牌名 */
@@ -318,6 +319,7 @@
       line-height: 1.55;
       padding-top: 6px;
       border-top: 1px solid rgba(255, 255, 255, 0.08);
+      white-space: pre-wrap;
       word-break: break-word;
     }
 

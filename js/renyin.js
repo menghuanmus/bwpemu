@@ -13,7 +13,7 @@ const Renyin = (() => {
 
   // ── 固定选项 ──
   const LEVELS = ['1级', '2级', '3级', '其他'];
-  const TYPES = ['战斗', '法术', '形态', '幻境', '其他'];
+  const TYPES = ['战斗', '法术', '形态', '幻境', '协战', '其他'];
   const BASIC_TYPES = ['战斗', '法术', '形态', '幻境'];
   const RARITIES = ['R', 'SR', 'SSR', '其他'];
   const BASIC_RARITIES = ['R', 'SR', 'SSR'];
@@ -41,14 +41,28 @@ const Renyin = (() => {
     return names;
   }
 
-  /** 判断一张牌属于哪个式神 */
+  /** 判断一张牌属于哪些式神（协战牌 = 两名所属式神；普通牌 = 单值） */
+  function getCardOwners(card) {
+    if (!card || !card.name) return [];
+    const lookupName = (window.Bond && Bond.stripPrefix) ? Bond.stripPrefix(card.name) : card.name;
+    const db = CardDB.lookup(lookupName);
+    if (!db) return card.owner ? [card.owner] : [];   // 未录入的牌：用卡上标注的归属
+    if (db.type === 'shikigami') return [db.name];
+    if (db.type === 'bond') {
+      // 协战牌：固定两名所属式神（不看 card.owner，【式神名】对它不生效）
+      const arr = Array.isArray(db.bondOwners) ? db.bondOwners.filter(Boolean) : [];
+      if (arr.length) return arr;
+    }
+    // 普通牌：牌面（导入指定）优先 → 数据库
+    if (card.owner) return [card.owner];
+    if (db.owner) return [db.owner];
+    return [];
+  }
+
+  /** 兼容旧用法：取第一个归属 */
   function getCardOwnerName(card) {
-    if (!card || !card.name) return null;
-    const db = CardDB.lookup(card.name);
-    if (!db) return card.owner || null;      // 未录入的牌：用卡上标注的归属
-    if (db.type === 'shikigami') return db.name;
-    if (db.owner) return db.owner;
-    return card.owner || null;
+    const arr = getCardOwners(card);
+    return arr.length ? arr[0] : null;
   }
 
   // ================================================================
@@ -78,24 +92,30 @@ const Renyin = (() => {
   function open(playerId, card) {
     init();
     const shikigamiNames = getShikigamiNames(playerId); // 只取有名字的
-    const cardOwner = getCardOwnerName(card);
+    const cardOwners = getCardOwners(card);   // 协战牌 → 两个所属式神
 
     // 动态构建目标列表：实际式神 + 中立
     const targets = shikigamiNames.map(name => ({ name, isShikigami: true }));
     targets.push({ name: '中立', isShikigami: false, isNeutral: true });
     const totalCount = targets.length; // 式神数 + 1(中立)
 
-    // ── 默认值 ──
+    // ── 默认值：自动勾选这张牌的所属式神（协战牌勾两个），命中不了才默认中立 ──
     let defaultSelectedIdx = targets.length - 1; // 默认中立（最后一个）
-    if (cardOwner) {
-      const found = targets.findIndex((t, i) => i < targets.length - 1 && t.name === cardOwner);
+    if (cardOwners.length) {
+      const found = targets.findIndex((t, i) => i < targets.length - 1 && t.name === cardOwners[0]);
       if (found >= 0) defaultSelectedIdx = found;
     }
     const selectedIndices = new Set([defaultSelectedIdx]);
+    if (cardOwners.length > 1) {
+      cardOwners.slice(1).forEach(function (o) {
+        const idx = targets.findIndex((t, i) => i < targets.length - 1 && t.name === o);
+        if (idx >= 0) selectedIndices.add(idx);
+      });
+    }
 
-    // 数量数组与 targets 等长
+    // 数量数组与 targets 等长（选中的式神各 1 张）
     const quantities = targets.map(() => 0);
-    quantities[defaultSelectedIdx] = 1;
+    selectedIndices.forEach(idx => { quantities[idx] = 1; });
 
     // 默认全选等级、类型、稀有度（均含「其他」）
     const levelSelected = new Set([1, 2, 3, 4]);
@@ -518,16 +538,16 @@ const Renyin = (() => {
         const target = ctx.targets[idx];
         const shikigamiName = target.name;
 
-        // 按所属式神筛
+        // 按所属式神筛（协战牌：两名所属式神任一命中即可）
         let pool = deck.filter(c => {
           if (c.id === ctx.card.id) return false;
-          const owner = getCardOwnerName(c);
+          const owners = getCardOwners(c);
           if (target.isNeutral) {
-            if (!owner) return true;
-            const onField = ctx.targets.slice(0, -1).some(t => t.name === owner);
+            if (!owners.length) return true;
+            const onField = owners.some(o => ctx.targets.slice(0, -1).some(t => t.name === o));
             return !onField;
           }
-          return owner === shikigamiName;
+          return owners.indexOf(shikigamiName) !== -1;
         });
 
         // 等级
@@ -649,7 +669,7 @@ const Renyin = (() => {
             return `<div class="renyin-result-card${selClass}${usedClass}" data-result-idx="${idx}">
               <div class="renyin-result-card__icon">${item.isUsed ? '⭐' : '🃏'}</div>
               <div class="renyin-result-card__info">
-                <div class="renyin-result-card__name card-list-item__name">${cName}</div>
+                <div class="renyin-result-card__name card-list-item__name">${(window.Bond && Bond.displayName) ? Bond.displayName(cName) : cName}</div>
                 ${tagsText ? `<div class="renyin-result-card__tags">${tagsText}</div>` : ''}
                 ${cursesHtml}
               </div>
@@ -699,12 +719,20 @@ const Renyin = (() => {
   function confirmSelection() {
     if (ctx.selectedIndex < 0) return;
     const playerId = ctx.playerId;
-    const state = getPlayerCardState(playerId);
     const usedCard = ctx.card;
     const foundCards = ctx.foundCards;
-
     const allResultCards = [usedCard, ...foundCards];
     const selectedResult = allResultCards[ctx.selectedIndex];
+    // 协战牌：先弹分化窗（关闭 = 不使用，牌子与牌库都保持原样）
+    if (window.Bond && Bond.isBondCard(selectedResult)) {
+      Bond.tryUse(playerId, selectedResult, () => _confirmSelectionCommit(playerId, usedCard, foundCards, selectedResult));
+      return;
+    }
+    _confirmSelectionCommit(playerId, usedCard, foundCards, selectedResult);
+  }
+
+  function _confirmSelectionCommit(playerId, usedCard, foundCards, selectedResult) {
+    const state = getPlayerCardState(playerId);
 
     const handIdx = state.hand.findIndex(c => c.id === usedCard.id);
     if (handIdx >= 0) state.hand.splice(handIdx, 1);
@@ -715,7 +743,9 @@ const Renyin = (() => {
 
     if (selectedResult.id === usedCard.id) {
       moveToGrave(playerId, usedCard);
-      broadcastSystemMsg(`【系统】${playerName}连引使用了「${usedCard.name}」${curseSuffix(usedCard)}`);
+      if (!window._bondUseInProgress) {
+        broadcastSystemMsg(`【系统】${playerName}连引使用了「${usedCard.name}」${curseSuffix(usedCard)}`);
+      }
       // 连引使用：处理幻境/形态/觉醒
       _applyUsedCardEffect(playerId, usedCard);
       // 连引出的牌本就在牌库中，不重复放回，仅打乱位置（等同洗回随机位置）
@@ -735,7 +765,9 @@ const Renyin = (() => {
         if (state.deck[i] && state.deck[i].id === selectedResult.id) state.deck.splice(i, 1);
       }
       moveToGrave(playerId, selectedResult);
-      broadcastSystemMsg(`【系统】${playerName}连引使用了「${selectedResult.name}」${curseSuffix(selectedResult)}`);
+      if (!window._bondUseInProgress) {
+        broadcastSystemMsg(`【系统】${playerName}连引使用了「${selectedResult.name}」${curseSuffix(selectedResult)}`);
+      }
       // 连引使用：处理幻境/形态/觉醒
       _applyUsedCardEffect(playerId, selectedResult);
       // 仅原使用的牌 A 洗回牌库；其余未选的连引牌本就在牌库，打乱位置即可

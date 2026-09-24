@@ -114,6 +114,15 @@
     function handlePeerData(data) {
       if (!data || typeof data !== 'object') return;
 
+      // 撤销功能：对方的状态类 op 也记一步；带 undoTx 的是对方在撤销 → 只对齐指纹、不记步
+      if (window.Undo) {
+        if (data.undoTx) {
+          if (Undo.ackRemoteChange) setTimeout(function () { Undo.ackRemoteChange(); }, 0);
+        } else if (Undo.notePeerOp) {
+          Undo.notePeerOp(data.type);
+        }
+      }
+
       switch (data.type) {
         case 'slot-update':
           applyRemoteSlotUpdate(data.playerId, data.slotIndex, data.state);
@@ -176,11 +185,13 @@
           break;
         case 'sysmsg':
           addSystemChatMessage(data.text, data.food);
+          if (window.Undo && Undo.noteMessage && data.text && data.text.indexOf('【系统提示】') !== 0) Undo.noteMessage(data.text);
           break;
         case 'sysmsg-group':
           if (data.mainMsg && Array.isArray(data.subMsgs) && typeof _renderGroupedMessage === 'function') {
             _renderGroupedMessage({ mainMsg: data.mainMsg, subMsgs: data.subMsgs, food: data.food || null });
           }
+          if (window.Undo && Undo.noteMessage && data.mainMsg && data.mainMsg.indexOf('【系统提示】') !== 0) Undo.noteMessage(data.mainMsg, data.subMsgs);
           break;
         case 'avatar-update':
           setAvatarImage(data.playerId, data.imageSrc);
@@ -566,4 +577,6 @@
 
       if (typeof slotSyncSuppress !== 'undefined') slotSyncSuppress = false;
       updateAllDeckButtons();
+      // 撤销功能：进房/重连收到全量状态 → 重新作基线
+      if (window.Undo && Undo.reset) Undo.reset('收到房间全量状态');
     }

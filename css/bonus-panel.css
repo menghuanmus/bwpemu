@@ -271,8 +271,8 @@
 }
 .bonus-btn--close:hover { background: rgba(60,45,20,0.6); }
 
-/* 确保 tooltip 在加成弹窗之上 */
-#card-tooltip { z-index: 2200; }
+/* 确保 tooltip 在加成弹窗之上（与其他弹窗一致：必须高于协战窗 9000，否则浮窗会被遮罩盖住） */
+#card-tooltip { z-index: 9500; }
 
 /* 形态栏 */
 .bonus-form-active {
