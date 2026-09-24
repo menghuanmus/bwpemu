@@ -282,7 +282,7 @@ var MyLib = (function () {
             fieldHTML('所属式神 ②', 'diy-f-bond-b', inputHTML('diy-f-bond-b', '必填', 'text', 'maxlength="40" value="' + esc(boB) + '"'), true) +
             fieldHTML('分化牌 ②', 'diy-f-bond-v2', inputHTML('diy-f-bond-v2', '必填，只填名称', 'text', 'maxlength="40" value="' + esc(v2.name || '') + '"'), true) +
           '</div>' +
-          '<div style="margin:2px 0 4px;font-size:1rem;line-height:1.5;color:#a99f86;">分化牌指协战牌使用时选择的两张牌，使用时会按照名字在数据库内查找（这里只写名字，不会自动创建；需要就去卡库里自己建，查不到会显示「未录入」，一样能用）。</div>';
+          '<div style="margin:2px 0 4px;font-size:1rem;line-height:1.5;color:#a99f86;">分化牌指协战牌使用时选择的两张牌，使用时会按照名字在数据库内查找（不会自动创建对应的卡牌，若有需求，可以自己新建）。</div>';
       }
       $('diy-f-dynamic').innerHTML = html;
       if (type === 'bond') {
