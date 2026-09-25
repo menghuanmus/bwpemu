@@ -1541,6 +1541,82 @@
     }
     .deck-breakdown-panel[hidden] { display: none; }
 
+    /* 牌表内容盒子（桌面 = 侧窗内容；手机端 = 独立弹窗内容） */
+    .deck-breakdown__box {
+      display: flex;
+      flex-direction: column;
+      flex: 1;
+      min-height: 0;
+      overflow: hidden;
+    }
+
+    /* 牌表：模式开关排（抽取 / 使用 / 弃置）——互斥 */
+    .breakdown-toggles {
+      display: flex;
+      gap: 6px;
+      padding: 8px 10px 6px;
+      flex-shrink: 0;
+    }
+    .breakdown-toggle-btn {
+      flex: 1;
+      padding: 7px 2px;
+      font-family: inherit;
+      font-size: 1rem;
+      font-weight: 600;
+      border-radius: 6px;
+      border: 1px solid rgba(150, 180, 220, 0.4);
+      background: rgba(30, 40, 60, 0.8);
+      color: #c0d0e0;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+    .breakdown-toggle-btn:hover { background: rgba(45, 60, 85, 0.9); }
+    .breakdown-toggle-btn.active {
+      background: rgba(200, 160, 60, 0.25);
+      border-color: rgba(240, 200, 60, 0.7);
+      color: #f0d860;
+    }
+
+    /* 牌表：每行的操作按钮（按当前开关出现；尺寸/配色同手牌行的「弃牌」按钮） */
+    .breakdown-card-row__action {
+      flex-shrink: 0;
+      font-family: inherit;
+      font-size: 10px;
+      padding: 2px 6px;
+      border-radius: 4px;
+      border: 1px solid #5a7a9a;
+      background: #3d5a7a;
+      color: #fff;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+    .breakdown-card-row__action:hover { background: #4d6a8a; }
+    .breakdown-card-row__action--use { border-color: #5a9a6a; background: #3d6a4a; }
+    .breakdown-card-row__action--use:hover { background: #4d7a5a; }
+    .breakdown-card-row__action--discard { border-color: #a05a5a; background: #7a3d3d; }
+    .breakdown-card-row__action--discard:hover { background: #8a4d4d; }
+
+    /* 牌表底部：删除牌库所有卡牌 */
+    .deck-breakdown__footer {
+      flex-shrink: 0;
+      padding: 8px 10px 10px;
+      border-top: 1px solid rgba(150, 180, 220, 0.15);
+    }
+    .breakdown-clear-btn {
+      width: 100%;
+      padding: 9px 6px;
+      font-family: inherit;
+      font-size: 1rem;
+      font-weight: 700;
+      border-radius: 8px;
+      border: 1px solid rgba(220, 110, 110, 0.55);
+      background: linear-gradient(180deg, #6a2a2a, #4a1c1c);
+      color: #ffc8c8;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+    .breakdown-clear-btn:hover { background: linear-gradient(180deg, #7a3434, #5a2222); }
+
     @keyframes breakdownSlideIn {
       from { opacity: 0; transform: translateX(-8px); }
       to { opacity: 1; transform: translateX(0); }
@@ -1590,6 +1666,11 @@
       display: flex;
       flex-direction: column;
       gap: 6px;
+    }
+
+    /* 牌多时：分组不许被压扁（否则每组只露前几张、后面的被裁掉，看起来像显示不全） */
+    .deck-breakdown__body > * {
+      flex-shrink: 0;
     }
 
     .breakdown-owner-group {
@@ -2983,19 +3064,6 @@
       box-shadow: 0 0 12px rgba(220, 160, 80, 0.3);
     }
 
-    /* 抽取后的操作提示 */
-    .initial-hand-draw-hint {
-      font-size: 12px;
-      color: rgba(180, 160, 130, 0.7);
-      white-space: nowrap;
-      margin-left: 4px;
-      animation: hintFadeIn 0.4s ease;
-    }
-    @keyframes hintFadeIn {
-      from { opacity: 0; transform: translateX(-6px); }
-      to { opacity: 1; transform: translateX(0); }
-    }
-
     /* 卡牌展示区域 */
     .initial-hand-cards {
       display: flex;
@@ -3026,7 +3094,7 @@
       background: rgba(30, 44, 66, 0.7);
       border: 1px solid rgba(200, 160, 80, 0.2);
       border-radius: 8px;
-      cursor: pointer;
+      cursor: default;
       transition: background 0.15s, border-color 0.15s, opacity 0.15s;
       user-select: none;
       position: relative;
@@ -3037,30 +3105,56 @@
       background: rgba(40, 58, 86, 0.8);
       border-color: rgba(220, 180, 100, 0.45);
     }
-    .initial-hand-card--rejected {
-      opacity: 0.45;
-      border-color: rgba(200, 80, 80, 0.4);
-      background: rgba(60, 20, 20, 0.5);
+    /* 已调度过的行：变色 + 不再可点 */
+    .initial-hand-card--swapped {
+      background: rgba(28, 52, 44, 0.7);
+      border-color: rgba(90, 200, 150, 0.45);
     }
-    .initial-hand-card--rejected:hover {
-      background: rgba(80, 30, 30, 0.6);
-      border-color: rgba(220, 100, 100, 0.6);
+    .initial-hand-card--swapped:hover {
+      background: rgba(28, 52, 44, 0.7);
+      border-color: rgba(90, 200, 150, 0.45);
     }
 
-    /* X 标记覆盖层 */
-    .initial-hand-card__x-mark {
-      position: absolute;
-      inset: 0;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      pointer-events: none;
-      font-size: 48px;
-      font-weight: 900;
-      color: rgba(220, 50, 50, 0.7);
-      text-shadow: 0 0 16px rgba(255, 0, 0, 0.5);
-      z-index: 2;
-      transform: rotate(-5deg);
+    /* 「已调度」标签 */
+    .initial-hand-card__tag {
+      flex-shrink: 0;
+      font-size: 1rem;
+      color: #7fe0b0;
+      border: 1px solid rgba(90, 200, 150, 0.5);
+      border-radius: 6px;
+      padding: 2px 8px;
+      white-space: nowrap;
+    }
+
+    /* 调度按钮 */
+    .initial-hand-card__btn {
+      flex-shrink: 0;
+      font-family: inherit;
+      font-size: 1rem;
+      font-weight: 700;
+      padding: 6px 14px;
+      border-radius: 8px;
+      border: 1px solid #b08d3e;
+      background: linear-gradient(180deg, #8a6a2a, #6a4f1e);
+      color: #ffe8b0;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: background 0.15s, opacity 0.15s;
+    }
+    .initial-hand-card__btn:hover:not(:disabled) {
+      background: linear-gradient(180deg, #9a7a3a, #7a5f2e);
+    }
+    .initial-hand-card__btn:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+    }
+
+    /* 状态行：已调度 n/3 */
+    .initial-hand-status {
+      font-size: 1rem;
+      color: #b9c6da;
+      padding: 6px 2px 0;
+      text-align: center;
     }
 
     /* 卡牌名称 */

@@ -1587,25 +1587,41 @@
     height: auto;
   }
 
-  /* ── 牌表侧窗：手机端压缩牌库时给牌库加灰暗遮罩、牌表可滚动 ── */
-  .deck-breakdown-panel {
-    width: 42vw;
-    max-width: 200px;
-    max-height: 70dvh;
+  /* 牌表打开时：藏掉牌库弹窗本体（牌表是它的子节点，不能藏整个遮罩） */
+  #card-list-dialog-overlay.bd-open .card-list-dialog {
+    display: none;
+  }
+
+  /* ── 牌表：手机端不再和牌库分半宽，而是盖在牌库之上的独立弹窗 ── */
+  .deck-breakdown-panel.mobile-dialog:not([hidden]) {
+    position: fixed;
+    inset: 0;
+    width: 100%;
+    max-width: 100%;
+    max-height: 100dvh;
+    border: none;
+    border-radius: 0;
+    box-shadow: none;
+    background: rgba(6, 10, 18, 0.78);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 14px;
+    z-index: 620;   /* 盖在牌库弹窗（300）与文本弹窗（610）之上 */
+    animation: none;
+  }
+  .deck-breakdown-panel.mobile-dialog .deck-breakdown__box {
+    width: 100%;
+    max-height: 88dvh;
+    background: linear-gradient(160deg, #1a2434 0%, #14202e 100%);
+    border: 1px solid rgba(150, 180, 220, 0.35);
+    border-radius: 12px;
+    box-shadow: 0 10px 36px rgba(0, 0, 0, 0.6);
   }
   .deck-breakdown__body {
     min-height: 0;
     overflow-y: auto;
     -webkit-overflow-scrolling: touch;
-  }
-  /* 牌表打开时：被压缩的牌库界面罩灰暗遮罩并禁止点击 */
-  #card-list-dialog-overlay:has(.deck-breakdown-panel:not([hidden])) .card-list-dialog::after {
-    content: '';
-    position: absolute;
-    inset: 0;
-    z-index: 10;
-    border-radius: inherit;
-    background: rgba(8, 12, 20, 0.72);
   }
 
   /* ── 式神录手机适配：派系按钮两行均分、列表横排滑动、详情下方可滚 ── */

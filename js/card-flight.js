@@ -245,6 +245,56 @@ const CardFlight = (() => {
     sendToPeer({ type: 'fx-anim', anim: data });
   }
 
+  /** 是否手机端布局（与 CSS 的 (max-width: 768px) 一致） */
+  function _isMobileView() {
+    return (typeof window.matchMedia === 'function') && window.matchMedia('(max-width: 768px)').matches;
+  }
+
+  /**
+   * 「用牌预展示」牌应该出现在哪里（本地播放 / 远端播放共用，保证两边一模一样）
+   * · 桌面端：左边固定 200px；玩家一顶部 100px，玩家二底部 100px
+   * · 手机端：贴左边 5px；玩家一在中间栏上方，玩家二在中间栏下方
+   */
+  function _previewMetrics(playerId) {
+    const isP1 = String(playerId) === '1';
+    if (_isMobileView()) {
+      const bar = document.querySelector('.center-dice-bar');
+      const barRect = bar ? bar.getBoundingClientRect() : null;
+      const top = barRect
+        ? (isP1 ? Math.max(4, barRect.top - 280 - 8) : barRect.bottom + 8)
+        : (isP1 ? 100 : window.innerHeight - 380);
+      return { mobile: true, left: 5, top, anchor: 'top' };
+    }
+    return {
+      mobile: false,
+      left: 200,
+      top: isP1 ? 100 : window.innerHeight - 380,
+      anchor: isP1 ? 'top' : 'bottom',
+    };
+  }
+
+  /**
+   * 预展示牌「无目标」时的停留时长（秒）：手机端 1.5s，电脑端 3s
+   * （本地播放 / 远端播放共用，避免两边不一致）
+   */
+  function _previewHoldTime() {
+    return _isMobileView() ? 1.5 : 3;
+  }
+
+  /** 把预展示牌摆到算出来的位置（桌面端玩家二用 bottom 锚定，与原逻辑一致） */
+  function _applyPreviewPos(preview, playerId) {
+    const m = _previewMetrics(playerId);
+    preview.style.left = m.left + 'px';
+    if (m.anchor === 'bottom') {
+      preview.style.top = 'auto';
+      preview.style.bottom = '100px';
+    } else {
+      preview.style.top = m.top + 'px';
+      preview.style.bottom = 'auto';
+    }
+    return m;
+  }
+
   /**
    * 使用牌的动画：卡牌从手牌飞出放大 → 翻转 → 预展示出现
    *   若提供 targetEl，预展示1秒后卡牌飞向目标（缩小+粒子特效）
@@ -268,27 +318,9 @@ const CardFlight = (() => {
     const preview = document.getElementById('card-preview');
     if (!overlay || !preview) return;
 
-    const isP1 = playerId === '1';
-    const isMobile = (typeof window.matchMedia === 'function') && window.matchMedia('(max-width: 768px)').matches;
-    let previewTop, previewLeft;
-    if (isMobile) {
-      // 手机端：预展示固定在中间栏偏左，距左边 5px（P1 在栏上方，P2 在栏下方）
-      const bar = document.querySelector('.center-dice-bar');
-      const barRect = bar ? bar.getBoundingClientRect() : null;
-      previewLeft = 5;
-      previewTop = barRect
-        ? (isP1 ? Math.max(4, barRect.top - 280 - 8) : barRect.bottom + 8)
-        : (isP1 ? 100 : window.innerHeight - 380);
-      preview.style.left = previewLeft + 'px';
-      preview.style.top = previewTop + 'px';
-      preview.style.bottom = 'auto';
-    } else {
-      previewTop  = isP1 ? 100 : window.innerHeight - 380;
-      previewLeft = 200;
-      preview.style.left = previewLeft + 'px';
-      preview.style.top = isP1 ? previewTop + 'px' : 'auto';
-      preview.style.bottom = isP1 ? 'auto' : '100px';
-    }
+    const metrics = _applyPreviewPos(preview, playerId);
+    const previewTop = metrics.top;
+    const previewLeft = metrics.left;
     const centerX = previewLeft + 100;
     const centerY = previewTop + 140;
     const dst = { x: centerX - 24, y: centerY - 33 };
@@ -296,15 +328,7 @@ const CardFlight = (() => {
 
     /** 恢复预览位置（clearProps 会清除内联样式） */
     function _restorePreviewPos() {
-      if (isMobile) {
-        preview.style.left = '5px';
-        preview.style.top = previewTop + 'px';
-        preview.style.bottom = 'auto';
-      } else {
-        preview.style.left = '200px';
-        preview.style.top = isP1 ? '100px' : 'auto';
-        preview.style.bottom = isP1 ? 'auto' : '100px';
-      }
+      _applyPreviewPos(preview, playerId);
     }
 
     // 终止该玩家上一个预展示 + 清除残留飞行卡牌
@@ -410,8 +434,8 @@ const CardFlight = (() => {
 
       master.set(overlay, { hidden: true }, flightStart + 0.6);
     } else {
-      // 无目标：手机端 1.5 秒后渐隐消失，桌面端 3 秒
-      const holdTime = isMobile ? 1.5 : 3;
+      // 无目标：手机端 1.5 秒后渐隐消失，桌面端 3 秒（与远端播放一致）
+      const holdTime = _previewHoldTime();
       master.to(preview, {
         scale: 0.9, opacity: 0,
         duration: 0.4, ease: 'power2.in'
@@ -556,25 +580,18 @@ const CardFlight = (() => {
         if (!handBtn) return;
         const src = _centerOf(handBtn);
 
-        const isP1 = data.playerId === '1';
-        const previewTop  = isP1 ? 100 : window.innerHeight - 380;
-        const previewLeft = 200;
-        const centerX = previewLeft + 100;
-        const centerY = previewTop + 140;
+        // 位置与「自己用牌」完全一致（含手机端贴左、相对中间栏上下）
+        const metrics = _applyPreviewPos(preview, data.playerId);
+        const centerX = metrics.left + 100;
+        const centerY = metrics.top + 140;
         const dst = { x: centerX - 24, y: centerY - 33 };
         const previewCenter = { x: centerX, y: centerY };
-
-        preview.style.left = previewLeft + 'px';
-        preview.style.top = isP1 ? previewTop + 'px' : 'auto';
-        preview.style.bottom = isP1 ? 'auto' : '100px';
 
         if (_playerPreview[data.playerId]) {
           _playerPreview[data.playerId].kill();
           _playerPreview[data.playerId] = null;
           gsap.set(preview, { clearProps: 'all' });
-          preview.style.left = previewLeft + 'px';
-          preview.style.top = isP1 ? previewTop + 'px' : 'auto';
-          preview.style.bottom = isP1 ? 'auto' : '100px';
+          _applyPreviewPos(preview, data.playerId);
         }
         _playerCards[data.playerId].forEach(c => c.remove());
         _playerCards[data.playerId] = [];
@@ -632,8 +649,10 @@ const CardFlight = (() => {
           master.to(preview, { scale: 0.85, opacity: 0, duration: 0.35, ease: 'power2.in' }, flightStart + 0.2);
           master.set(overlay, { hidden: true }, flightStart + 0.6);
         } else {
-          master.to(preview, { scale: 0.9, opacity: 0, duration: 0.4, ease: 'power2.in' }, 6.8);
-          master.set(overlay, { hidden: true }, 7.2);
+          // 无目标：停留时长与「自己用牌」一致（手机 1.5s / 电脑 3s）
+          const holdTime = _previewHoldTime();
+          master.to(preview, { scale: 0.9, opacity: 0, duration: 0.4, ease: 'power2.in' }, holdTime);
+          master.set(overlay, { hidden: true }, holdTime + 0.4);
         }
         break;
       }

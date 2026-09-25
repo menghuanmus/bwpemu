@@ -74,6 +74,8 @@
     const deckBreakdownTitle = document.getElementById('deck-breakdown-title');
     const deckBreakdownBody = document.getElementById('deck-breakdown-body');
     const deckBreakdownClose = document.getElementById('deck-breakdown-close');
+    const deckBreakdownToggles = document.getElementById('deck-breakdown-toggles');
+    const deckBreakdownClearBtn = document.getElementById('deck-breakdown-clear-btn');
 
     let cardTextContext = null;
     let cardListContext = null;
@@ -713,7 +715,7 @@
       if (initialHandBtn) {
         initialHandBtn.hidden = (type !== 'hand' || !isViewingOwnCards(playerId) || !getPlayerCardState(playerId).deck.length);
       }
-      deckBreakdownPanel.hidden = true;
+      _resetBreakdownPanel();
       // 重置拖拽偏移
       cardListDragOffset = { x: 0, y: 0 };
       cardListDialogEl.style.transform = '';
@@ -734,8 +736,7 @@
       cardListBody.innerHTML = '';
       document.getElementById('deck-summary-header').hidden = true;
       document.getElementById('deck-summary-header').innerHTML = '';
-      deckBreakdownPanel.hidden = true;
-      deckBreakdownBody.innerHTML = '';
+      _resetBreakdownPanel();
     }
 
     function refreshOpenListDialog(playerId) {
@@ -755,6 +756,21 @@
     const DM_TYPES = [['battle', '战斗'], ['spell', '法术'], ['form', '形态'], ['realm', '幻境'], ['bond', '协战'], ['其他', '其他']];
     const DM_KNOWN_TYPES = ['battle', 'spell', 'form', 'realm', 'bond'];
     const DM_NO_KW = '__no_kw__';   // 「无关键词」特殊值（不参与候选列表）
+    const DM_NEUTRAL_OWNER = '中立或无所属';   // 没有式神归属的牌统一归到这一项
+
+    /** 归属名归一：空 / 中立 / 无归属 / 无所属 / 未知 → 统一叫「中立或无所属」 */
+    function _dmOwnerLabel(raw) {
+      const s = String(raw == null ? '' : raw).trim();
+      if (!s || s === '中立' || s === '无归属' || s === '无所属' || s === '未知') return DM_NEUTRAL_OWNER;
+      return s;
+    }
+
+    /** 某张牌的归属列表（已归一；没有归属的返回 [DM_NEUTRAL_OWNER]） */
+    function _dmOwnerList(meta) {
+      const raw = (meta && meta.owners) ? meta.owners : [];
+      const uniq = [...new Set(raw.map(_dmOwnerLabel).filter(Boolean))];
+      return uniq.length ? uniq : [DM_NEUTRAL_OWNER];
+    }
 
     let deckMoveCtx = null;
 
@@ -781,7 +797,7 @@
         level: (lv === 1 || lv === 2 || lv === 3) ? String(lv) : '其他',
         type: DM_KNOWN_TYPES.indexOf(typeRaw) !== -1 ? typeRaw : '其他',
         rarity: (rarRaw === 'R' || rarRaw === 'SR' || rarRaw === 'SSR') ? rarRaw : '其他',
-        owner: owners[0] || '中立',   // 兼容旧用法（单值）
+        owner: _dmOwnerLabel(owners[0]),   // 兼容旧用法（单值，已归一）
         owners: owners,               // 归属集合（匹配用这个）
         bond: _isBond,
         keywords: kws.filter(Boolean).map(String),
@@ -797,7 +813,7 @@
       let noKwCount = 0;
       st.deck.forEach(card => {
         const m = _deckMoveMeta(card);
-        const ownList = (m.owners && m.owners.length) ? m.owners : ['中立'];
+        const ownList = _dmOwnerList(m);   // 没有式神归属的 → 「中立或无所属」
         ownList.forEach(o => owners.set(o, (owners.get(o) || 0) + 1));
         const nm = String(card.name || '(未命名)');
         names.set(nm, (names.get(nm) || 0) + 1);
@@ -833,7 +849,7 @@
       const tagOn = ctx.cand.tag.length > 0 && ctx.sel.tag.size < ctx.cand.tag.length;
       deck.forEach((card, i) => {
         const m = _deckMoveMeta(card);
-        if (ctx.locate === 'shikigami' && (!m.owners || m.owners.indexOf(ctx.ownerVal) === -1)) return;
+        if (ctx.locate === 'shikigami' && _dmOwnerList(m).indexOf(ctx.ownerVal) === -1) return;
         if (ctx.locate === 'card' && String(card.name || '(未命名)') !== ctx.cardNameVal) return;
         if (!ctx.sel.level.has(m.level)) return;
         if (!ctx.sel.rarity.has(m.rarity)) return;
@@ -998,7 +1014,7 @@
       deckMoveCtx = {
         playerId, pool,
         locate: 'all',
-        ownerVal: owners.length ? String(owners[0][0]) : '中立',
+        ownerVal: owners.length ? String(owners[0][0]) : DM_NEUTRAL_OWNER,
         cardNameVal: names.length ? String(names[0][0]) : '',
         posStart: 1, posCount: 1,
         cand: { kw: candKw, tag: candTag },
@@ -1028,8 +1044,8 @@
     function _deckMoveLocateDesc(c, matched) {
       if (c.locate === 'all') return '定位为无限制';
       if (c.locate === 'shikigami') {
-        return (c.ownerVal === '中立' || c.ownerVal === '无所属')
-          ? '定位为中立牌'
+        return (c.ownerVal === DM_NEUTRAL_OWNER || c.ownerVal === '中立' || c.ownerVal === '无所属')
+          ? '定位为中立或无所属的牌'
           : ('定位为' + c.ownerVal + '式神的牌');
       }
       if (c.locate === 'card') return '定位为牌名' + c.cardNameVal + '的牌';
@@ -1329,12 +1345,12 @@
       _playDiscardAnim(playerId);
     }
 
-    /** 从牌库弃置一张牌（按牌名，用于牌表），带动画 */
+    /** 从牌库弃置一张牌（按牌名，用于牌表，同名牌随机一张），带动画 */
     function discardFromDeckByName(playerId, cardName) {
       if (typeof isSpectator !== 'undefined' && isSpectator) return;
       if (typeof isMyZone === 'function' && !isMyZone(playerId)) return;
       const state = getPlayerCardState(playerId);
-      const idx = state.deck.findIndex(c => c && c.name === cardName);
+      const idx = _randomDeckIndexOf(playerId, cardName);
       if (idx === -1) return;
       const [card] = state.deck.splice(idx, 1);
       if (!state.grave) state.grave = [];
@@ -1345,6 +1361,69 @@
       if (typeof window.refreshGraveButtons === 'function') window.refreshGraveButtons();
       broadcastSystemMsg(`【系统】${getPlayerName(playerId)}从牌库弃置了「${cardName}」`);
       _playDiscardAnim(playerId);
+    }
+
+    /** 在牌库里随机挑一张该牌名的牌（同名牌多张时不固定取最靠前的；返回下标，找不到 -1） */
+    function _randomDeckIndexOf(playerId, cardName) {
+      const deck = (getPlayerCardState(playerId).deck || []);
+      const hits = [];
+      for (let i = 0; i < deck.length; i++) {
+        const c = deck[i];
+        if (c && typeof c === 'object' && c.name === cardName) hits.push(i);
+      }
+      if (!hits.length) return -1;
+      return hits[Math.floor(Math.random() * hits.length)];
+    }
+
+    /** 从牌库抽一张指定牌名的牌到手牌（同名牌随机一张；具体牌名仅自己可见） */
+    function drawFromDeckByName(playerId, cardName) {
+      if (typeof isSpectator !== 'undefined' && isSpectator) return;
+      if (typeof isMyZone === 'function' && !isMyZone(playerId)) return;
+      const state = getPlayerCardState(playerId);
+      const idx = _randomDeckIndexOf(playerId, cardName);
+      if (idx === -1) return;
+      const [card] = state.deck.splice(idx, 1);
+      pushCardToHand(playerId, card);
+      updateDeckButtons(playerId);
+      refreshOpenListDialog(playerId);
+      syncDeckState(playerId);
+      broadcastSystemMsg(`【系统】${getPlayerName(playerId)}抽了一张牌`);
+      if (typeof addSystemChatMessage === 'function') {
+        addSystemChatMessage(`【系统】从牌库抽取了「${cardName}」（此信息仅你可见）`);
+      }
+      // 飞行动画：牌库 → 手牌
+      if (typeof CardFlight !== 'undefined') {
+        CardFlight.flyAndBroadcast(playerId, 'deck', 'hand');
+      }
+    }
+
+    /** 从牌库直接使用一张指定牌名的牌（同名牌随机一张；走「手牌使用」同一套逻辑） */
+    function useFromDeckByName(playerId, cardName) {
+      if (typeof isSpectator !== 'undefined' && isSpectator) return;
+      if (typeof isMyZone === 'function' && !isMyZone(playerId)) return;
+      const state = getPlayerCardState(playerId);
+      const idx = _randomDeckIndexOf(playerId, cardName);
+      if (idx === -1) return;
+      const [card] = state.deck.splice(idx, 1);
+      // 先静静放进手牌，再走「使用」那套（含播报/动画/幻境自动加入/协战分化）
+      state.hand.push(card);
+      const useNow = () => removeFromHand(playerId, card.id, 'use');
+      if (window.Bond && Bond.tryUse(playerId, card, useNow)) return;
+      useNow();
+    }
+
+    /** 删除牌库所有卡牌（不进坟场）：适用于导入卡组导错了想重新导入 */
+    function clearDeck(playerId) {
+      if (typeof isSpectator !== 'undefined' && isSpectator) return;
+      if (typeof isMyZone === 'function' && !isMyZone(playerId)) return;
+      const state = getPlayerCardState(playerId);
+      const n = (state.deck || []).length;
+      if (!n) return;
+      state.deck = [];              // 直接清空，不进坟场
+      updateDeckButtons(playerId);
+      refreshOpenListDialog(playerId);
+      syncDeckState(playerId);
+      broadcastSystemMsg(`【系统】${getPlayerName(playerId)}删除了牌库里的全部 ${n} 张牌（不进坟场）`);
     }
 
     /** 弃牌动画：卡牌从牌库按钮飞出 */
@@ -2503,7 +2582,44 @@
     // ================================================================
     //  牌表侧窗：按所属式神分组展示牌库内容
     // ================================================================
+    /** 牌表模式开关：'' | 'draw' | 'use' | 'discard'（互斥，再点一次取消） */
+    let breakdownMode = '';
+
+    /** 同步牌表开关的选中样式 */
+    function _syncBreakdownToggles() {
+      if (!deckBreakdownToggles) return;
+      deckBreakdownToggles.querySelectorAll('.breakdown-toggle-btn').forEach(b => {
+        b.classList.toggle('active', (b.dataset.bdMode || '') === breakdownMode);
+      });
+    }
+
+    /** 牌表每行的操作按钮：按当前开关（抽取 / 使用 / 弃置）生成 */
+    function _breakdownRowBtn(mode, playerId, name) {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'breakdown-card-row__action';
+      if (mode === 'draw') {
+        btn.textContent = '抽取';
+        btn.title = '把「' + name + '」抽到手牌（同名牌随机一张）';
+        btn.addEventListener('click', (e) => { e.stopPropagation(); drawFromDeckByName(playerId, name); });
+      } else if (mode === 'use') {
+        btn.classList.add('breakdown-card-row__action--use');
+        btn.textContent = '使用';
+        btn.title = '直接使用「' + name + '」（同名牌随机一张，等同手牌使用）';
+        btn.addEventListener('click', (e) => { e.stopPropagation(); useFromDeckByName(playerId, name); });
+      } else if (mode === 'discard') {
+        btn.classList.add('breakdown-card-row__action--discard');
+        btn.textContent = '弃置';
+        btn.title = '把「' + name + '」从牌库弃置到坟场（同名牌随机一张）';
+        btn.addEventListener('click', (e) => { e.stopPropagation(); discardFromDeckByName(playerId, name); });
+      } else {
+        return null;
+      }
+      return btn;
+    }
+
     function renderDeckBreakdown(playerId) {
+      _syncBreakdownToggles();
       const state = getPlayerCardState(playerId);
       const deck = (state.deck || []).filter(c => c && typeof c === 'object');
       const viewerId = getViewerPlayerId();
@@ -2602,7 +2718,7 @@
             row.appendChild(limSpan);
           }
 
-          // 已揭示时显示灵咒
+          // 灵咒：仅已揭示的牌显示（牌库里的牌不展示哪张结了灵咒）
           if (isRevealed && sampleCard.curses && sampleCard.curses.length) {
             const cursesSpan = document.createElement('span');
             cursesSpan.className = 'breakdown-card-row__curses';
@@ -2615,18 +2731,10 @@
             row.appendChild(cursesSpan);
           }
 
-          // 弃牌按钮（仅自己牌表可见）
-          if (isViewingOwnCards(playerId)) {
-            const discardBtn = document.createElement('button');
-            discardBtn.type = 'button';
-            discardBtn.className = 'btn-card-action btn-card-discard';
-            discardBtn.textContent = '弃牌';
-            discardBtn.style.cssText = 'font-size:10px;padding:2px 6px;flex-shrink:0;';
-            discardBtn.addEventListener('click', (e) => {
-              e.stopPropagation();
-              discardFromDeckByName(playerId, name);
-            });
-            row.appendChild(discardBtn);
+          // 操作按钮：只在「自己的牌表」+ 上方开关选中时出现（互斥，和手牌那套一致）
+          if (showName && bdOwn && !bdSpec && breakdownMode) {
+            const actBtn = _breakdownRowBtn(breakdownMode, playerId, name);
+            if (actBtn) row.appendChild(actBtn);
           }
 
           group.appendChild(row);
@@ -2643,28 +2751,78 @@
       renderDeckBreakdown(playerId);
     }
 
-    // 牌表按钮：切换侧窗
+    // 牌表按钮：切换侧窗（手机端 = 盖在牌库弹窗之上的独立弹窗）
     cardListBreakdownBtn.addEventListener('click', () => {
       if (!cardListContext || cardListContext.type !== 'deck') return;
       const wasHidden = deckBreakdownPanel.hidden;
       deckBreakdownPanel.hidden = !wasHidden;
       if (!wasHidden) {
-        deckBreakdownBody.innerHTML = '';
+        _closeBreakdown();
       } else {
-        // 应用当前拖拽偏移，让牌表出现在牌库旁边
-        if (cardListDragOffset.x !== 0 || cardListDragOffset.y !== 0) {
-          deckBreakdownPanel.style.transform = `translate(${cardListDragOffset.x}px, ${cardListDragOffset.y}px)`;
-          deckBreakdownPanel.style.transition = 'none';
-        }
-        renderDeckBreakdown(cardListContext.playerId);
+        _openBreakdown(cardListContext.playerId);
       }
       cardListBreakdownBtn.textContent = deckBreakdownPanel.hidden ? '📋 查看牌表' : '📋 隐藏牌表';
     });
 
-    deckBreakdownClose.addEventListener('click', () => {
+    deckBreakdownClose.addEventListener('click', _closeBreakdown);
+
+    /** 手机端判断（与 CSS 的 max-width: 768px 一致） */
+    function _bdIsMobile() {
+      return window.matchMedia('(max-width: 768px)').matches;
+    }
+
+    /** 重置牌表：关闭 / 切换弹窗时用（含手机端独立弹窗状态与开关选中态） */
+    function _resetBreakdownPanel() {
       deckBreakdownPanel.hidden = true;
       deckBreakdownBody.innerHTML = '';
+      deckBreakdownPanel.classList.remove('mobile-dialog');
+      deckBreakdownPanel.style.transform = '';
+      deckBreakdownPanel.style.transition = '';
+      cardListOverlay.classList.remove('bd-open');
+      breakdownMode = '';
+      _syncBreakdownToggles();
+    }
+
+    /** 打开牌表：手机端收起牌库弹窗，牌表变成盖在上面的独立弹窗（不再挤成半宽） */
+    function _openBreakdown(playerId) {
+      if (_bdIsMobile()) {
+        deckBreakdownPanel.classList.add('mobile-dialog');
+        deckBreakdownPanel.style.transform = '';
+        deckBreakdownPanel.style.transition = '';
+        // 只藏牌库弹窗本体（牌表是它的子节点，整个遮罩藏了会连牌表一起消失）
+        cardListOverlay.classList.add('bd-open');
+      } else if (cardListDragOffset.x !== 0 || cardListDragOffset.y !== 0) {
+        // 桌面端：跟着牌库弹窗的拖拽偏移，出现在它旁边
+        deckBreakdownPanel.style.transform = `translate(${cardListDragOffset.x}px, ${cardListDragOffset.y}px)`;
+        deckBreakdownPanel.style.transition = 'none';
+      }
+      renderDeckBreakdown(playerId);
+    }
+
+    /** 关闭牌表：手机端把牌库弹窗放回来 */
+    function _closeBreakdown() {
+      _resetBreakdownPanel();
       cardListBreakdownBtn.textContent = '📋 查看牌表';
+    }
+
+    // 牌表模式开关：抽取 / 使用 / 弃置（互斥，再点一次取消）
+    deckBreakdownToggles.addEventListener('click', (e) => {
+      const btn = e.target.closest ? e.target.closest('.breakdown-toggle-btn') : null;
+      if (!btn) return;
+      const mode = btn.dataset.bdMode || '';
+      breakdownMode = (breakdownMode === mode) ? '' : mode;
+      _syncBreakdownToggles();
+      if (cardListContext && cardListContext.type === 'deck') renderDeckBreakdown(cardListContext.playerId);
+    });
+
+    // 删除牌库所有卡牌（二次确认；不进坟场）
+    deckBreakdownClearBtn.addEventListener('click', () => {
+      if (!cardListContext || cardListContext.type !== 'deck') return;
+      const pid = cardListContext.playerId;
+      const n = (getPlayerCardState(pid).deck || []).length;
+      if (!n) { broadcastSystemMsg('【系统】牌库已经是空的'); return; }
+      if (!window.confirm(`确定删除牌库里的全部 ${n} 张牌吗？\n（不会进坟场，删掉后可以重新导入卡组）`)) return;
+      clearDeck(pid);
     });
 
     // ================================================================
@@ -3196,10 +3354,17 @@
     const initialHandCardsBody = document.getElementById('initial-hand-cards-body');
     const initialHandCancelBtn = document.getElementById('initial-hand-cancel');
     const initialHandConfirmBtn = document.getElementById('initial-hand-confirm');
-    const initialHandDrawHint = document.getElementById('initial-hand-draw-hint');
+    const initialHandStatus = document.getElementById('initial-hand-status');
 
-    /** 初始手牌上下文 */
-    let initialHandContext = null; // { playerId, drawnCards: [], rejectedIndices: Set }
+    /** 初始手牌上下文
+     *  { playerId, cards: [{ id, name, curses, mulliganed }], used, swaps: [{from,to}] }
+     *  · 「调度」是立即生效的：每点一次就把这张换成牌库里随机另一张
+     *    整手最多 3 次（同一张牌也可以再换）
+     *  · 为了「取消 = 什么都不变」，全程只动这个工作副本；
+     *    牌库要等点「确定」、真正从牌库抽牌时才动
+     */
+    let initialHandContext = null;
+    const INITIAL_HAND_MULLIGAN_MAX = 3;
 
     /** 打开初始手牌弹窗 */
     function openInitialHandDialog(playerId) {
@@ -3210,13 +3375,14 @@
       }
       initialHandContext = {
         playerId,
-        drawnCards: [],
-        rejectedIndices: new Set(),
+        cards: [],
+        used: 0,
+        swaps: [],
       };
       initialHandCountInput.value = Math.min(5, state.deck.length);
       initialHandCountInput.max = state.deck.length;
       initialHandCardsBody.innerHTML = '';
-      initialHandDrawHint.hidden = true;
+      if (initialHandStatus) { initialHandStatus.hidden = true; initialHandStatus.textContent = ''; }
       initialHandOverlay.hidden = false;
       initialHandCountInput.focus();
       initialHandCountInput.select();
@@ -3252,7 +3418,6 @@
       initialHandOverlay.hidden = true;
       initialHandContext = null;
       initialHandCardsBody.innerHTML = '';
-      initialHandDrawHint.hidden = true;
       // 重置拖拽
       const dialogEl = initialHandOverlay.querySelector('.speak-dialog');
       if (dialogEl) {
@@ -3286,24 +3451,17 @@
     /** 渲染初始手牌卡牌列表 */
     function renderInitialHandCards() {
       if (!initialHandContext) return;
-      const { drawnCards, rejectedIndices } = initialHandContext;
+      const c = initialHandContext;
       initialHandCardsBody.innerHTML = '';
 
-      if (!drawnCards.length) {
-        return;
-      }
-
-      drawnCards.forEach((card, idx) => {
+      c.cards.forEach((card, idx) => {
         const item = document.createElement('div');
-        item.className = 'initial-hand-card';
-        if (rejectedIndices.has(idx)) {
-          item.classList.add('initial-hand-card--rejected');
-        }
+        item.className = 'initial-hand-card' + (card.mulliganed ? ' initial-hand-card--swapped' : '');
         item.dataset.displayIndex = idx;
 
         const indexSpan = document.createElement('span');
         indexSpan.className = 'initial-hand-card__index';
-        indexSpan.textContent = `#${idx + 1}`;
+        indexSpan.textContent = '#' + (idx + 1);
         item.appendChild(indexSpan);
 
         const nameSpan = document.createElement('span');
@@ -3311,29 +3469,74 @@
         nameSpan.textContent = card.name || '(未命名)';
         item.appendChild(nameSpan);
 
-        // X 标记覆盖层
-        if (rejectedIndices.has(idx)) {
-          const xMark = document.createElement('span');
-          xMark.className = 'initial-hand-card__x-mark';
-          xMark.textContent = '✕';
-          item.appendChild(xMark);
+        if (card.mulliganed) {
+          const tag = document.createElement('span');
+          tag.className = 'initial-hand-card__tag';
+          tag.textContent = '已调度';
+          item.appendChild(tag);
         }
 
-        // 点击切换 X 标记（基于数组索引，彻底避免 ID 碰撞）
-        item.addEventListener('click', () => {
-          if (rejectedIndices.has(idx)) {
-            rejectedIndices.delete(idx);
-          } else {
-            rejectedIndices.add(idx);
-          }
-          renderInitialHandCards();
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'initial-hand-card__btn';
+        btn.textContent = '调度';
+        const noMore = c.used >= INITIAL_HAND_MULLIGAN_MAX;
+        // 整手共用 3 次：同一张牌换过之后还能再换（只要次数没用完）
+        btn.disabled = noMore;
+        btn.title = noMore ? `最多只能调度 ${INITIAL_HAND_MULLIGAN_MAX} 次，已用完`
+          : (card.mulliganed ? `这张已经换过了，还能再换（剩余 ${INITIAL_HAND_MULLIGAN_MAX - c.used} 次）`
+                             : '立即把这张换成牌库里随机另一张');
+        btn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          mulliganInitialCard(idx);
         });
+        item.appendChild(btn);
 
         initialHandCardsBody.appendChild(item);
       });
+
+      // 状态行：已调度 n/3
+      if (c.cards.length) {
+        const left = Math.max(0, INITIAL_HAND_MULLIGAN_MAX - c.used);
+        initialHandStatus.hidden = false;
+        initialHandStatus.textContent = `已调度 ${c.used}/${INITIAL_HAND_MULLIGAN_MAX} 次` +
+          (left > 0 ? `（还能调度 ${left} 次）` : '（调度次数已用完）');
+      } else {
+        initialHandStatus.hidden = true;
+        initialHandStatus.textContent = '';
+      }
     }
 
-    /** 抽取按钮：从牌库随机抽牌展示 */
+    /** 调度一次：立即从牌库随机换一张（只改工作副本，点「确定」才真正落地）
+     *  · 每次调度都是一次「换牌」，整手共 3 次；同一张牌换过之后还能再换
+     *  · 换成「不在当前初始手牌里」的牌库牌（已经换下场的那张也在可换池里）
+     */
+    function mulliganInitialCard(idx) {
+      const c = initialHandContext;
+      if (!c) return;
+      const card = c.cards[idx];
+      if (!card) return;
+      if (c.used >= INITIAL_HAND_MULLIGAN_MAX) return;
+      const state = getPlayerCardState(c.playerId);
+      const shownIds = new Set(c.cards.map(x => x.id));
+      const pool = (state.deck || []).filter(x => x && typeof x === 'object' && !shownIds.has(x.id));
+      if (!pool.length) {
+        addSystemChatMessage('【系统】牌库没有可以换的牌了');
+        return;
+      }
+      const pick = pool[Math.floor(Math.random() * pool.length)];
+      const oldName = card.name;
+      card.id = pick.id;
+      card.name = pick.name;
+      card.curses = pick.curses ? pick.curses.map(x => ({ name: x.name, layers: x.layers })) : [];
+      card.mulliganed = true;
+      c.used++;
+      c.swaps.push({ from: oldName, to: pick.name });
+      renderInitialHandCards();
+      addSystemChatMessage(`【系统】${getPlayerName(c.playerId)}调度了「${oldName}」→「${pick.name}」（${c.used}/${INITIAL_HAND_MULLIGAN_MAX}）`);
+    }
+
+    /** 抽取按钮：从牌库随机抽牌展示（此处不动牌库，只拿副本给人看） */
     initialHandDrawBtn.addEventListener('click', () => {
       if (!initialHandContext) return;
       const count = parseInt(initialHandCountInput.value, 10);
@@ -3345,122 +3548,67 @@
       const clamped = Math.min(count, state.deck.length);
       if (clamped < 1) return;
       initialHandCountInput.value = clamped;
-      initialHandContext.drawnCards = drawInitialCards(initialHandContext.playerId, clamped);
-      initialHandContext.rejectedIndices = new Set();
-      initialHandDrawHint.hidden = false;
-      broadcastSystemMsg(`【系统】${getPlayerName(initialHandContext.playerId)}观看了初始手牌...正在选择需要替换的卡牌..`);
+      const drawn = drawInitialCards(initialHandContext.playerId, clamped);
+      drawn.forEach(c => { c.mulliganed = false; });
+      initialHandContext.cards = drawn;
+      initialHandContext.used = 0;
+      initialHandContext.swaps = [];
+      broadcastSystemMsg(`【系统】${getPlayerName(initialHandContext.playerId)}观看了初始手牌...正在决定要调度的卡牌..`);
       renderInitialHandCards();
     });
 
-    /** 确定按钮：替换X牌，抽入手牌，发系统消息 */
+    /** 确定按钮：把「调整后的初始手牌」抽入手牌，发系统消息 */
     initialHandConfirmBtn.addEventListener('click', () => {
       if (!initialHandContext) return;
-      const { playerId, drawnCards, rejectedIndices } = initialHandContext;
-      if (!drawnCards.length) {
+      const { playerId, cards, used, swaps } = initialHandContext;
+      if (!cards.length) {
         closeInitialHandDialog();
         return;
       }
       const state = getPlayerCardState(playerId);
       const playerName = getPlayerName(playerId);
 
-      // === 第1步：从牌库中找到每张展示牌的原件，移除并收集 ===
-      // drawnCards 是 drawInitialCards 返回的独立副本（仅 id/name/curses），
-      // 这里通过 id 在真实牌库 state.deck 中定位原件。
-      const drawnOriginals = []; // 与 drawnCards 一一对应的牌库原件
-      for (const drawn of drawnCards) {
-        const idx = state.deck.findIndex(c => c && c.id === drawn.id);
-        if (idx !== -1) {
-          const [original] = state.deck.splice(idx, 1);
-          drawnOriginals.push(original);
-        } else {
-          // 防御：原件已不在牌库（极端情况），用副本占位
-          drawnOriginals.push(null);
-        }
-      }
-
-      // === 第2步：按 X 标记拆分原件 ===
-      const keptOriginals = [];    // 保留的牌库原件
-      const rejectedOriginals = []; // 画X的牌库原件（将退回牌库）
-      const keptNames = [];
-      const rejectedNames = [];
-
-      drawnOriginals.forEach((orig, idx) => {
-        const displayCard = drawnCards[idx];
-        if (!displayCard) return;
-        if (rejectedIndices.has(idx)) {
-          rejectedNames.push(displayCard.name);
-          if (orig) rejectedOriginals.push(orig);
-        } else {
-          keptNames.push(displayCard.name);
-          if (orig) keptOriginals.push(orig);
-        }
+      // 落地：把「当前看到的这几张」从牌库取出 → 抽到手牌。
+      // 调度时只改了工作副本、牌库没动过，所以：
+      //   · 被调度换掉的牌：一直留在牌库 → 天然就是「回牌库」
+      //   · 用于替换的牌：这次才从牌库取出 → 跟着一起入手牌
+      const picked = [];
+      cards.forEach(shown => {
+        const i = state.deck.findIndex(c => c && c.id === shown.id);
+        if (i !== -1) picked.push(state.deck.splice(i, 1)[0]);
       });
+      picked.forEach(card => pushCardToHand(playerId, card));
 
-      // === 第3步：为每张画X的牌从剩余牌库随机换一张 ===
-      // 此时 state.deck 已排除所有展示牌（含将被退回的X牌），从中选取替换
-      const replacementNames = [];
-      const replacementCards = [];
-      if (rejectedOriginals.length > 0) {
-        const pool = state.deck.filter(c => c && typeof c === 'object');
-        const shuffled = [...pool].sort(() => Math.random() - 0.5);
-
-        for (let i = 0; i < rejectedOriginals.length && i < shuffled.length; i++) {
-          const replacement = shuffled[i];
-          replacementNames.push(replacement.name);
-          const realIdx = state.deck.findIndex(c => c && c.id === replacement.id);
-          if (realIdx !== -1) {
-            const [removed] = state.deck.splice(realIdx, 1);
-            replacementCards.push(removed);
-          }
-        }
-      }
-
-      // 画X的牌原件退回牌库（交换而非丢弃，在替换选取之后放回）
-      rejectedOriginals.forEach(orig => {
-        state.deck.push(orig);
-      });
-
-      // === 第4步：所有保留原件 + 替换牌 → 抽入手牌 ===
-      const allCardsToHand = [...keptOriginals, ...replacementCards];
-      allCardsToHand.forEach(card => {
-        if (card) pushCardToHand(playerId, card);
-      });
-
-      // === 第5步：更新UI ===
       updateDeckButtons(playerId);
       refreshOpenListDialog(playerId);
       syncDeckState(playerId);
 
       // 飞行动画：N张牌依次从牌库飞入手牌
       if (typeof CardFlight !== 'undefined') {
-        CardFlight.flySeqAndBroadcast(playerId, allCardsToHand.length, 'deck', null, 'hand', { interval: 0.18, arcHeight: 60 });
+        CardFlight.flySeqAndBroadcast(playerId, picked.length, 'deck', null, 'hand', { interval: 0.18, arcHeight: 60 });
       }
 
-      // === 第6步：系统消息 ===
-      const totalCount = drawnCards.length;
+      // === 系统消息：自己看详细（含调度记录），对手只看摘要 ===
+      const totalCount = cards.length;
+      const keptNames = cards.filter(c => !c.mulliganed).map(c => c.name);
 
-      // 自己看到详细消息
       let detailMsg = `【系统】${playerName}抽取了${totalCount}张初始手牌`;
       if (keptNames.length > 0) {
         detailMsg += ` —— 保留：「${keptNames.join('」、「')}」`;
       }
-      if (rejectedNames.length > 0) {
-        detailMsg += ` —— 放弃：「${rejectedNames.join('」、「')}」`;
-        if (replacementNames.length > 0) {
-          detailMsg += `，替换为：「${replacementNames.join('」、「')}」`;
-        }
+      if (used > 0) {
+        detailMsg += ` —— 调度 ${used} 张：` + swaps.map(s => `「${s.from}」→「${s.to}」`).join('、');
       }
       detailMsg += '（此消息仅自己可见）';
 
-      // 对手只看到摘要
-      const summaryMsg = `【系统】${playerName}抽了${totalCount}张初始手牌`;
+      const summaryMsg = `【系统】${playerName}抽了${totalCount}张初始手牌` + (used > 0 ? `（调度 ${used} 张）` : '');
 
       // 本地显示详细信息
       addSystemChatMessage(detailMsg);
       if (window.Undo && Undo.noteMessage) Undo.noteMessage('抽取初始手牌');
 
-      // 发送给对手：仅摘要
-      if (!isSoloMode && isConnected() && typeof sendToPeer === 'function') {
+      // 发送给对手：仅摘要（isConnected 只在联机后才存在，必须带 typeof 判断）
+      if (!isSoloMode && typeof isConnected === 'function' && isConnected() && typeof sendToPeer === 'function') {
         sendToPeer({ type: 'sysmsg', text: summaryMsg });
       }
 
@@ -4402,7 +4550,8 @@
         return;
       }
       const pool = _searchFilteredDeck().filter(function(c) { return c && c.name === name; });
-      searchResults = pool.length ? [pool[Math.floor(Math.random() * pool.length)]] : [];
+      // 同名牌全部列出（牌库里有几张就显示几张，按牌库顺序），不再只随机取一张
+      searchResults = pool;
       searchMethod = '牌名';
       searchHasResult = true;
       broadcastSystemMsg(`【系统】${getPlayerName(_searchPid())}通过牌名检索了牌`);
