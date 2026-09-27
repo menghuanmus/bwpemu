@@ -1,0 +1,674 @@
+/* ================================================================
+   css/incarnation.css — 化身系统
+   1) 桌面端卡槽徽章（正六边形 + 纯数字）
+   2) 手机端信息栏独立一行
+   3) 化身管理面板 + 触发提示
+   ================================================================ */
+
+/* ---------------- 桌面端：卡槽徽章 ---------------- */
+.incarn-badge {
+  position: absolute;
+  left: -15px;
+  top: 48px;                    /* 紧接 💠 加成（top:22px + 22px）下方 */
+  width: 32px;
+  height: 34px;
+  z-index: 100;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  /* 覆盖 .card-badge 的基础样式（带这个类是为了：不被长按浮窗/拖拽/上传截走点击） */
+  background: transparent;
+  border: none;
+  padding: 0;
+}
+
+/* 六边形底（规则几何形状）；里面装「水」= 当前概率 */
+.incarn-badge__bg {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(160deg, #4a3a1c 0%, #2a2110 100%);
+  /* 上下是角尖的六边形 */
+  clip-path: polygon(50% 0, 100% 25%, 100% 75%, 50% 100%, 0 75%, 0 25%);
+  overflow: hidden;
+  filter: drop-shadow(0 0 3px rgba(255, 196, 84, 0.55));
+  pointer-events: none;
+}
+/* 注水式进度：0% 空的 → 从下往上涨，100% 盖满 */
+.incarn-badge__fill {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: var(--incarn-p, 0%);
+  background: linear-gradient(0deg, #a06d12 0%, #e8b03c 55%, #ffe6a8 100%);
+  box-shadow: 0 0 7px rgba(255, 199, 90, 0.85);
+  transition: height 0.28s ease;
+}
+/* 🪞 作为底色水印（在六边形内，被裁切） */
+.incarn-badge__mask {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 24px;
+  line-height: 1;
+  opacity: 0.32;
+  filter: saturate(0.7) brightness(1.35);
+  pointer-events: none;
+}
+/* 数字：单独一层，不被六边形裁剪，盖在水印上面 */
+.incarn-badge__val {
+  position: relative;
+  z-index: 2;
+  margin-top: 2px;              /* 避开右上角的 +N 角标 */
+  color: #fff;
+  font-size: 12px;
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: -0.5px;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 1), 0 0 5px rgba(0, 0, 0, 0.95), 0 0 2px rgba(0, 0, 0, 1);
+  pointer-events: none;
+}
+/* 已达本回合触发上限：数字下方一个锁（代替原来的红斜杠） */
+.incarn-badge__lock {
+  display: none;
+  position: absolute;
+  left: 50%;
+  bottom: 1px;
+  transform: translateX(-50%);
+  z-index: 3;
+  font-size: 9px;
+  line-height: 1;
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.95));
+  pointer-events: none;
+}
+.incarn-badge.is-capped .incarn-badge__lock { display: block; }
+/* 已暂停：一把大锁直接占满徽章（数字与 +N 都不显示） */
+.incarn-badge__plock {
+  display: none;
+  position: absolute;
+  inset: 0;
+  align-items: center;
+  justify-content: center;
+  z-index: 5;
+  font-size: 22px;
+  line-height: 1;
+  filter: drop-shadow(0 1px 3px rgba(0, 0, 0, 0.95)) drop-shadow(0 0 4px rgba(0, 0, 0, 0.9));
+  pointer-events: none;
+}
+.incarn-badge.is-paused .incarn-badge__plock { display: flex; }
+.incarn-badge.is-paused .incarn-badge__fill {
+  background: linear-gradient(0deg, #4b4331 0%, #6b6146 60%, #a39775 100%);
+  box-shadow: none;
+}
+.incarn-badge:hover .incarn-badge__bg {
+  filter: drop-shadow(0 0 6px rgba(255, 219, 130, 0.9));
+}
+
+/* 已达本回合触发上限：填充转暗色 */
+.incarn-badge.is-capped .incarn-badge__fill {
+  background: linear-gradient(0deg, #4b4331 0%, #6b6146 60%, #a39775 100%);
+  box-shadow: none;
+}
+.incarn-badge.is-capped .incarn-badge__val { color: #f7f0df; }
+/* 全部因气绝条件不该增长：置灰 */
+.incarn-badge.is-blocked .incarn-badge__bg { filter: grayscale(1) opacity(0.6); }
+.incarn-badge.is-blocked .incarn-badge__val { color: #e9dfc6; }
+
+/* 多个化身：① 后面露出错位的六边形（像一叠牌）② 右上角 +N 角标 */
+.incarn-badge__stack {
+  display: none;
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+}
+.incarn-badge__stack::before,
+.incarn-badge__stack::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  display: none;
+  background: linear-gradient(160deg, #55431f 0%, #241c0e 100%);
+  clip-path: polygon(50% 0, 100% 25%, 100% 75%, 50% 100%, 0 75%, 0 25%);
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.7));
+}
+.incarn-badge__stack::before { transform: translate(3px, 2px); }
+.incarn-badge__stack::after  { transform: translate(6px, 4px); }
+/* 2 个化身：露一层；3 个及以上：露两层 */
+.incarn-badge.is-multi .incarn-badge__stack { display: block; }
+.incarn-badge.is-multi .incarn-badge__stack::before { display: block; }
+.incarn-badge.is-many .incarn-badge__stack::after { display: block; }
+
+/* 「还有 n 个」角标 */
+.incarn-badge__more {
+  display: none;
+  position: absolute;
+  top: 0;
+  right: -9px;
+  z-index: 4;
+  padding: 0 3px;
+  min-width: 13px;
+  box-sizing: border-box;
+  border-radius: 7px;
+  background: linear-gradient(180deg, #ffe08a, #f0b429);
+  border: 1px solid rgba(90, 60, 0, 0.75);
+  color: #3a2b00;
+  font-size: 9px;
+  font-weight: 800;
+  line-height: 12px;
+  text-align: center;
+  letter-spacing: -0.3px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.75);
+  pointer-events: none;
+}
+.incarn-badge.is-multi .incarn-badge__more { display: block; }
+.incarn-badge.is-blocked .incarn-badge__more { filter: grayscale(0.7) opacity(0.75); }
+/* 暂停：数字 / 小锁 / +N 都不显示，只留一把大锁（这一段必须放在 __more 规则之后，否则被覆盖） */
+.incarn-badge.is-paused .incarn-badge__val,
+.incarn-badge.is-paused .incarn-badge__lock,
+.incarn-badge.is-paused .incarn-badge__more { display: none; }
+
+/* --------------- 触发条件：三档按钮（存活 / 气绝 / 均可） --------------- */
+.incarn-mode {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+.incarn-mode__btn {
+  flex: 1 1 90px;
+  padding: 6px 8px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 214, 130, 0.28);
+  background: rgba(255, 210, 120, 0.08);
+  color: #e4d5b4;
+  font-size: 1rem;
+  cursor: pointer;
+}
+.incarn-mode__btn:hover { background: rgba(255, 210, 120, 0.16); }
+.incarn-mode__btn.is-active {
+  border-color: rgba(255, 212, 94, 0.9);
+  background: linear-gradient(180deg, rgba(255, 212, 94, 0.28), rgba(180, 130, 40, 0.22));
+  color: #ffe9b0;
+  font-weight: 700;
+}
+.incarn-mode__btn:disabled { opacity: 0.45; cursor: not-allowed; }
+/* 第四个按钮：暂停（暂停时不加概率、不判定） */
+.incarn-mode__btn--pause { flex: 0 1 84px; }
+.incarn-mode__btn--pause.is-active {
+  border-color: rgba(255, 176, 80, 0.95);
+  background: linear-gradient(180deg, rgba(255, 176, 80, 0.3), rgba(150, 84, 20, 0.24));
+  color: #ffe2b4;
+  font-weight: 700;
+}
+/* 暂停后：触发条件按钮变淡（不抢焦点），一眼看得出当前是暂停状态 */
+.incarn-mode.is-paused .incarn-mode__btn:not(.incarn-mode__btn--pause) { opacity: 0.5; }
+.incarn-mode.is-paused .incarn-mode__btn:not(.incarn-mode__btn--pause).is-active {
+  border-color: rgba(255, 255, 255, 0.28);
+  background: rgba(255, 255, 255, 0.06);
+  color: #e4d5b4;
+  font-weight: 400;
+}
+
+/* --------------- 触发动画：🪞 飞出 → 水平翻转放大 → 变方框 --------------- */
+.incarn-fx {
+  position: fixed;
+  left: 0;
+  top: 0;
+  z-index: 700;
+  pointer-events: none;
+}
+.incarn-fx__mask {
+  position: absolute;
+  font-size: 58px;
+  line-height: 1;
+  filter: drop-shadow(0 3px 8px rgba(0, 0, 0, 0.95));
+}
+.incarn-fx__box {
+  position: absolute;
+  width: 170px;                       /* 接近正方形 */
+  min-height: 186px;                  /* 比宽略高一点 */
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 30px 12px 44px;            /* 底部留出空间给式神名 */
+  border: 3px solid rgba(255, 210, 120, 0.92);
+  border-radius: 10px;
+  background: linear-gradient(180deg, rgba(74, 58, 22, 0.97), rgba(28, 22, 12, 0.97));
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.75), 0 0 24px rgba(255, 200, 90, 0.45);
+}
+/* 方框上边缘中心的 🪞（中心点正好在边缘上） */
+.incarn-fx__badge {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 40px;
+  line-height: 1;
+  filter: drop-shadow(0 2px 6px rgba(0, 0, 0, 0.95));
+}
+.incarn-fx__name {
+  font-size: 26px;
+  font-weight: 800;
+  color: #ffe9b0;
+  text-align: center;
+  text-shadow: 0 2px 6px rgba(0, 0, 0, 0.95);
+  word-break: break-all;
+}
+/* 方框下方的小字：式神名（与底边隔开一段距离） */
+.incarn-fx__owner {
+  position: absolute;
+  bottom: 16px;
+  left: 0;
+  right: 0;
+  text-align: center;
+  font-size: 14px;
+  color: #e6d6ae;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9);
+}
+
+/* ---------------- 手机端：信息栏独立一行 ---------------- */
+.incarn-row { display: none; }
+
+@media (max-width: 768px) {
+  .incarn-badge { display: none; }
+
+  .incarn-row {
+    display: flex;
+    align-items: center;
+    position: absolute;
+    bottom: 0;                       /* 永远贴信息栏最底 */
+    left: 2px;
+    right: 2px;
+    height: 13px;
+    padding: 0;
+    box-sizing: border-box;
+    border-radius: 4px;
+    border: none;
+    font-family: inherit;
+    text-align: left;
+    background: rgba(104, 78, 24, 0.85);
+    color: #fff2ce;
+    font-size: 9px;
+    line-height: 1.3;
+    white-space: nowrap;
+    overflow: hidden;                /* 滑动交给内部滚动条 */
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+    z-index: 6;
+  }
+  /* 横向滑动条：所有化身排一行，装不下就左右滑 */
+  .incarn-row__scroll {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    width: 100%;
+    padding: 0 4px;
+    box-sizing: border-box;
+    overflow-x: auto;
+    overflow-y: hidden;
+    white-space: nowrap;
+    -webkit-overflow-scrolling: touch;
+    touch-action: pan-x;
+    scrollbar-width: none;
+  }
+  .incarn-row__scroll::-webkit-scrollbar { display: none; }
+  .incarn-row__chip { display: inline-flex; align-items: center; gap: 2px; flex: 0 0 auto; }
+  .incarn-row__chip.is-capped { opacity: 0.5; }
+  .incarn-row__chip.is-paused { opacity: 0.5; }
+  .incarn-row__lock { color: #ffd08a; font-weight: 700; }
+  .incarn-row__mark { color: #ffe6a8; font-weight: 700; }
+  .incarn-row.is-capped { background: rgba(58, 50, 32, 0.85); color: #ded1ae; }
+  .incarn-row.is-blocked { opacity: 0.55; }
+
+  /* 有化身行时，其它行整体上移一行（步长 14px），化身行占最底 */
+  .card-slot:has(.incarn-row) .charge-indicator { bottom: 14px; }
+
+  .card-slot:has(.incarn-row) .card-curses { bottom: 28px; }
+  .card-slot:has(.incarn-row):not(:has(.charge-indicator)) .card-curses { bottom: 14px; }
+
+  .card-slot:has(.incarn-row) .card-form-badge { bottom: 42px; }
+  .card-slot:has(.incarn-row):not(:has(.charge-indicator)) .card-form-badge { bottom: 28px; }
+  .card-slot:has(.incarn-row):not(:has(.card-curses)) .card-form-badge { bottom: 28px; }
+  .card-slot:has(.incarn-row):not(:has(.charge-indicator)):not(:has(.card-curses)) .card-form-badge { bottom: 14px; }
+}
+
+/* ---------------- 式神悬浮窗里的化身区 ---------------- */
+.card-tooltip__incarn {
+  margin-top: 8px;
+  padding-top: 6px;
+  border-top: 1px dashed rgba(255, 203, 96, 0.45);
+}
+.card-tooltip__incarn-head {
+  font-size: 17px;
+  color: #ffd97a;
+  font-weight: 700;
+  margin-bottom: 2px;
+}
+.card-tooltip__incarn-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 0;
+  font-size: 17px;
+  color: #f0e0b6;
+}
+.tip-incarn-no { color: #ffd45e; flex-shrink: 0; }
+/* 已暂停的化身：整条变淡（提示文字只有「暂停」一个） */
+.card-tooltip__incarn-item.is-paused { opacity: 0.62; }
+.card-tooltip__incarn-item.is-paused .tip-incarn-name { font-weight: 500; }
+.tip-incarn-name { font-weight: 600; }
+.tip-incarn-bar {
+  position: relative;
+  width: 64px;
+  height: 8px;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.18);
+  overflow: hidden;
+  flex-shrink: 0;
+}
+.tip-incarn-bar > i {
+  display: block;
+  height: 100%;
+  background: linear-gradient(90deg, #a8761a, #ffd76a);
+}
+.tip-incarn-prob { color: #ffd45e; font-weight: 700; }
+.tip-incarn-trig { color: #b9ab88; font-size: 15px; }
+.tip-incarn-note { color: #ff9f6b; font-size: 15px; }
+
+/* ---------------- 管理面板 ---------------- */
+.incarn-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 640;
+  background: rgba(6, 10, 20, 0.62);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.incarn-overlay[hidden] { display: none; }
+
+.incarn-dialog {
+  width: min(680px, 94vw);
+  max-height: 88vh;
+  display: flex;
+  flex-direction: column;
+  background: linear-gradient(180deg, #2c2517 0%, #1b1610 100%);
+  border: 2px solid rgba(255, 200, 100, 0.55);
+  border-radius: 12px;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.65);
+  color: #f4ecd9;
+  font-size: 1rem;
+}
+.incarn-dialog__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 10px 14px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+}
+.incarn-dialog__title { font-size: 1.1rem; font-weight: 700; }
+.incarn-dialog__close {
+  width: 34px;
+  height: 34px;
+  font-size: 1rem;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 214, 130, 0.3);
+  background: rgba(255, 210, 110, 0.1);
+  color: #f4ecd9;
+  cursor: pointer;
+}
+.incarn-dialog__body {
+  padding: 10px 14px;
+  overflow-y: auto;
+  flex: 1;
+  min-height: 0;
+}
+.incarn-dialog__footer {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 10px 14px;
+  border-top: 1px solid rgba(255, 255, 255, 0.12);
+  justify-content: flex-end;
+}
+
+/* 面板内说明已按用户要求移除（原「特定效果说明」也已删除） */
+.incarn-help { display: none; }
+
+.incarn-empty {
+  padding: 14px;
+  text-align: center;
+  color: #c9bb99;
+  font-size: 1rem;
+}
+
+.incarn-card {
+  border: 1px solid rgba(255, 210, 120, 0.18);
+  border-radius: 10px;
+  padding: 10px;
+  margin-bottom: 10px;
+  background: rgba(255, 210, 120, 0.05);
+}
+.incarn-card__head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+  cursor: pointer;
+  user-select: none;
+}
+.incarn-card__arrow {
+  color: #f0c96e;
+  font-size: 0.9rem;
+  width: 14px;
+  flex-shrink: 0;
+  text-align: center;
+}
+.incarn-card.is-collapsed .incarn-card__head { margin-bottom: 0; }
+.incarn-card.is-collapsed .incarn-card__body { display: none; }
+.incarn-card.is-collapsed { padding: 8px 10px; }
+.incarn-card__no { color: #ffd45e; font-size: 1.1rem; }
+.incarn-card__name {
+  flex: 1;
+  min-width: 0;
+  padding: 6px 8px;
+  border-radius: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  background: rgba(0, 0, 0, 0.3);
+  color: #fff;
+  font-size: 1rem;
+}
+.incarn-card__prob {
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: #ffd45e;
+  min-width: 52px;
+  text-align: right;
+}
+.incarn-card__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 8px;
+}
+.incarn-field { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+/* 「每回合触发上限」这一排：右侧追加「本回合已触发 + 重置按钮」，因此整排占满一行 */
+.incarn-field--extra {
+  grid-column: 1 / -1;
+  flex-wrap: wrap;
+  justify-content: flex-start;
+  gap: 10px;
+}
+.incarn-field__extra {
+  margin-left: auto;               /* 桌面端靠右，紧跟在数字右边 */
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.incarn-field__label { font-size: 1rem; color: #e2d3ae; }
+.incarn-num { display: flex; align-items: center; gap: 4px; }
+.incarn-num input {
+  width: 62px;
+  padding: 5px 6px;
+  text-align: center;
+  border-radius: 6px;
+  border: 1px solid rgba(255, 210, 120, 0.28);
+  background: rgba(0, 0, 0, 0.3);
+  color: #fff;
+  font-size: 1rem;
+  /* 去掉数字输入框自带的上下小箭头（用旁边的 −/＋ 就够了） */
+  -moz-appearance: textfield;
+  appearance: textfield;
+}
+.incarn-num input::-webkit-outer-spin-button,
+.incarn-num input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  appearance: none;
+  margin: 0;
+}
+.incarn-num__btn {
+  width: 30px;
+  height: 30px;
+  border-radius: 6px;
+  border: 1px solid rgba(255, 210, 120, 0.3);
+  background: rgba(255, 210, 120, 0.12);
+  color: #fff;
+  font-size: 1rem;
+  cursor: pointer;
+}
+.incarn-card__row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin: 8px 0;
+  font-size: 1rem;
+}
+.incarn-check { display: flex; align-items: center; gap: 5px; cursor: pointer; }
+.incarn-check input { width: 18px; height: 18px; }
+.incarn-card__trig b { color: #ffd45e; }
+.incarn-card__note {
+  width: 100%;
+  min-height: 54px;
+  box-sizing: border-box;
+  padding: 6px 8px;
+  border-radius: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  background: rgba(0, 0, 0, 0.3);
+  color: #fff;
+  font-size: 1rem;
+  font-family: inherit;
+  resize: vertical;
+}
+.incarn-card__actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+
+.incarn-btn {
+  padding: 7px 12px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 210, 120, 0.3);
+  background: rgba(255, 210, 120, 0.12);
+  color: #f6eeda;
+  font-size: 1rem;
+  cursor: pointer;
+}
+.incarn-btn:hover { background: rgba(255, 210, 120, 0.22); }
+.incarn-btn:disabled { opacity: 0.45; cursor: not-allowed; }
+.incarn-btn--mini { padding: 4px 8px; font-size: 0.95rem; }
+.incarn-btn--add {
+  border-color: rgba(140, 220, 160, 0.6);
+  background: rgba(70, 160, 100, 0.3);
+}
+.incarn-btn--danger {
+  border-color: rgba(240, 130, 130, 0.6);
+  background: rgba(170, 60, 60, 0.32);
+}
+.incarn-btn--ghost { background: transparent; }
+
+/* ---------------- 触发提示 ---------------- */
+.incarn-trigger-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 660;
+  background: rgba(6, 10, 20, 0.62);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.incarn-trigger-overlay[hidden] { display: none; }
+.incarn-trigger {
+  width: min(520px, 92vw);
+  max-height: 80vh;
+  overflow-y: auto;
+  padding: 16px;
+  border-radius: 12px;
+  border: 2px solid rgba(255, 212, 94, 0.7);
+  background: linear-gradient(180deg, #2c2517 0%, #1a150e 100%);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.7);
+  color: #fdf3d8;
+  font-size: 1rem;
+}
+.incarn-trigger__title { font-size: 1.2rem; font-weight: 700; margin-bottom: 10px; }
+.incarn-trigger__item {
+  padding: 8px 10px;
+  margin-bottom: 8px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.08);
+}
+.incarn-trigger__head { font-weight: 700; font-size: 1.05rem; margin-bottom: 4px; }
+.incarn-trigger__note { font-size: 1rem; line-height: 1.5; white-space: pre-wrap; }
+.incarn-trigger__ok {
+  display: block;
+  width: 100%;
+  margin-top: 6px;
+  padding: 9px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 212, 94, 0.7);
+  background: rgba(255, 212, 94, 0.22);
+  color: #fdf3d8;
+  font-size: 1rem;
+  cursor: pointer;
+}
+
+/* ---------------- 手机端面板 ---------------- */
+@media (max-width: 768px) {
+  /* 不占满屏幕：四周留边，高度也留白，内容在内部滑动 */
+  .incarn-dialog {
+    width: 94vw;
+    max-width: 94vw;
+    height: auto;
+    max-height: 76dvh;
+    border-radius: 12px;
+  }
+  .incarn-dialog__body { -webkit-overflow-scrolling: touch; }
+  .incarn-dialog__header { padding: 8px 12px; }
+  .incarn-dialog__footer { padding: 8px 12px; }
+  .incarn-card__grid { grid-template-columns: 1fr; }
+  /* 手机端：四个按钮排成 2×2（存活|气绝 ／ 均可|暂停），不会挤成一排 */
+  .incarn-mode__btn,
+  .incarn-mode__btn--pause { flex: 1 1 calc(50% - 4px); }
+  .incarn-field { justify-content: space-between; }
+  /* 手机端：本回合已触发 + 重置仍另起一排（换行占满整行） */
+  .incarn-field__extra { margin-left: 0; flex: 1 1 100%; justify-content: flex-start; }
+  .incarn-btn { min-height: 40px; }
+  .incarn-num__btn { width: 38px; height: 38px; }
+  .incarn-num input { width: 74px; }
+
+  /* 触发动画：手机端缩小，终点位置跟「用牌预展示」一致也不会超出屏幕 */
+  .incarn-fx__mask { font-size: 44px; }
+  .incarn-fx__box {
+    width: 132px;
+    min-height: 148px;
+    padding: 24px 10px 36px;
+  }
+  .incarn-fx__badge { font-size: 32px; }
+  .incarn-fx__name { font-size: 20px; }
+  .incarn-fx__owner { font-size: 12px; bottom: 13px; }
+}

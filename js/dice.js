@@ -73,9 +73,11 @@
       bounty:    { btn: () => btnMechanicToggle, activeText: '💰 选择牌手…(Esc取消)', idleText: '🔧 机制 ▾', mobileActiveText: '选择牌手<br>添加赏金' },
       oracle:    { btn: () => btnMechanicToggle, activeText: '✨ 选择牌手…(Esc取消)', idleText: '🔧 机制 ▾', mobileActiveText: '选择牌手<br>启悟' },
       fate:      { btn: () => btnMechanicToggle, activeText: '🔀 选择牌手…(Esc取消)', idleText: '🔧 机制 ▾', mobileActiveText: '选择牌手<br>命运抉择' },
+      stun:      { btn: () => btnMechanicToggle, activeText: '🌀 选择式神/牌手…(Esc取消)', idleText: '🔧 机制 ▾', mobileActiveText: '选择式神<br>或牌手眩晕' },
       'reset-stats': { btn: () => btnMechanicToggle, activeText: '🔄 选择式神…(Esc取消)', idleText: '🔧 机制 ▾', mobileActiveText: '选择式神<br>重置属性' },
       turnstart:  { btn: () => btnMechanicToggle, activeText: '🔄 选择牌手…(Esc取消)', idleText: '🔧 机制 ▾', mobileActiveText: '选择牌手<br>回合开始' },
       charge:    { btn: () => btnMechanicToggle, activeText: '⚡ 选择式神…(Esc取消)', idleText: '🔧 机制 ▾', mobileActiveText: '选择式神<br>蓄力' },
+      incarnation: { btn: () => btnMechanicToggle, activeText: '🪞 选择式神…(Esc取消)', idleText: '🔧 机制 ▾', mobileActiveText: '选择式神<br>化身' },
       ko:        { btn: () => btnKo,             activeText: '💀 选择式神…(Esc取消)', idleText: '💀 气绝/复活', mobileActiveText: '选择式神<br>气绝/复活' },
       curse:     { btn: () => btnCurse,          activeText: '⛓️ 选择式神…(Esc取消)', idleText: '⛓️ 灵咒', mobileActiveText: '选择式神<br>结附灵咒' },
     };
@@ -517,6 +519,17 @@
       enterTargetingMode('oracle');
     });
 
+    // ---- 眩晕（选式神或牌手：没有眩晕就加上，已有就清除） ----
+    const btnStun = document.getElementById('btn-stun');
+    if (btnStun) {
+      btnStun.addEventListener('click', (e) => {
+        dropdownMechanicMenu.hidden = true;
+        if (isTargeting) { exitTargetingMode(); return; }
+        e.stopPropagation();
+        enterTargetingMode('stun');
+      });
+    }
+
     // ---- 命运抉择（选择牌手） ----
     const btnFate = document.getElementById('btn-fate');
     if (btnFate) {
@@ -535,6 +548,28 @@
         if (isTargeting) { exitTargetingMode(); return; }
         e.stopPropagation();
         enterTargetingMode('turnstart');
+      });
+    }
+
+    // ---- 化身（选择式神 → 没有就添加，然后打开管理面板） ----
+    const btnIncarnation = document.getElementById('btn-incarnation');
+    if (btnIncarnation) {
+      btnIncarnation.addEventListener('click', (e) => {
+        dropdownMechanicMenu.hidden = true;
+        if (isTargeting) { exitTargetingMode(); return; }
+        e.stopPropagation();
+        enterTargetingMode('incarnation');
+      });
+    }
+
+    // ---- 化身行动（谁点就加谁：给自己所有式神的所有化身 +行动概率并判定） ----
+    const btnIncarnationAction = document.getElementById('btn-incarnation-action');
+    if (btnIncarnationAction) {
+      btnIncarnationAction.addEventListener('click', (e) => {
+        dropdownMechanicMenu.hidden = true;
+        if (isTargeting) { exitTargetingMode(); return; }
+        e.stopPropagation();
+        if (typeof Incarnation !== 'undefined') Incarnation.runAction();
       });
     }
 
@@ -702,9 +737,68 @@
       }
     });
 
+    // 眩晕：式神 → 效果记录里加/删「眩晕」；牌手 → 幻境/效果面板里加/删一条「眩晕」
+    function toggleStunOnSlot(slot) {
+      if (typeof StunFx === 'undefined') return;
+      const myPid = localPlayerId || '1';
+      const cardName = ((slot.querySelector('.card-name') || {}).value || '').trim() || '未命名';
+      const added = StunFx.toggleSlot(slot);
+      if (added === null) return;
+      if (typeof syncSlotToPeer === 'function') syncSlotToPeer(slot);
+      broadcastSystemMsg(added
+        ? `【系统】${getPlayerName(myPid)}对「${cardName}」施加了眩晕`
+        : `【系统】${getPlayerName(myPid)}解除了「${cardName}」的眩晕`);
+    }
+
+    function toggleStunOnPlayer(playerId) {
+      if (typeof StunFx === 'undefined') return;
+      const zone = document.querySelector(`.player-zone[data-player="${playerId}"]`);
+      if (!zone) return;
+      const myPid = localPlayerId || '1';
+      const tgtName = getPlayerName(playerId);
+      const added = StunFx.togglePlayer(zone);
+      if (added === null) return;
+      if (typeof syncEffectsState === 'function') syncEffectsState(playerId);
+      broadcastSystemMsg(added
+        ? (playerId === myPid
+            ? `【系统】${tgtName}被施加了眩晕`
+            : `【系统】${getPlayerName(myPid)}对${tgtName}施加了眩晕`)
+        : (playerId === myPid
+            ? `【系统】${tgtName}的眩晕解除了`
+            : `【系统】${getPlayerName(myPid)}解除了${tgtName}的眩晕`));
+    }
+
     document.addEventListener('click', (e) => {
       if (!isTargeting) return;
       if (typeof isSpectator !== 'undefined' && isSpectator) { exitTargetingMode(); return; }
+
+      // 眩晕模式：选式神 或 选牌手头像（目标已有眩晕 → 清除；否则施加）
+      if (targetingMode === 'stun') {
+        const slot = e.target.closest('.card-slot');
+        if (slot) {
+          const hasContent = slot.classList.contains('has-image') ||
+            !!((slot.querySelector('.card-name') || {}).value) ||
+            !!((slot.querySelector('.card-attack') || {}).value) ||
+            !!((slot.querySelector('.card-hp') || {}).value);
+          if (hasContent) {
+            toggleStunOnSlot(slot);
+            exitTargetingMode();
+            e.preventDefault();
+            e.stopPropagation();
+            return;
+          }
+        }
+        const avatar = e.target.closest('.player-avatar');
+        if (avatar) {
+          toggleStunOnPlayer(avatar.dataset.avatarPlayer);
+          exitTargetingMode();
+          e.preventDefault();
+          e.stopPropagation();
+          return;
+        }
+        exitTargetingMode();
+        return;
+      }
 
       // 占卜模式：选择牌手头像
       if (targetingMode === 'divine') {
@@ -762,7 +856,7 @@
           if (targetingMode === 'nightfall') {
             nightfallActive[playerId] = !nightfallActive[playerId];
             _toggleNightfall(playerId, nightfallActive[playerId]);
-            if (isConnected() && typeof sendToPeer === 'function') {
+            if (typeof isConnected === 'function' && isConnected() && typeof sendToPeer === 'function') {
               sendToPeer({ type: 'nightfall-toggle', playerId, active: nightfallActive[playerId] });
             }
             const verb = nightfallActive[playerId] ? '开启了' : '关闭了';
@@ -771,7 +865,7 @@
           } else if (targetingMode === 'bounty') {
             bountyActive[playerId] = !bountyActive[playerId];
             _toggleBounty(playerId, bountyActive[playerId]);
-            if (isConnected() && typeof sendToPeer === 'function') {
+            if (typeof isConnected === 'function' && isConnected() && typeof sendToPeer === 'function') {
               sendToPeer({ type: 'bounty-toggle', playerId, active: bountyActive[playerId] });
             }
             const verb = bountyActive[playerId] ? '开启了' : '关闭了';
@@ -829,6 +923,25 @@
         if (slot && slot.classList.contains('has-image') && typeof performInsertFood === 'function') {
           performInsertFood(slot);
           exitTargetingMode();
+          e.preventDefault();
+          e.stopPropagation();
+          return;
+        }
+        exitTargetingMode();
+        return;
+      }
+
+      // 化身模式：选择一个式神 → 没有化身就添加，然后打开面板
+      if (targetingMode === 'incarnation') {
+        const slot = e.target.closest('.card-slot');
+        const hasContent = slot && (slot.classList.contains('has-image') ||
+          !!((slot.querySelector('.card-name') || {}).value) ||
+          !!((slot.querySelector('.card-attack') || {}).value) ||
+          !!((slot.querySelector('.card-hp') || {}).value));
+        if (hasContent && typeof Incarnation !== 'undefined') {
+          exitTargetingMode();
+          if (!Incarnation.getList(slot).length) Incarnation.addToSlot(slot);
+          Incarnation.openPanel(slot);
           e.preventDefault();
           e.stopPropagation();
           return;
@@ -1009,6 +1122,10 @@
         broadcastSystemMsg(msg);
       }
 
+      // 化身：回合开始先无条件重置「本回合已触发次数」
+      if (typeof Incarnation !== 'undefined') Incarnation.beginTurn(playerId);
+      let incarnReviving = false;   // 本回合是否有式神正在复活（复活是异步的）
+
       // 0) 回合开始：鬼火重置为 2
       const fireBefore = (typeof playerFire !== 'undefined' && playerFire[playerId] != null) ? playerFire[playerId] : 2;
       if (typeof setFireState === 'function') setFireState(playerId, 2);
@@ -1098,6 +1215,7 @@
           koInput.value = koV;
           broadcastSystemMsg(`【系统】「${cardName}」气绝倒计时 -1（${beforeKo} → ${koV}）`);
           if (koV <= 0) {
+            incarnReviving = true;
             setTimeout(() => {
               const overlay = slot.querySelector('.ko-overlay');
               if (!overlay) return;
@@ -1105,7 +1223,7 @@
               if (typeof DamageEffects !== 'undefined' && DamageEffects.playReviveEffect) {
                 DamageEffects.playReviveEffect(slot, overlay);
               }
-              if (typeof sendToPeer === 'function' && isConnected()) {
+              if (typeof sendToPeer === 'function' && typeof isConnected === 'function' && isConnected()) {
                 sendToPeer({ type: 'fx-revive', playerId: slot.dataset.slotPlayer, slotIndex: parseInt(slot.dataset.slotIndex, 10) });
               }
               syncSlotToPeer(slot);
@@ -1123,7 +1241,12 @@
                 tickCountdownOnce(slot, cardName);
               }
               tickEnergyOnce(slot, cardName);
+              // 化身：以「复活之后」的状态结算（避免把刚复活的式神当气绝处理而漏加概率）
+              if (typeof Incarnation !== 'undefined') Incarnation.settleSlot(slot, playerId, 'turn');
             }, 500);
+          } else if (typeof Incarnation !== 'undefined') {
+            // 仍处于气绝：只有勾了「仅气绝生效」的化身会在这一步增长
+            Incarnation.settleSlot(slot, playerId, 'turn');
           }
           syncSlotToPeer(slot);
           return;   // 气绝中的式神不加能量
@@ -1136,10 +1259,20 @@
 
         // 3) 能量检查：仅未气绝的式神，不满 10 则 +1
         tickEnergyOnce(slot, cardName);
+
+        // 4) 化身：回合开始 +回合增量概率并判定
+        if (typeof Incarnation !== 'undefined') Incarnation.settleSlot(slot, playerId, 'turn');
       });
 
       // 结束分组：统一渲染并同步给对方
-      if (typeof endMessageGroup === 'function') endMessageGroup();
+      // 化身：若本回合有式神正在复活（异步 500ms），等它结算完再收尾，让化身明细留在同一条消息里
+      if (typeof endMessageGroup === 'function') {
+        if (incarnReviving) setTimeout(() => endMessageGroup(), 600);
+        else endMessageGroup();
+      }
+
+      // 化身：只输出「仅自己可见」的掷点明细 + 触发说明弹窗
+      if (typeof Incarnation !== 'undefined') Incarnation.flushTurn(playerId, incarnReviving ? 650 : 0);
     }
 
     // ---- 气绝遮罩逻辑 ----
@@ -1188,8 +1321,8 @@
         if (typeof DamageEffects !== 'undefined' && DamageEffects.playKoEffect) {
           setTimeout(() => DamageEffects.playKoEffect(slot), 50);
         }
-        // 联机同步气绝动画
-        if (typeof sendToPeer === 'function' && isConnected()) {
+        // 联机同步气绝动画（带 typeof 守卫，否则未进房时抛错会中断后面的同步与播报）
+        if (typeof sendToPeer === 'function' && typeof isConnected === 'function' && isConnected()) {
           sendToPeer({ type: 'fx-ko', playerId: slot.dataset.slotPlayer, slotIndex: parseInt(slot.dataset.slotIndex, 10) });
         }
         broadcastSystemMsg(`【系统】召唤物「${cardName}」被消灭了`);
@@ -1203,6 +1336,7 @@
           slot.classList.remove('awakened', 'has-image');
           slot._permAtkMods = []; slot._permHpMods = [];
           slot._permAbility = ''; slot._permEffects = [];
+          if (typeof StunFx !== 'undefined') StunFx.sync(slot);   // 眩晕特效一并消失
           slot._formName = ''; slot._formAtk = 0; slot._formHp = 0; slot._formAbility = '';
           if (typeof renderFormBadge === 'function') renderFormBadge(slot);
           slot._tempAtkMods = []; slot._tempHpMods = [];
@@ -1210,6 +1344,7 @@
           if (typeof updateSlotCountdownBadge === 'function') updateSlotCountdownBadge(slot, '');
           if (typeof updateSlotEnergyBadge === 'function') updateSlotEnergyBadge(slot, '');
           if (typeof updateKoOverlay === 'function') updateKoOverlay(slot, '');
+          if (typeof Incarnation !== 'undefined') Incarnation.clearSlot(slot);   // 化身一并消失
           delete slot.dataset.slotType;
           syncSlotToPeer(slot);
         }, 800);
@@ -1231,11 +1366,13 @@
         if (typeof DamageEffects !== 'undefined' && DamageEffects.playReviveEffect) {
           DamageEffects.playReviveEffect(slot, koOverlay);
         }
-        // 【联机同步】通知对方播放复活动画
-        if (typeof sendToPeer === 'function' && isConnected()) {
+        // 【联机同步】通知对方播放复活动画（带 typeof 守卫，否则未进房时抛错会中断后面的同步与播报）
+        if (typeof sendToPeer === 'function' && typeof isConnected === 'function' && isConnected()) {
           sendToPeer({ type: 'fx-revive', playerId: slot.dataset.slotPlayer, slotIndex: parseInt(slot.dataset.slotIndex, 10) });
         }
       } else {
+        // 气绝：清除眩晕效果（效果记录里的「眩晕」一并删掉，🌀 也跟着撤）
+        if (typeof StunFx !== 'undefined') StunFx.clearStun(slot);
         // 气绝倒计时初始值：默认 3，可在式神管理面板「倒计时/能量」里调整
         createKoOverlay(slot, String(slot._baseKoCountdown || 3));
         // 气绝时普通倒计时重置为基础值
@@ -1253,8 +1390,8 @@
         if (typeof DamageEffects !== 'undefined' && DamageEffects.playKoEffect) {
           setTimeout(() => DamageEffects.playKoEffect(slot), 50);
         }
-        // 【联机同步】通知对方播放气绝动画
-        if (typeof sendToPeer === 'function' && isConnected()) {
+        // 【联机同步】通知对方播放气绝动画（isConnected 只在进房后才挂到 window，必须带 typeof 守卫）
+        if (typeof sendToPeer === 'function' && typeof isConnected === 'function' && isConnected()) {
           sendToPeer({ type: 'fx-ko', playerId: slot.dataset.slotPlayer, slotIndex: parseInt(slot.dataset.slotIndex, 10) });
         }
       }
@@ -1273,7 +1410,8 @@
       const currentHp = parseInt(hpInput.value, 10) || 0;
       // 牌手生命值允许为负数（例如 5 血受到 7 伤害 → -2）
       const newHp = currentHp - dmg;
-      hpInput.value = newHp || '';
+      // 注意：0 要显示成「0」（之前用 `|| ''` 会把 0 当成空值 → 数字消失）
+      hpInput.value = String(newHp);
       // 【特效】伤害动画（定位在牌手头像中心）
       if (typeof DamageEffects !== 'undefined') {
         const avatar = zone.querySelector('.player-avatar');
@@ -1283,7 +1421,7 @@
       syncPlayerInfo(playerId);
       broadcastSystemMsg(`【系统】${getDamageSourceLabel()}对${getPlayerName(playerId)}造成了${dmg}点伤害`);
       // 【联机】始终通知对方播放伤害动画
-      if (isConnected() && typeof sendToPeer === 'function') {
+      if (typeof isConnected === 'function' && isConnected() && typeof sendToPeer === 'function') {
         sendToPeer({ type: 'player-damage', playerId, dmg });
       }
     }
@@ -1294,7 +1432,8 @@
       const hpInput = zone.querySelector('.player-hp-input');
       const currentHp = parseInt(hpInput.value, 10) || 0;
       const newHp = currentHp + amount;
-      hpInput.value = newHp || '';
+      // 0 也要显示成「0」（同上）
+      hpInput.value = String(newHp);
       // 【特效】牌手治疗动画（定位在牌手头像中心）
       if (typeof DamageEffects !== 'undefined') {
         const avatar = zone.querySelector('.player-avatar');
@@ -1304,7 +1443,7 @@
       syncPlayerInfo(playerId);
       broadcastSystemMsg(`【系统】${getDamageSourceLabel()}为${getPlayerName(playerId)}恢复了${amount}点生命`);
       // 【联机】始终通知对方播放治疗动画
-      if (isConnected() && typeof sendToPeer === 'function') {
+      if (typeof isConnected === 'function' && isConnected() && typeof sendToPeer === 'function') {
         sendToPeer({ type: 'player-heal', playerId, amount });
       }
     }
@@ -1325,9 +1464,9 @@
       if (deal && deal.absorb > 0) dmgMsg += `（护甲抵消${deal.absorb}）`;
       if (deal && deal.extra > 0) dmgMsg += `（破甲额外${deal.extra}）`;
       broadcastSystemMsg(dmgMsg);
-      // 【联机】同步状态 + 播放伤害动画
+      // 【联机】同步状态 + 播放伤害动画（此处必须带 typeof 守卫：后面紧跟的「生命归零→气绝」不能被打断）
       syncSlotToPeer(slot);
-      if (isConnected() && typeof sendToPeer === 'function') {
+      if (typeof isConnected === 'function' && isConnected() && typeof sendToPeer === 'function') {
         sendToPeer({ type: 'card-damage', playerId: slot.dataset.slotPlayer, slotIndex: parseInt(slot.dataset.slotIndex, 10), dmg: finalDmg });
       }
       // 如果生命归零且未气绝，进入气绝状态（重置攻防+倒计时）
@@ -1354,7 +1493,7 @@
       }
       // 【联机】同步状态 + 播放治疗动画
       syncSlotToPeer(slot);
-      if (isConnected() && typeof sendToPeer === 'function') {
+      if (typeof isConnected === 'function' && isConnected() && typeof sendToPeer === 'function') {
         sendToPeer({ type: 'card-heal', playerId: slot.dataset.slotPlayer, slotIndex: parseInt(slot.dataset.slotIndex, 10), amount: actual });
       }
     }

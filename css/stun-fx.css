@@ -1,0 +1,60 @@
+/* ================================================================
+   css/stun-fx.css — 眩晕特效
+   式神有「来源 = 眩晕」的效果记录时，卡槽左上角出现一个不停旋转的 🌀
+   位置：等级菱形 + 💠 式神管理的「右下方一点」
+   ================================================================ */
+
+.stun-fx {
+  position: absolute;
+  left: 14px;                   /* 💠 式神管理徽章（left:-12 / 22px 宽）右下一点 */
+  top: 5px;
+  width: 44px;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 90;                  /* 在卡图之上、各徽章（z-index 100）之下 */
+  pointer-events: none;
+  font-size: 38px;
+  line-height: 1;
+  user-select: none;
+  /* 颜色疃淡一点（浅蓝），亮色卡图上也能看清：提亮 + 降他和 + 描黑边 + 淡蓝光晕 */
+  filter: brightness(1.28) saturate(0.5) drop-shadow(0 0 2px rgba(0, 0, 0, 0.2)) drop-shadow(0 0 5px rgba(150, 210, 255, 0.85));
+  /* 逆时针旋转 */
+  animation: stun-fx-spin 1.6s linear infinite reverse;
+}
+
+@keyframes stun-fx-spin {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+
+/* 牌手（头像左上角外侧）：挂到 .player-avatar-name-row 上 */
+.stun-fx--avatar {
+  left: 0;
+  top: 0;
+  width: 39px;
+  height: 39px;
+  font-size: 32px;
+}
+
+/* 空槽不显示（与其它徽章一致） */
+.card-slot:not(.has-image) .stun-fx { display: none; }
+
+/* ---------------- 手机端：跟着徽章一起缩小 ---------------- */
+@media (max-width: 768px) {
+  .stun-fx {
+    left: 11px;
+    top: 6px;
+    width: 24px;
+    height: 24px;
+    font-size: 20px;
+  }
+  .stun-fx--avatar {
+    left: -2px;
+    top: -2px;
+    width: 22px;
+    height: 22px;
+    font-size: 18px;
+  }
+}

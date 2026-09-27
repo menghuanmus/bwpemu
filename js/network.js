@@ -265,6 +265,10 @@
             if (sl && typeof DamageEffects !== 'undefined' && DamageEffects.playReviveEffect) DamageEffects.playReviveEffect(sl, null);
           })();
           break;
+        case 'fx-incarn':
+          // 对方的化身触发：按同样的动画播一遍
+          if (typeof Incarnation !== 'undefined' && Incarnation.playRemote) Incarnation.playRemote(data.items);
+          break;
         case 'fx-anim':
           if (data.anim && typeof CardFlight !== 'undefined' && typeof CardFlight.playRemoteAnim === 'function') {
             CardFlight.playRemoteAnim(data.anim);

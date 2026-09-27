@@ -28,13 +28,14 @@
       overflow: hidden;
     }
 
+    /* 系统信息栏加高：聊天大厅从 60% 傅 42%（减 30%），腾出的空间给系统信息 */
     .chat-section--system {
-      flex: 2;
+      flex: 2.9;
       border-color: rgba(180, 160, 255, 0.45);
     }
 
     .chat-section--player {
-      flex: 3;
+      flex: 2.1;
       border-color: rgba(255, 200, 100, 0.4);
     }
 
@@ -66,6 +67,58 @@
       display: flex;
       flex-direction: column;
       gap: 6px;
+    }
+
+    /* ================================================================
+       电脑端：聊天大厅底部的输入框 + 发送按钮
+       （手机端隐藏，手机继续用标题栏里的「发言」按钮）
+       ================================================================ */
+    .chat-input-row {
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 8px;
+      border-top: 1px solid rgba(255, 200, 100, 0.28);
+      background: rgba(50, 40, 25, 0.45);
+    }
+    .chat-input-row input {
+      flex: 1;
+      min-width: 0;
+      padding: 6px 8px;
+      border-radius: 6px;
+      border: 1px solid rgba(255, 210, 120, 0.35);
+      background: rgba(0, 0, 0, 0.32);
+      color: #fff;
+      font-family: inherit;
+      /* 新增 UI 文字：不低 1rem（AGENTS.md 字体规则） */
+      font-size: 1rem;
+    }
+    .chat-input-row input::placeholder { color: rgba(255, 255, 255, 0.42); }
+    .chat-input-row input:focus {
+      outline: none;
+      border-color: rgba(255, 210, 120, 0.85);
+    }
+    .chat-input-row button {
+      flex-shrink: 0;
+      padding: 6px 14px;
+      border-radius: 6px;
+      border: 1px solid rgba(140, 220, 140, 0.55);
+      background: linear-gradient(180deg, #5a8a5a, #3a6a3a);
+      color: #fff;
+      font-size: 1rem;
+      font-weight: 600;
+      font-family: inherit;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: background 0.2s, transform 0.1s;
+    }
+    .chat-input-row button:hover { background: linear-gradient(180deg, #6a9a6a, #4a7a4a); }
+    .chat-input-row button:active { transform: scale(0.98); }
+
+    /* 电脑端：中间栏不再保留「发言」按钮（腾出空间给其它按钮） */
+    @media (min-width: 769px) {
+      #btn-speak-unified { display: none; }
     }
 
     /* 统一发言按钮（位于中心线右侧） */
@@ -200,6 +253,13 @@
       white-space: nowrap;
     }
     .dropdown-mechanic__item:hover { background: rgba(210, 170, 100, 0.15); }
+    /* 分割线：以下为「日常使用」（回合开始 / 重置属性），以上为各种机制 */
+    .dropdown-mechanic__divider {
+      grid-column: 1 / -1;
+      height: 1px;
+      margin: 2px 0 4px;
+      background: linear-gradient(90deg, rgba(210, 170, 100, 0.1), rgba(210, 170, 100, 0.65), rgba(210, 170, 100, 0.1));
+    }
 
     .chat-bubble {
       padding: 8px 10px;

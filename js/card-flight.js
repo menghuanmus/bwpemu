@@ -693,5 +693,5 @@ const CardFlight = (() => {
     return null;
   }
 
-  return { fly, flySequence, shuffleDeckAnim, playUseCardAnim, playRemoteAnim, flyAndBroadcast, flySeqAndBroadcast, _broadcastAnim, getPlayerBtn, _centerOf };
+  return { fly, flySequence, shuffleDeckAnim, playUseCardAnim, playRemoteAnim, flyAndBroadcast, flySeqAndBroadcast, _broadcastAnim, getPlayerBtn, _centerOf, previewMetrics: _previewMetrics, isMobileView: _isMobileView };
 })();

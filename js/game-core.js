@@ -225,10 +225,13 @@
       `;
       item.querySelector('.btn-remove-effect').addEventListener('click', () => {
         if (typeof isSpectator !== 'undefined' && isSpectator) return;
-        const playerId = item.closest('.player-zone').dataset.player;
+        const zone = item.closest('.player-zone');
+        const playerId = zone.dataset.player;
         const name = item.querySelector('.effect-name').value || '未命名';
         item.remove();
         syncEffectsState(playerId);
+        // 手动删掉「眩晕」条目 → 🌀 也要撤（zone 必须提前取，remove 后 closest 拿不到）
+        if (typeof StunFx !== 'undefined') StunFx.sync(zone);
         broadcastSystemMsg(`【系统】${getPlayerName(playerId)}移除了幻境/效果「${name}」`);
       });
       // 观众视角下视觉变灰
@@ -312,6 +315,7 @@
         const panel = zone.querySelector('.effects-panel');
         panel.appendChild(createEffectItem());
         syncEffectsState(zone.dataset.player);
+        if (typeof StunFx !== 'undefined') StunFx.sync(zone);
         broadcastSystemMsg(`【系统】${getPlayerName(zone.dataset.player)}添加了幻境/效果`);
       });
     });
@@ -467,6 +471,9 @@
         baseHp: slot._baseHp !== undefined ? slot._baseHp : 0,
         armor: slot._armor || 0,
         power: slot._power || 0,
+        // 化身（数组；深拷贝，避免两端共享同一个对象）
+        incarn: (typeof Incarnation !== 'undefined' && Array.isArray(slot._incarn))
+          ? Incarnation.clone(slot._incarn) : [],
       };
     }
 
@@ -483,6 +490,11 @@
       // 基础倒计时/能量数值（回合开始到期重置用）
       if (state.baseCountdown !== undefined) slot._baseCountdown = state.baseCountdown;
       if (state.baseEnergy !== undefined) slot._baseEnergy = state.baseEnergy;
+      // 化身（数组；归一化 + 深拷贝）
+      if (typeof Incarnation !== 'undefined') {
+        slot._incarn = (state.incarn || []).map(Incarnation.normInc);
+        if (typeof Incarnation.refresh === 'function') Incarnation.refresh(slot);
+      }
       // 基础气绝倒计时（气绝时从该值开始倒数）
       if (state.koCountdown !== undefined) slot._baseKoCountdown = state.koCountdown;
       setSlotCurses(slot, state.curses || []);
@@ -493,6 +505,8 @@
       slot._permHpMods = state.permHpMods || [];
       slot._permAbility = state.permAbility || '';
       slot._permEffects = state.permEffects || [];
+      // 眩晕特效（联机同步路径）
+      if (typeof StunFx !== 'undefined') StunFx.sync(slot);
       // 形态
       slot._formName = state.formName || '';
       slot._formAtk = state.formAtk || 0;
@@ -808,7 +822,8 @@
       slot._armor = armor;
       if (typeof updateStatusBadges === 'function') updateStatusBadges(slot);
       const newHp = Math.max(0, currentHp - final);
-      if (hpInput) hpInput.value = newHp || '';
+      // 0 也要显示成「0」（`|| ''` 会让 0 消失）
+      if (hpInput) hpInput.value = String(newHp);
       return { final: final, absorb: absorb, extra: extra, newHp: newHp };
     };
 
@@ -819,7 +834,7 @@
       const cap = (typeof calcFullHp === 'function') ? calcFullHp(slot) : currentHp;
       const newHp = Math.min(currentHp + amount, Math.max(currentHp, cap));
       const actual = newHp - currentHp;
-      if (hpInput) hpInput.value = newHp || '';
+      if (hpInput) hpInput.value = String(newHp);
       return { actual: actual, newHp: newHp, cap: cap };
     };
 
@@ -886,6 +901,12 @@
       });
     }
 
+    /** 灵咒数量文案：只有 1 层时不显示数量（a / a×2 / a×3） */
+    function curseQtyText(layers) {
+      const n = parseInt(layers, 10) || 1;
+      return n > 1 ? ('×' + n) : '';
+    }
+
     function setSlotCurses(slot, curses) {
       const existing = slot.querySelector('.card-curses');
       if (existing) existing.remove();
@@ -895,7 +916,9 @@
       curses.forEach(c => {
         const badge = document.createElement('span');
         badge.className = 'curse-badge';
-        badge.innerHTML = '<span class="curse-badge__name">' + escapeHTML(c.name) + '</span><span class="curse-badge__layers">×' + c.layers + '</span>';
+        const qty = curseQtyText(c.layers);
+        badge.innerHTML = '<span class="curse-badge__name">' + escapeHTML(c.name) + '</span>' +
+          (qty ? '<span class="curse-badge__layers">' + qty + '</span>' : '');
         badge.addEventListener('click', (e) => { e.stopPropagation(); openCursePanel(_curseTargetForSlot(slot)); });
         container.appendChild(badge);
       });
@@ -1043,7 +1066,8 @@
     }
 
     function isInteractiveTarget(el) {
-      return el.closest('.card-badge, input, label, button, .charge-indicator');
+      // .incarn-row（手机端化身那一排）：要能点、能左右滑动，不能被拖拽/指针捕获抢走
+      return el.closest('.card-badge, input, label, button, .charge-indicator, .incarn-row');
     }
 
     /** 判断点击坐标是否落在卡图区域内（card-art 有 pointer-events:none，不能用 closest 判断） */
@@ -1190,7 +1214,11 @@
       // 效果面板输入
       if (e.target.closest('.effect-item')) {
         const zone = e.target.closest('.player-zone');
-        if (zone) syncEffectsState(zone.dataset.player);
+        if (zone) {
+          syncEffectsState(zone.dataset.player);
+          // 手动把条目改名成「眩晕」/改掉，也要实时显示/隐藏 🌀
+          if (typeof StunFx !== 'undefined') StunFx.sync(zone);
+        }
         return;
       }
       // 玩家名称 / 生命值

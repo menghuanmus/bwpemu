@@ -55,6 +55,7 @@
     }
 
     .player-avatar-name-row {
+      position: relative;   /* 牌手眩晕特效（🌀）的定位宿主 */
       display: flex;
       align-items: center;
       gap: 8px;

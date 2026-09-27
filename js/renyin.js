@@ -665,7 +665,7 @@ const Renyin = (() => {
             const selClass = ctx.selectedIndex === idx ? ' renyin-result-card--selected' : '';
             const usedClass = item.isUsed ? ' renyin-result-card--used' : '';
             // 灵咒显示（支持悬停浮窗，与卡牌浮窗不冲突）
-            const cursesHtml = (c.curses && c.curses.length) ? `<div class="renyin-result-card__curses">${c.curses.map(cu => `<span class="card-list-curse-tag" data-curse-name="${cu.name}">⛓️${cu.name}×${cu.layers}</span>`).join(' ')}</div>` : '';
+            const cursesHtml = (c.curses && c.curses.length) ? `<div class="renyin-result-card__curses">${c.curses.map(cu => `<span class="card-list-curse-tag" data-curse-name="${cu.name}">⛓️${cu.name}${curseQtyText(cu.layers)}</span>`).join(' ')}</div>` : '';
             return `<div class="renyin-result-card${selClass}${usedClass}" data-result-idx="${idx}">
               <div class="renyin-result-card__icon">${item.isUsed ? '⭐' : '🃏'}</div>
               <div class="renyin-result-card__info">

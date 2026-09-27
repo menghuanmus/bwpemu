@@ -318,6 +318,72 @@
 			"type": "shell",
 			"command": "node --check js/chat.js; node --check js/card-deck.js; node --check server/server.js; echo SYNTAX_OK",
 			"problemMatcher": []
+		},
+		{
+			"label": "bwpemu-check-pupu",
+			"type": "shell",
+			"command": "Set-Location \"d:\\DIY\\百闻牌\\百闻牌模拟器\\menghuanmus.github.io\"; node --check data\\cards.js; Write-Output \"OK\"",
+			"problemMatcher": []
+		},
+		{
+			"label": "bwpemu-check-ibaraki",
+			"type": "shell",
+			"command": "Set-Location \"d:\\DIY\\百闻牌\\百闻牌模拟器\\menghuanmus.github.io\"; node --check data\\cards.js; Write-Output \"OK\"",
+			"problemMatcher": []
+		},
+		{
+			"label": "bwpemu-check-ibaraki2",
+			"type": "shell",
+			"command": "Set-Location \"d:\\DIY\\百闻牌\\百闻牌模拟器\\menghuanmus.github.io\"; node --check data\\cards.js; Write-Output \"OK\"",
+			"problemMatcher": []
+		},
+		{
+			"label": "bwpemu-check-rarity",
+			"type": "shell",
+			"command": "Set-Location \"d:\\DIY\\百闻牌\\百闻牌模拟器\\menghuanmus.github.io\"; node --check data\\cards.js; Write-Output \"OK\"",
+			"problemMatcher": []
+		},
+		{
+			"label": "bwpemu-check-faction",
+			"type": "shell",
+			"command": "Set-Location \"d:\\DIY\\百闻牌\\百闻牌模拟器\\menghuanmus.github.io\"; node --check data\\cards.js; Write-Output \"OK\"",
+			"problemMatcher": []
+		},
+		{
+			"label": "bwpemu-check-akiha",
+			"type": "shell",
+			"command": "Set-Location \"d:\\DIY\\百闻牌\\百闻牌模拟器\\menghuanmus.github.io\"; node --check data\\cards.js; Write-Output \"OK\"",
+			"problemMatcher": []
+		},
+		{
+			"label": "bwpemu-check-shintsu",
+			"type": "shell",
+			"command": "Set-Location \"d:\\DIY\\百闻牌\\百闻牌模拟器\\menghuanmus.github.io\"; node --check data\\cards.js; Write-Output \"OK\"",
+			"problemMatcher": []
+		},
+		{
+			"label": "bwpemu-check-akiha-level",
+			"type": "shell",
+			"command": "Set-Location \"d:\\DIY\\百闻牌\\百闻牌模拟器\\menghuanmus.github.io\"; node --check server\\data\\cards.js; Write-Output \"OK\"",
+			"problemMatcher": []
+		},
+		{
+			"label": "bwpemu-check-xiuyan",
+			"type": "shell",
+			"command": "Set-Location \"d:\\DIY\\百闻牌\\百闻牌模拟器\\menghuanmus.github.io\"; node --check server\\data\\cards.js; Write-Output \"OK\"",
+			"problemMatcher": []
+		},
+		{
+			"label": "bwpemu-check-deriv",
+			"type": "shell",
+			"command": "Set-Location \"d:\\DIY\\百闻牌\\百闻牌模拟器\\menghuanmus.github.io\"; node --check server\\data\\cards.js; Write-Output \"OK\"",
+			"problemMatcher": []
+		},
+		{
+			"label": "bwpemu-check-chuling",
+			"type": "shell",
+			"command": "Set-Location \"d:\\DIY\\百闻牌\\百闻牌模拟器\\menghuanmus.github.io\"; node --check server\\data\\cards.js; Write-Output \"OK\"",
+			"problemMatcher": []
 		}
 	]
 }

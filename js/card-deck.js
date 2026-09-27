@@ -351,7 +351,7 @@
               const tag = document.createElement('span');
               tag.className = 'card-list-curse-tag';
               tag.dataset.curseName = c.name;
-              tag.textContent = '⛓️' + c.name + '×' + c.layers;
+              tag.textContent = '⛓️' + c.name + curseQtyText(c.layers);
               // 仅牌主可点灵咒编辑；被展示给对手看时只读
               if (ownCards) {
                 tag.addEventListener('click', (e) => { e.stopPropagation(); openCursePanel(_curseTargetForCard(playerId, card, '手牌中的')); });
@@ -582,7 +582,7 @@
             card.curses.forEach(c => {
               const tag = document.createElement('span');
               tag.className = 'breakdown-card-row__curse-tag';
-              tag.textContent = '⛓️' + c.name + '×' + c.layers;
+              tag.textContent = '⛓️' + c.name + curseQtyText(c.layers);
               curseSpan.appendChild(tag);
             });
             row.appendChild(curseSpan);
@@ -1664,7 +1664,7 @@
         card.curses.forEach(c => {
           const tag = document.createElement('span');
           tag.className = 'divine-curse-tag';
-          tag.textContent = '⛓️' + c.name + '×' + c.layers;
+          tag.textContent = '⛓️' + c.name + curseQtyText(c.layers);
           cursesEl.appendChild(tag);
         });
         item.appendChild(cursesEl);
@@ -2725,7 +2725,7 @@
             sampleCard.curses.forEach(c => {
               const tag = document.createElement('span');
               tag.className = 'breakdown-card-row__curse-tag';
-              tag.textContent = '⛓️' + c.name + '×' + c.layers;
+              tag.textContent = '⛓️' + c.name + curseQtyText(c.layers);
               cursesSpan.appendChild(tag);
             });
             row.appendChild(cursesSpan);
@@ -3225,7 +3225,7 @@
       if (card.curses && card.curses.length) {
         html += '<div class="fate-card-curses">';
         card.curses.forEach(c => {
-          html += `<span class="fate-curse-tag">⛓️${c.name}×${c.layers}</span>`;
+          html += `<span class="fate-curse-tag">⛓️${c.name}${curseQtyText(c.layers)}</span>`;
         });
         html += '</div>';
       }
@@ -4002,7 +4002,7 @@
           ? `<button type="button" class="grave-item-btn" data-grave-idx="${idx}" data-grave-act="${graveActionMode}">${_graveActLabel(graveActionMode)}</button>`
           : '';
         const curseTagsHtml = (card.curses && card.curses.length)
-          ? `<span class="card-list-item__curses grave-item__curses">` + card.curses.map(c => `<span class="card-list-curse-tag">⛓️${escapeHTML(c.name)}×${c.layers}</span>`).join('') + `</span>`
+          ? `<span class="card-list-item__curses grave-item__curses">` + card.curses.map(c => `<span class="card-list-curse-tag">⛓️${escapeHTML(c.name)}${curseQtyText(c.layers)}</span>`).join('') + `</span>`
           : '';
         const curseBtn = `<button type="button" class="btn-card-curse-add" data-grave-idx="${idx}" data-grave-act="curse" title="添加灵咒">➕</button>`;
         html += `<div class="grave-item${graveReorder ? ' grave-item--reorder' : ''}" data-grave-idx="${idx}">

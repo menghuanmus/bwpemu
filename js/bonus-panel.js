@@ -257,6 +257,7 @@ const BonusPanel = (() => {
       const cur = ctx.permEffects[idx].layers || 1;
       ctx.permEffects[idx].layers = pm.dataset.action === 'plus' ? cur + 1 : Math.max(1, cur - 1);
       ctx.slot._permEffects = ctx.permEffects;
+      if (typeof StunFx !== 'undefined') StunFx.sync(ctx.slot);
       syncSlotToPeer(ctx.slot);
       broadcastBonusMsg('修改了效果记录层数', `${ctx.permEffects[idx].source} ×${ctx.permEffects[idx].layers}`);
       refresh();
@@ -289,6 +290,7 @@ const BonusPanel = (() => {
       const delSrc = ctx.permEffects[idx].source;
       ctx.permEffects.splice(idx, 1);
       ctx.slot._permEffects = ctx.permEffects;
+      if (typeof StunFx !== 'undefined') StunFx.sync(ctx.slot);
       syncSlotToPeer(ctx.slot);
       broadcastBonusMsg('移除了效果记录', delSrc);
     }
@@ -350,6 +352,7 @@ const BonusPanel = (() => {
       ctx.permEffects.push({ source: src, desc, layers: 1 });
     }
     ctx.slot._permEffects = ctx.permEffects;
+    if (typeof StunFx !== 'undefined') StunFx.sync(ctx.slot);
     document.getElementById('bonus-effect-source').value = '';
     if (document.getElementById('bonus-effect-desc')) document.getElementById('bonus-effect-desc').value = '';
     syncSlotToPeer(ctx.slot);
@@ -1120,12 +1123,14 @@ const BonusPanel = (() => {
     // 清空运行时数据
     slot._permAtkMods = []; slot._permHpMods = [];
     slot._permAbility = ''; slot._permEffects = [];
+    if (typeof StunFx !== 'undefined') StunFx.sync(slot);
     slot._formName = ''; slot._formAtk = 0; slot._formHp = 0; slot._formAbility = '';
     slot._tempAtkMods = []; slot._tempHpMods = [];
     if (typeof setSlotCurses === 'function') setSlotCurses(slot, []);
     if (typeof updateSlotCountdownBadge === 'function') updateSlotCountdownBadge(slot, '');
     if (typeof updateSlotEnergyBadge === 'function') updateSlotEnergyBadge(slot, '');
     if (typeof updateKoOverlay === 'function') updateKoOverlay(slot, '');
+    if (typeof Incarnation !== 'undefined') Incarnation.clearSlot(slot);   // 化身一并消失
     if (typeof syncSlotToPeer === 'function') syncSlotToPeer(slot);
     if (typeof broadcastSystemMsg === 'function') {
       broadcastSystemMsg(`【系统】${ctx.playerName}从战场上移除了「${name}」`);

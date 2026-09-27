@@ -102,7 +102,7 @@
       /** 交互控件：按钮/输入框/徽章等，点击它们绝不触发长按浮窗 */
       function _isControl(target) {
         if (!target || !target.closest) return false;
-        return !!target.closest('input, textarea, select, button, .card-form-badge, .curse-badge, .charge-indicator, .card-badge:not(.card-badge--name)');
+        return !!target.closest('input, textarea, select, button, .card-form-badge, .curse-badge, .charge-indicator, .incarn-row, .card-badge:not(.card-badge--name)');
       }
 
       /** 去掉牌面列表的「协战*」前缀，便于按真名查库 */
@@ -608,6 +608,51 @@
           cursesEl.outerHTML = cursesHTML;
         } else if (cursesEl) {
           cursesEl.remove();
+        }
+
+        // 化身（从战场卡牌槽读取；详情统一放在悬浮窗里，徽章本身不再自带提示）
+        let incarnHTML = '';
+        if (currentSlot && Array.isArray(currentSlot._incarn) && currentSlot._incarn.length) {
+          const incList = currentSlot._incarn;
+          const koNow = !!currentSlot.querySelector('.ko-overlay');
+          incarnHTML = '<div class="card-tooltip__incarn"><div class="card-tooltip__incarn-head">🪞 化身</div>';
+          incList.forEach((inc, i) => {
+            const p = Math.max(0, Math.min(100, parseInt(inc.prob, 10) || 0));
+            const tr = parseInt(inc.triggers, 10) || 0;
+            const mx = (inc.maxTriggers === 0 || inc.maxTriggers) ? inc.maxTriggers : 1;
+            // 悬浮窗里只保留「暂停」提示（其他状态提示按用户要求全部去掉）
+            const notes = [];
+            if (inc.paused) notes.push('暂停');
+            const noMark = (typeof Incarnation !== 'undefined' && Incarnation.markOf)
+              ? Incarnation.markOf(i) : ('(' + (i + 1) + ')');
+            incarnHTML += '<div class="card-tooltip__incarn-item' + (inc.paused ? ' is-paused' : '') + '">'
+              + '<span class="tip-incarn-no">' + noMark + '</span>'
+              + '<span class="tip-incarn-name">' + escapeHTML(inc.name || '化身') + '</span>'
+              + '<span class="tip-incarn-bar"><i style="width:' + p + '%"></i></span>'
+              + '<span class="tip-incarn-prob">' + p + '%</span>'
+              + '<span class="tip-incarn-trig">本回合 ' + tr + '/' + mx + '</span>'
+              + (notes.length ? '<span class="tip-incarn-note">' + notes.join('・') + '</span>' : '')
+              + '</div>';
+          });
+          incarnHTML += '</div>';
+        }
+        // 插入或更新化身区（放在灵咒之后、计算属性之前）
+        let incarnEl = el.querySelector('.card-tooltip__incarn');
+        if (incarnHTML) {
+          if (incarnEl) {
+            incarnEl.outerHTML = incarnHTML;
+          } else {
+            const tmp = document.createElement('div');
+            tmp.innerHTML = incarnHTML;
+            const node = tmp.firstElementChild;
+            const cursesAnchor = el.querySelector('.card-tooltip__curses');
+            const summaryAnchor = el.querySelector('.card-tooltip__summary');
+            if (cursesAnchor) cursesAnchor.insertAdjacentElement('afterend', node);
+            else if (summaryAnchor) summaryAnchor.insertAdjacentElement('beforebegin', node);
+            else el.appendChild(node);
+          }
+        } else if (incarnEl) {
+          incarnEl.remove();
         }
 
         // 当前属性总结（最底部，分割线后大字显示）—— 仅当有加成变动时显示

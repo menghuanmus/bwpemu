@@ -212,7 +212,8 @@
       const text = speakInput.value.trim();
       if (!text) { closeSpeakDialog(); return; }
       // 发言统一走服务器：服务器打码后回显，自己和对方看到的都是打码后的内容
-      if (isConnected()) {
+      // 注：isConnected 只在进房间后才挂到 window，必须带 typeof 守卫
+      if (typeof isConnected === 'function' && isConnected() && typeof sendToPeer === 'function') {
         sendToPeer({
           type: 'chat',
           playerId: activeSpeakPlayer,
@@ -230,6 +231,35 @@
       const speaker = localPlayerId || '1';
       openSpeakDialog(speaker);
     });
+
+    /* 电脑端：聊天大厅底部的输入框 + 发送（回车也能发） */
+    const inlineChatInput = document.getElementById('chat-inline-input');
+    const inlineChatSend = document.getElementById('chat-inline-send');
+    function sendInlineChat() {
+      if (!inlineChatInput) return;
+      const text = inlineChatInput.value.trim();
+      if (!text) return;
+      const speaker = localPlayerId || '1';
+      // 与「发言」按钮同一条链路：走服务器打码后回显（isConnected 只在进房后才存在，带 typeof 守卫）
+      if (typeof isConnected === 'function' && isConnected() && typeof sendToPeer === 'function') {
+        sendToPeer({
+          type: 'chat',
+          playerId: speaker,
+          text,
+          senderName: getPlayerName(speaker),
+        });
+      } else {
+        addChatMessage(speaker, text);
+      }
+      inlineChatInput.value = '';
+      inlineChatInput.focus();
+    }
+    if (inlineChatInput && inlineChatSend) {
+      inlineChatSend.addEventListener('click', sendInlineChat);
+      inlineChatInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') { e.preventDefault(); sendInlineChat(); }
+      });
+    }
 
     /* 观众名称输入框变化 → 更新 getSpectatorName */
     let spectatorCustomName = '';

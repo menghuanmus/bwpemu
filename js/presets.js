@@ -117,6 +117,7 @@ const Presets = (() => {
       tempHpMods: state.tempHpMods || [],
       curses: state.curses || [],
       awakened: state.awakened || false,
+      incarn: (typeof Incarnation !== 'undefined' && Array.isArray(state.incarn)) ? Incarnation.clone(state.incarn) : [],
       ko: ''
     };
 
@@ -183,6 +184,7 @@ const Presets = (() => {
         koCountdown: (p.koCountdown != null ? p.koCountdown : 3),
         ko: p.ko || '',
         curses: p.curses || [],
+        incarn: p.incarn || [],
         awakened: p.awakened || false,
         permAtkMods: p.permAtkMods || [],
         permHpMods: p.permHpMods || [],
@@ -453,7 +455,7 @@ const Presets = (() => {
       author: authorName,
       permAtkMods: [], permHpMods: [], permAbility: '', permEffects: [],
       formName: '', formAtk: 0, formHp: 0, formAbility: '',
-      tempAtkMods: [], tempHpMods: [], curses: [], awakened: false, ko: ''
+      tempAtkMods: [], tempHpMods: [], curses: [], incarn: [], awakened: false, ko: ''
     };
   }
 
