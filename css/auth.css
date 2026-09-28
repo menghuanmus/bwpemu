@@ -980,6 +980,38 @@
 .diy-tag--rar-ssr { background: rgba(255,180,60,0.2);   color: #ffd88a; }
 /* 工具栏 / 搜索 / 页签 */
 .diy-toolbar { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 12px; }
+
+/* ── DIY 导出：多选操作条 ── */
+.diy-selbar {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 10px;
+  margin: -4px 0 12px; padding: 10px 12px;
+  border-radius: 10px;
+  background: rgba(124,131,255,0.10);
+  border: 1px solid rgba(124,131,255,0.32);
+}
+.diy-selbar[hidden] { display: none; }
+.diy-selbar__info { font-size: 1.05rem; font-weight: 600; color: #cfd3ff; }
+.diy-selbar__opt { display: inline-flex; align-items: center; gap: 6px; font-size: 1rem; color: #aab3ff; cursor: pointer; }
+.diy-item-check { width: 18px; height: 18px; flex-shrink: 0; cursor: pointer; accent-color: #7C83FF; }
+.diy-toggle { flex-shrink: 0; width: 20px; text-align: center; font-size: 1.05rem; line-height: 1; color: #aab3ff; cursor: pointer; user-select: none; }
+.diy-tag--author { background: rgba(255,200,100,0.14); color: #ffd98a; }
+
+/* ── DIY 导入：预览弹窗 ── */
+.diy-imp-head { font-size: 1.05rem; color: #cfd3ff; line-height: 1.7; margin-bottom: 10px; }
+.diy-imp-global { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; font-size: 1rem; color: #aab3ff; margin-bottom: 10px; }
+.diy-imp-global select,
+.diy-imp-rule { background: rgba(255,255,255,0.06); border: 1px solid rgba(124,131,255,0.35); color: #E8EBF0; border-radius: 6px; padding: 5px 8px; font-size: 1rem; }
+.diy-imp-list { max-height: 46vh; overflow-y: auto; display: flex; flex-direction: column; gap: 6px; padding-right: 4px; }
+.diy-imp-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; padding: 6px 8px; border-radius: 8px; background: rgba(255,255,255,0.04); }
+.diy-imp-row--off { opacity: 0.5; }
+.diy-imp-row .diy-imp-check { width: 18px; height: 18px; flex-shrink: 0; cursor: pointer; accent-color: #7C83FF; }
+.diy-imp-name { flex: 1; min-width: 0; font-size: 1.1rem; font-weight: 600; color: #E8EBF0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.diy-imp-state { font-size: 1rem; white-space: nowrap; }
+.diy-imp-state--ok { color: #7ad8c4; }
+.diy-imp-state--warn { color: #ffd98a; }
+.diy-imp-state--bad { color: #ff9a9a; }
+.diy-imp-warn { flex-basis: 100%; font-size: 1rem; color: #ffb27a; }
+.diy-imp-note { font-size: 1rem; color: #818698; margin-top: 10px; }
 .diy-search-row { margin-bottom: 10px; }
 .diy-search-row input {
   width: 100%; box-sizing: border-box; padding: 10px 14px;

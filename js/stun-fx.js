@@ -1,11 +1,13 @@
 // ================================================================
-//  js/stun-fx.js — 眩晕特效
-//  判定依据：
-//    · 式神：卡槽的「效果记录」（slot._permEffects）里有来源 =「眩晕」
-//    · 牌手：该玩家的「幻境/效果」面板（.effects-panel）里有一条名为「眩晕」
-//  表现：目标左上角出现一个不停旋转（逆时针）的 🌀
-//    · 式神：卡槽左上角（等级 / 💠 式神管理的右下一点）
-//    · 牌手：头像左上角
+//  js/stun-fx.js — 卡面状态特效
+//  统一由一个「来源 → 特效」表驱动（判定依据：效果记录里的「来源」）：
+//    · 眩晕：卡槽左上角不停旋转（逆时针）的 🌀 ；牌手则挂头像左上角
+//    · 不屈：整张卡持续冒金光（呼吸式金光 + 向上飘的光）
+//    · 屏障：金色椭圆护罩（缓慢呼吸）
+//    · 帷幕：七彩流光旋转扫过卡面 + 紫色发光
+//    · 庇佑：卡槽底部一朵金黑色莲花托着式神
+//  说明：这四个都只看「效果记录」（slot._permEffects）里的来源，**不在机制菜单里加按钮**；
+//        牌手（.player-zone）只支持眩晕（用「幻境/效果」面板里名为「眩晕」的一条判定）。
 //  用法：任何修改效果记录的地方调 StunFx.sync(目标)（另有低频兜底轮询）
 // ================================================================
 const StunFx = (() => {
@@ -13,6 +15,8 @@ const StunFx = (() => {
 
   const SOURCE = '眩晕';                 // 与式神管理 → 效果记录里的来源、牌手效果名一致
   const POLL_MS = 1000;                  // 兜底轮询间隔（效果记录写入点较多）
+  const ENTER_MS = 340;                  // 入场动画时长（与 css/stun-fx.css 保持一致）
+  const EXIT_MS = 300;                   // 离场动画时长
   /** 眩晕的规则说明：写在式神管理的「效果记录 → 效果」里（之前是空的） */
   const DESC = '处于眩晕的式神无法出击和使用自身卡牌；若牌手被眩晕，则该牌手的所有式神无法出击';
 
@@ -46,32 +50,112 @@ const StunFx = (() => {
     if (el.classList.contains('card-slot')) return slotHasStun(el);
     return false;
   }
-  /** 🌀 挂在哪里：式神挂卡槽本身；牌手挂到头像那一行（头像有 overflow:hidden，不能挂头像里） */
-  function hostOf(el) {
-    if (el.classList.contains('player-zone')) return el.querySelector('.player-avatar-name-row');
-    return el;
+  /** 效果记录里的「来源」→ 卡面特效。眩晕额外支持牌手（挂头像行）；其余三个只作用于式神卡槽 */
+  const FX_DEFS = [
+    { source: '眩晕', cls: 'stun-fx',   title: '眩晕', glyph: '🌀', zone: true,  avatarCls: 'stun-fx--avatar', enterMs: ENTER_MS, exitMs: EXIT_MS },
+    { source: '不屈', cls: 'fx-aura',   title: '不屈', zone: false, arcs: 2, enterMs: 440, exitMs: 320 },
+    { source: '屏障', cls: 'fx-shield', title: '屏障', zone: false, enterMs: 400, exitMs: 300 },
+    { source: '帷幕', cls: 'fx-veil',   title: '帷幕', zone: false, enterMs: 520, exitMs: 360 },
+    { source: '庇佑', cls: 'fx-lotus',  title: '庇佑', zone: false, petals: 7, sides: 2, enterMs: 460, exitMs: 340 }
+  ];
+
+  /** 这个目标（式神卡槽 / 牌手）的效果记录里有没有某条来源（严格相等：来源必须就写这几个字） */
+  function hasSourceOn(el, source) {
+    if (el.classList.contains('player-zone')) {
+      const names = el.querySelectorAll('.effects-panel .effect-name');
+      return Array.from(names).some(inp => String(inp.value || '').trim() === source);
+    }
+    const list = el._permEffects;
+    return Array.isArray(list) && list.some(e => srcOf(e) === source);
   }
 
-  /** 同步一个目标（式神卡槽 / 牌手 zone）的眩晕特效：有就加、没有就删 */
+  /** 造一个特效元素（glyph = 🌀 那种字；petals = 莲花花瓣；arcs = 卡内上下各几条浅金色弧形） */
+  function buildFx(def, isZone) {
+    const d = document.createElement('div');
+    d.className = def.cls + (isZone && def.avatarCls ? ' ' + def.avatarCls : '');
+    d.title = def.title;
+    d.setAttribute('aria-label', def.title);
+    if (def.glyph) {
+      const g = document.createElement('span');
+      g.className = def.cls + '__glyph';
+      g.textContent = def.glyph;
+      d.appendChild(g);
+    }
+    if (def.petals) {
+      for (let i = 1; i <= def.petals; i++) {
+        const pt = document.createElement('span');
+        pt.className = def.cls + '__petal ' + def.cls + '__petal--' + i;
+        d.appendChild(pt);
+      }
+      const core = document.createElement('span');
+      core.className = def.cls + '__core';
+      d.appendChild(core);
+    }
+    if (def.sides) {
+      for (let i = 1; i <= def.sides; i++) {
+        ['l', 'r'].forEach(side => {
+          const sd = document.createElement('span');
+          sd.className = def.cls + '__side ' + def.cls + '__side--' + side + i;
+          d.appendChild(sd);
+        });
+      }
+    }
+    if (def.arcs) {
+      const wrap = document.createElement('span');
+      wrap.className = def.cls + '__arcs';
+      for (let i = 1; i <= def.arcs; i++) {
+        ['t', 'b'].forEach(side => {
+          const a = document.createElement('span');
+          a.className = def.cls + '__arc ' + def.cls + '__arc--' + side + i;
+          wrap.appendChild(a);
+        });
+      }
+      d.appendChild(wrap);
+    }
+    return d;
+  }
+
+  /** 同步一种特效：没有就加（带入场动画）、没了就渐隐消失 */
+  function syncOne(el, def, isZone) {
+    const host = isZone ? el.querySelector('.player-avatar-name-row') : el;
+    if (!host) return;
+    const on = hasSourceOn(el, def.source);
+    const cur = host.querySelector('.' + def.cls);
+    const enterCls = def.cls + '--enter';
+    const exitCls = def.cls + '--exit';
+    if (on && !cur) {
+      const d = buildFx(def, isZone);
+      d.classList.add(enterCls);
+      // 卡槽：插到【卡图之后、其它信息之前】——这样层级就是「卡图 < 特效 < 其它所有元素」
+      const art = isZone ? null : host.querySelector('.card-art');
+      if (art && art.parentNode === host) host.insertBefore(d, art.nextSibling);
+      else host.appendChild(d);
+      d._fxEnterTimer = setTimeout(() => d.classList.remove(enterCls), def.enterMs + 40);
+    } else if (on && cur) {
+      // 还在生效：如果正在播渐隐，就撤销并重播入场
+      if (cur.classList.contains(exitCls)) {
+        clearTimeout(cur._fxExitTimer);
+        cur.classList.remove(exitCls);
+        cur.classList.add(enterCls);
+        clearTimeout(cur._fxEnterTimer);
+        cur._fxEnterTimer = setTimeout(() => cur.classList.remove(enterCls), def.enterMs + 40);
+      }
+    } else if (!on && cur && !cur.classList.contains(exitCls)) {
+      // 离场：渐隐播完再把元素拿掉（不再立即 remove）
+      cur.classList.remove(enterCls);
+      cur.classList.add(exitCls);
+      clearTimeout(cur._fxExitTimer);
+      cur._fxExitTimer = setTimeout(() => cur.remove(), def.exitMs + 40);
+    }
+  }
+
+  /** 同步一个目标（式神卡槽 / 牌手 zone）的全部卡面特效 */
   function sync(el) {
     if (!el || !el.classList || (!el.classList.contains('card-slot') && !el.classList.contains('player-zone'))) return;
     const isZone = el.classList.contains('player-zone');
     if (!isZone) fillEmptyDesc(el);          // 式神：顺手把「效果说明」为空的那条补上规则说明
     else fillPlayerDesc(el);                  // 牌手：同理，给「眩晕」行补上说明
-    const host = hostOf(el);
-    if (!host) return;
-    const on = hasStun(el);
-    const cur = host.querySelector('.stun-fx');
-    if (on && !cur) {
-      const d = document.createElement('div');
-      d.className = 'stun-fx' + (isZone ? ' stun-fx--avatar' : '');
-      d.textContent = '🌀';
-      d.title = '眩晕';
-      d.setAttribute('aria-label', '眩晕');
-      host.appendChild(d);
-    } else if (!on && cur) {
-      cur.remove();
-    }
+    FX_DEFS.forEach(def => { if (isZone && !def.zone) return; syncOne(el, def, isZone); });
   }
 
   function syncAll() {

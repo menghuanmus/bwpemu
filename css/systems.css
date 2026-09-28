@@ -157,6 +157,38 @@
     }
     .curse-badge__layers { font-weight: 700; color: #ffd0e8; }
 
+    /* 灵咒超过 3 条：卡面多一枚「＋N」徽章（与其它灵咒徽章同款样式），点它打开灵咒管理面板看全部 */
+    .curse-more {
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 1px 5px;
+      background: rgba(100, 35, 75, 0.92);
+      border: 1px solid rgba(255, 140, 200, 0.65);
+      border-radius: 4px;
+      font-size: 10px;
+      font-weight: 600;
+      color: #ffc0e0;
+      line-height: 1.4;
+      white-space: nowrap;
+      cursor: pointer;
+    }
+    .curse-more:hover {
+      background: rgba(130, 50, 95, 0.95);
+      border-color: rgba(255, 170, 220, 0.85);
+    }
+    /* ── 电脑端：整列上移到倒计时徽章下方，能放下 5 格（第 5 格起折叠成「＋N」，样式同灵咒徽章） ── */
+    /* 倒计时徽章在卡外上下各突出半个（卡内底边 y≈21），护甲徽章上沿 y≈120 → 5 格 24~113 刚好不撞两边 */
+    /* （手机端灵咒是横排可滑动的，不折叠，见 mobile.css） */
+    @media (min-width: 769px) {
+      /* 灵咒整片区域固定 5 格高（y 22~112），内容在区域内「垂直居中」：
+         1 条 → 落在第 3 格；2 条 → 第 2~3、第 3~4 之间；3 条 → 第 2/3/4 格；4~5 条（含折叠钮）占满 */
+      .card-curses { top: 22px; height: 90px; gap: 1px; align-items: center; justify-content: center; }
+      .curse-more { display: inline-flex; }
+      /* 只有真的出现了「＋N」（超 5 条）时才隐藏第 5 条起的徽章 */
+      .card-curses.is-folded > .curse-badge:nth-child(n+5) { display: none; }
+    }
+
     .btn-curse-manage {
       position: absolute;
       bottom: 30px;

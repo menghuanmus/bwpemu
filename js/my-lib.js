@@ -1,9 +1,8 @@
 // ================================================================
 //  js/my-lib.js — 大厅「DIY 我的卡库」面板
 //  服务器端个人卡库：式神（可含召唤物）/ 卡牌 / 其他（关键词、灵咒）
-//  规则：合计 ≤ 1000 个单位；每个描述 ≤ 200 字；脏话只由服务器拦截；
+//  规则：合计 ≤ 1000 个单位；每个描述 ≤ 300 字；脏话只由服务器拦截；
 //        与官方同名拦截；玩家库只能在大厅修改，对局/导入不写入
-//  弹窗：只能点「取消」关闭，点弹窗外面不关闭
 // ================================================================
 
 var MyLib = (function () {
@@ -176,7 +175,7 @@ var MyLib = (function () {
         var ownerVal = $('diy-f-owner').value.trim();
         if (ownerVal) saved.owner = ownerVal; // 选填：留空则归入「无归属」
       }
-      if (idx >= 0) cache.shikigami[idx] = saved; else cache.shikigami.push(saved);
+      if (idx >= 0) cache.shikigami[idx] = keepAuthor('shikigami', idx, saved); else cache.shikigami.push(saved);
       m.ov.remove();
       render();
       saveToServer();
@@ -430,7 +429,7 @@ var MyLib = (function () {
         }
       }
       if (err) { m.err.textContent = err; return; }
-      if (idx >= 0) cache.cards[idx] = saved; else cache.cards.push(saved);
+      if (idx >= 0) cache.cards[idx] = keepAuthor('card', idx, saved); else cache.cards.push(saved);
       m.ov.remove();
       render();
       saveToServer();
@@ -468,7 +467,7 @@ var MyLib = (function () {
         effect: $('diy-f-text').value.trim(),
         owner: $('diy-f-owner').value.trim()
       };
-      if (idx >= 0) cache.others[idx] = saved; else cache.others.push(saved);
+      if (idx >= 0) cache.others[idx] = keepAuthor('other', idx, saved); else cache.others.push(saved);
       m.ov.remove();
       render();
       saveToServer();
@@ -487,7 +486,8 @@ var MyLib = (function () {
     return name.indexOf(q) !== -1 || owner.indexOf(q) !== -1;
   }
 
-  function itemHTMLFor(kind, unit, idx, indent) {
+  function itemHTMLFor(kind, unit, idx, indent, opts) {
+    opts = opts || {};
     var tags = '';
     if (kind === 'shikigami') {
       if (unit.type === 'summon') tags += '<span class="diy-tag diy-tag--summon">召唤物</span>';
@@ -509,8 +509,18 @@ var MyLib = (function () {
       tags = '<span class="diy-tag">' + (unit.type === 'curse' ? '灵咒' : '关键词') + '</span>';
       if (unit.owner) tags += '<span class="diy-tag">' + esc(unit.owner) + '</span>';
     }
+    // 导入别人的 DIY：标注作者
+    if (unit.author) tags += '<span class="diy-tag diy-tag--author">作者：' + esc(unit.author) + '</span>';
+    var checkHTML = _selMode
+      ? '<input type="checkbox" class="diy-item-check" data-key="' + esc(selKey(kind, unit.name)) + '"' + (selOn(kind, unit.name) ? ' checked' : '') + '>'
+      : '';
+    var toggleHTML = opts.toggle
+      ? '<span class="diy-toggle" data-toggle="' + esc(unit.name) + '" title="展开 / 收起">' + (opts.collapsed ? '▸' : '▾') + '</span>'
+      : '';
     return '<div class="diy-item' + (indent ? ' diy-item--indent' : '') + '" data-kind="' + kind + '" data-idx="' + idx + '">' +
       '<div class="diy-item-top">' +
+      checkHTML +
+      toggleHTML +
       '<div class="diy-item-name">' + esc(unit.name) + '</div>' +
       '<div class="diy-item-actions">' +
       '<button type="button" class="diy-btn diy-btn-edit" data-kind="' + kind + '" data-idx="' + idx + '">✏️</button>' +
@@ -554,9 +564,10 @@ var MyLib = (function () {
         if (o.owner === s.name && o.type === 'curse' && matchesSearch(o)) children.push(itemHTMLFor('other', o, oi, 1));
       });
       var shiMatches = matchesSearch(s);
+      var collapsed = !_search && !!_collapsed[s.name];
       if (shiMatches || children.length) {
-        if (shiMatches) html += itemHTMLFor('shikigami', s, si, 0);
-        html += children.join('');
+        if (shiMatches) html += itemHTMLFor('shikigami', s, si, 0, { toggle: children.length > 0, collapsed: collapsed });
+        if (!collapsed) html += children.join('');
       }
     });
     // 无归属（或所属式神不在库中）的卡牌 / 其他 / 召唤物
@@ -604,6 +615,7 @@ var MyLib = (function () {
     }
     var list = $('diy-list-container');
     if (!list) return;
+    var keepScroll = list.scrollTop;
     var html;
     if (_tab === 'all') html = renderAllTab();
     else if (_tab === 'shikigami') html = renderSimpleTab('shikigami');
@@ -619,6 +631,8 @@ var MyLib = (function () {
       html = '<div class="diy-empty">' + (emptyTexts[_tab] || '暂无内容') + '</div>';
     }
     list.innerHTML = html;
+    list.scrollTop = keepScroll;
+    updateSelInfo();
   }
 
   // ═══════════════ 详情预览 ═══════════════
@@ -628,6 +642,25 @@ var MyLib = (function () {
     if (kind === 'shikigami') return cache.shikigami[idx];
     if (kind === 'card') return cache.cards[idx];
     return cache.others[idx];
+  }
+
+  function findUnit(kind, name) {
+    var i = localIndex(kind, name);
+    return i >= 0 ? getUnit(kind, i) : null;
+  }
+
+  /** 全部页签：点一下展开/收起一个式神的全部内容 */
+  function toggleGroup(shiName) {
+    if (!shiName) return;
+    if (_collapsed[shiName]) delete _collapsed[shiName]; else _collapsed[shiName] = 1;
+    render();
+  }
+
+  /** 编辑已导入的条目时保留原作者标注（新建条目没有 author） */
+  function keepAuthor(kind, idx, saved) {
+    var old = idx >= 0 ? getUnit(kind, idx) : null;
+    if (old && old.author) saved.author = old.author;
+    return saved;
   }
 
   function previewHTML(kind, unit) {
@@ -676,6 +709,7 @@ var MyLib = (function () {
     }
     var html = '<div class="diy-preview__name">' + esc(unit.name) + '</div>' +
       '<div class="diy-preview__meta">' + meta.join('') + '</div>';
+    if (unit.author) html += '<div class="diy-preview__kws">作者：' + esc(unit.author) + '</div>';
     if (effect) html += '<div class="diy-preview__effect">' + esc(effect) + '</div>';
     if (kind !== 'shikigami' && unit.type === 'bond' && Array.isArray(unit.bondVersions) && unit.bondVersions.length) {
       html += '<div class="diy-preview__kws">协战分化：' + esc(unit.bondVersions.map(function (v) { return v.name; }).join(' / ')) + '</div>';
@@ -770,6 +804,357 @@ var MyLib = (function () {
     saveToServer();
   }
 
+  // ═══════════════ 导出 / 导入（玩家间分享 DIY） ═══════════════
+  //  导出：多选 → 生成带作者的 JSON 文件
+  //  导入：先预览 → 重名冲突按「保留本地 / 覆盖 / 两份都留」处理 → 只改本地，点「保存」才写服务器
+  var EXPORT_FORMAT = 'bwpemu-diy';
+  var EXPORT_VERSION = 1;
+  var _selMode = false;
+  var _sel = {};            // { '种类|名字': 1 } —— 用名字做键，条目增删/改名都不会错位
+  var _autoGroup = true;    // 勾选时连带「一整套」（式神 + 它的卡牌/召唤物/关键词）
+  var _collapsed = {};      // 「全部」页签里被收起的式神
+
+  function authorName() { return window._gameNickname || '匿名玩家'; }
+  function selKey(kind, name) { return kind + '|' + String(name == null ? '' : name); }
+  function selOn(kind, name) { return !!_sel[selKey(kind, name)]; }
+  function selCount() { var n = 0; for (var k in _sel) { if (_sel[k]) n++; } return n; }
+  function updateSelInfo() {
+    var el = $('diy-selbar-info');
+    if (el) el.textContent = '已选 ' + selCount() + ' 项';
+  }
+  function enterSelMode() {
+    _selMode = true; _sel = {};
+    var bar = $('diy-selbar'); if (bar) bar.hidden = false;
+    render();
+    showError('☑️ 勾选要分享的条目，再点「导出选中」', true);
+  }
+  function exitSelMode() {
+    _selMode = false; _sel = {};
+    var bar = $('diy-selbar'); if (bar) bar.hidden = true;
+    render();
+    showError('');
+  }
+  function toggleSelKey(k) {
+    if (!k) return;
+    var parts = String(k).split('|');
+    var kind = parts[0];
+    var name = parts.slice(1).join('|');
+    var keys = groupKeysOf(kind, name);
+    var allOn = true;
+    for (var i = 0; i < keys.length; i++) { if (!_sel[keys[i]]) { allOn = false; break; } }
+    keys.forEach(function (x) { if (allOn) delete _sel[x]; else _sel[x] = 1; });
+    updateSelInfo();
+    syncChecks();
+  }
+  function selAll(mode) {
+    var list = $('diy-list-container');
+    if (!list) return;
+    list.querySelectorAll('.diy-item-check').forEach(function (cb) {
+      var k = cb.dataset.key;
+      if (!k) return;
+      if (mode === 'all') _sel[k] = 1;
+      else if (mode === 'invert') { if (_sel[k]) delete _sel[k]; else _sel[k] = 1; }
+      cb.checked = !!_sel[k];
+    });
+    updateSelInfo();
+  }
+
+  /** 某式神名下的一整套（含自己）；无归属的条目就只管自己 */
+  function groupKeysOf(kind, name) {
+    var keys = [selKey(kind, name)];
+    if (!_autoGroup) return keys;
+    var shiName = null;
+    if (kind === 'shikigami') {
+      var s = findUnit('shikigami', name);
+      shiName = (s && s.type === 'summon' && s.owner) ? s.owner : name;
+    } else if (kind === 'card') {
+      var c = findUnit('card', name);
+      if (c) {
+        if (c.type === 'bond' && Array.isArray(c.bondOwners) && c.bondOwners.length) {
+          shiName = c.bondOwners.filter(function (n) { return !!findUnit('shikigami', n); })[0] || null;
+        } else { shiName = c.owner || null; }
+      }
+    } else {
+      var o = findUnit('other', name);
+      shiName = o ? (o.owner || null) : null;
+    }
+    if (!shiName || !findUnit('shikigami', shiName)) return keys;
+    keys.push(selKey('shikigami', shiName));
+    cache.shikigami.forEach(function (s2) {
+      if (s2.type === 'summon' && s2.owner === shiName) keys.push(selKey('shikigami', s2.name));
+    });
+    cache.cards.forEach(function (c2) {
+      var owns = (c2.type === 'bond' && Array.isArray(c2.bondOwners)) ? c2.bondOwners : [c2.owner];
+      if (owns.indexOf(shiName) !== -1) keys.push(selKey('card', c2.name));
+    });
+    cache.others.forEach(function (o2) { if (o2.owner === shiName) keys.push(selKey('other', o2.name)); });
+    return keys;
+  }
+
+  function syncChecks() {
+    var list = $('diy-list-container');
+    if (!list) return;
+    list.querySelectorAll('.diy-item-check').forEach(function (cb) { cb.checked = !!_sel[cb.dataset.key]; });
+  }
+
+  /** 导出：只拿勾选中的那些条目（不再自己推导连带） */
+  function buildExportUnits() {
+    var out = { shikigami: [], cards: [], others: [] };
+    cache.shikigami.forEach(function (s) { if (selOn('shikigami', s.name)) out.shikigami.push(s); });
+    cache.cards.forEach(function (c) { if (selOn('card', c.name)) out.cards.push(c); });
+    cache.others.forEach(function (o) { if (selOn('other', o.name)) out.others.push(o); });
+    return out;
+  }
+
+  function stampDate() {
+    var d = new Date();
+    function p(n) { return (n < 10 ? '0' : '') + n; }
+    return String(d.getFullYear()) + p(d.getMonth() + 1) + p(d.getDate());
+  }
+
+  function downloadText(filename, text) {
+    var blob = new Blob([text], { type: 'application/json;charset=utf-8' });
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(function () { URL.revokeObjectURL(url); a.remove(); }, 1500);
+  }
+
+  function doExport() {
+    var units = buildExportUnits();
+    var total = units.shikigami.length + units.cards.length + units.others.length;
+    if (!total) { showError('还没选内容：先勾选要分享的条目'); return; }
+    var payload = {
+      format: EXPORT_FORMAT,
+      version: EXPORT_VERSION,
+      author: authorName(),
+      exportedAt: new Date().toISOString(),
+      count: total,
+      units: units
+    };
+    var fname = 'bwpemu-DIY-' + String(authorName()).replace(/[\\\/:*?"<>|\s]+/g, '_') + '-' + stampDate() + '.json';
+    try {
+      downloadText(fname, JSON.stringify(payload, null, 2));
+    } catch (e) {
+      showError('导出失败：' + (e && e.message ? e.message : e));
+      return;
+    }
+    showError('已导出 ' + total + ' 项：' + fname, true);
+  }
+
+  // ── 导入 ──
+  var _impItems = [];   // [{ kind, unit, conflictIdx, official }]
+  var _impAuthor = '';
+
+  function localIndex(kind, name) {
+    var arr = kind === 'shikigami' ? cache.shikigami : (kind === 'card' ? cache.cards : cache.others);
+    for (var i = 0; i < arr.length; i++) {
+      if (arr[i] && String(arr[i].name) === String(name)) return i;
+    }
+    return -1;
+  }
+  function uniqueName(kind, base) {
+    var name = base, n = 2;
+    while (localIndex(kind, name) >= 0 && n < 999) { name = base + '(' + n + ')'; n++; }
+    return name;
+  }
+  function isOfficialConflict(kind, unit) {
+    try {
+      if (typeof CardDB === 'undefined') return false;
+      if (kind === 'other') {
+        return (unit.type === 'keyword' && CardDB.lookupKeyword) ? !!CardDB.lookupKeyword(unit.name) : false;
+      }
+      return CardDB.isOfficialName ? !!CardDB.isOfficialName(unit.name) : false;
+    } catch (e) { return false; }
+  }
+
+  function startImport() {
+    var f = $('diy-import-file');
+    if (!f) return;
+    f.value = '';
+    f.click();
+  }
+
+  function onImportFile(input) {
+    var file = input && input.files && input.files[0];
+    if (!file) return;
+    var reader = new FileReader();
+    reader.onload = function () {
+      var data = null;
+      try { data = JSON.parse(String(reader.result)); }
+      catch (e) { showError('这个文件不是有效的 DIY 文件（JSON 解析失败）'); return; }
+      var parsed = parseImport(data);
+      if (parsed.error) { showError(parsed.error); return; }
+      openImportModal(parsed);
+    };
+    reader.onerror = function () { showError('读取文件失败，请重试'); };
+    reader.readAsText(file, 'utf-8');
+  }
+
+  function parseImport(data) {
+    if (!data || typeof data !== 'object') return { error: '文件内容为空' };
+    if (data.format !== EXPORT_FORMAT) return { error: '这不是本模拟器导出的 DIY 文件' };
+    var u = data.units || {};
+    function clean(arr) {
+      var out = [];
+      (Array.isArray(arr) ? arr : []).forEach(function (x) {
+        if (x && typeof x === 'object' && String(x.name == null ? '' : x.name).trim()) out.push(x);
+      });
+      return out;
+    }
+    var units = { shikigami: clean(u.shikigami), cards: clean(u.cards), others: clean(u.others) };
+    var total = units.shikigami.length + units.cards.length + units.others.length;
+    if (!total) return { error: '文件里没有可导入的内容' };
+    if (total > MAX_UNITS) return { error: '文件内容过多（' + total + ' 项，单个卡库上限 ' + MAX_UNITS + ' 项）' };
+    return { author: String(data.author == null ? '' : data.author).trim(), units: units };
+  }
+
+  function impRuleOf(it) {
+    var sel = document.querySelector('.diy-imp-rule[data-id="' + it._id + '"]');
+    return sel ? sel.value : 'keep';
+  }
+
+  function openImportModal(parsed) {
+    _impItems = [];
+    _impAuthor = parsed.author;
+    var kindLabel = { shikigami: '式神', card: '卡牌', other: '关键词/灵咒' };
+    ['shikigami', 'card', 'other'].forEach(function (kind) {
+      var arr = kind === 'shikigami' ? parsed.units.shikigami : (kind === 'card' ? parsed.units.cards : parsed.units.others);
+      arr.forEach(function (unit) {
+        _impItems.push({ kind: kind, unit: unit, conflictIdx: localIndex(kind, unit.name), official: isOfficialConflict(kind, unit), _id: _impItems.length });
+      });
+    });
+    var importedShiNames = {};
+    parsed.units.shikigami.forEach(function (s) { importedShiNames[s.name] = 1; });
+
+    var rowsHTML = _impItems.map(function (it) {
+      var state = '';
+      if (it.official) {
+        state = '<span class="diy-imp-state diy-imp-state--bad">与官方同名，不能导入</span>';
+      } else if (it.conflictIdx >= 0) {
+        state = '<span class="diy-imp-state diy-imp-state--warn">你库里已有同名</span>' +
+          '<select class="diy-imp-rule" data-id="' + it._id + '">' +
+          '<option value="keep">保留本地</option>' +
+          '<option value="over">用导入的覆盖</option>' +
+          '<option value="dup">两份都留（改名）</option>' +
+          '</select>';
+      } else {
+        state = '<span class="diy-imp-state diy-imp-state--ok">新增</span>';
+      }
+      var warn = '';
+      var owner = it.unit.owner;
+      if (owner && String(owner) !== '' && localIndex('shikigami', owner) < 0 && !importedShiNames[owner]) {
+        warn = '<div class="diy-imp-warn">所属式神「' + esc(owner) + '」不在你的卡库 → 会先放在「无归属」区</div>';
+      }
+      return '<label class="diy-imp-row' + (it.official ? ' diy-imp-row--off' : '') + '">' +
+        '<input type="checkbox" class="diy-imp-check" data-id="' + it._id + '"' + (it.official ? ' disabled' : ' checked') + '>' +
+        '<span class="diy-tag">' + kindLabel[it.kind] + '</span>' +
+        '<span class="diy-imp-name">' + esc(it.unit.name) + '</span>' +
+        state + warn +
+        '</label>';
+    }).join('');
+
+    var cur = cache.shikigami.length + cache.cards.length + cache.others.length;
+    var body = '<div class="diy-imp-head">来自 <b>' + esc(_impAuthor || '未知玩家') + '</b> 的分享：' +
+      parsed.units.shikigami.length + ' 个式神/召唤物、' + parsed.units.cards.length + ' 张卡牌、' + parsed.units.others.length + ' 个关键词/灵咒<br>' +
+      '你当前卡库：' + cur + ' / ' + MAX_UNITS + ' 项</div>' +
+      '<div class="diy-imp-global">遇到重名时：' +
+      '<select id="diy-imp-global"><option value="keep">保留本地（跳过）</option><option value="over">用导入的覆盖</option><option value="dup">两份都留（自动改名）</option></select>' +
+      '<button type="button" class="diy-btn" id="diy-imp-all">全选</button>' +
+      '<button type="button" class="diy-btn" id="diy-imp-none">全不选</button></div>' +
+      '<div class="diy-imp-list">' + rowsHTML + '</div>' +
+      '<div class="diy-imp-note">导入只改这个页面，点「保存」才写入服务器（不保存 = 不生效）。</div>';
+
+    var m = openModal('📥 导入 DIY（预览）', body);
+    var box = m.ov.querySelector('.diy-modal');
+    if (box) box.classList.add('diy-modal-wide');
+    var okBtn = m.ov.querySelector('#diy-modal-ok');
+    if (okBtn) okBtn.textContent = '确认导入';
+
+    var globalSel = m.ov.querySelector('#diy-imp-global');
+    if (globalSel) {
+      globalSel.addEventListener('change', function () {
+        m.ov.querySelectorAll('.diy-imp-rule').forEach(function (s) { s.value = globalSel.value; });
+      });
+    }
+    var allBtn = m.ov.querySelector('#diy-imp-all');
+    if (allBtn) allBtn.addEventListener('click', function () {
+      m.ov.querySelectorAll('.diy-imp-check').forEach(function (cb) { if (!cb.disabled) cb.checked = true; });
+    });
+    var noneBtn = m.ov.querySelector('#diy-imp-none');
+    if (noneBtn) noneBtn.addEventListener('click', function () {
+      m.ov.querySelectorAll('.diy-imp-check').forEach(function (cb) { cb.checked = false; });
+    });
+
+    m.onOk(function () {
+      var picked = [];
+      m.ov.querySelectorAll('.diy-imp-check').forEach(function (cb) {
+        if (cb.checked && !cb.disabled) picked.push(_impItems[parseInt(cb.dataset.id, 10)]);
+      });
+      if (!picked.length) { m.err.textContent = '没有勾选任何条目'; return; }
+      var grow = 0;
+      picked.forEach(function (it) {
+        var r = it.conflictIdx < 0 ? 'new' : impRuleOf(it);
+        if (r === 'new' || r === 'dup') grow++;
+      });
+      var cur = cache.shikigami.length + cache.cards.length + cache.others.length;
+      if (cur + grow > MAX_UNITS) {
+        m.err.textContent = '超出容量：还能再放 ' + (MAX_UNITS - cur) + ' 项，请少勾选一些';
+        return;
+      }
+      var res = applyImport(picked, _impAuthor);
+      m.ov.remove();
+      render();
+      showError('导入完成：新增 ' + res.added + '、覆盖 ' + res.over + '、跳过 ' + res.skip + ' 项。点「保存」后生效', true);
+    });
+  }
+
+  /** 合并进本地 cache；「两份都留」会改名，并同步修正归属关系 */
+  function applyImport(picked, author) {
+    var renameMap = {};   // 旧式神名 → 新名
+    var added = 0, over = 0, skip = 0;
+    function arrOf(kind) { return kind === 'shikigami' ? cache.shikigami : (kind === 'card' ? cache.cards : cache.others); }
+    function stamp(unit) {
+      var o = {};
+      for (var k in unit) { if (Object.prototype.hasOwnProperty.call(unit, k)) o[k] = unit[k]; }
+      if (author) o.author = author;
+      return o;
+    }
+    function fixRefs(unit) {
+      var o = unit;
+      if (o.owner && renameMap[o.owner]) { o = stamp(o); o.owner = renameMap[o.owner]; }
+      if (Array.isArray(o.bondOwners)) {
+        var changed = false;
+        var bo = o.bondOwners.map(function (n) { if (renameMap[n]) { changed = true; return renameMap[n]; } return n; });
+        if (changed) { o = stamp(o); o.bondOwners = bo; }
+      }
+      return o;
+    }
+    function process(kind, unit) {
+      var idx = localIndex(kind, unit.name);
+      var copy = stamp(fixRefs(unit));
+      if (idx < 0) { arrOf(kind).push(copy); added++; return; }
+      var rule = 'keep';
+      for (var i = 0; i < picked.length; i++) {
+        if (picked[i].unit === unit) { rule = impRuleOf(picked[i]); break; }
+      }
+      if (rule === 'keep') { skip++; return; }
+      if (rule === 'over') { arrOf(kind)[idx] = copy; over++; return; }
+      var nn = uniqueName(kind, unit.name);
+      copy.name = nn;
+      if (kind === 'shikigami') renameMap[unit.name] = nn;
+      arrOf(kind).push(copy);
+      added++;
+    }
+    picked.filter(function (it) { return it.kind === 'shikigami'; }).forEach(function (it) { process('shikigami', it.unit); });
+    picked.filter(function (it) { return it.kind === 'card'; }).forEach(function (it) { process('card', it.unit); });
+    picked.filter(function (it) { return it.kind === 'other'; }).forEach(function (it) { process('other', it.unit); });
+    return { added: added, over: over, skip: skip };
+  }
+
   // ═══════════════ 事件绑定 ═══════════════
   function bindEvents() {
     var addShi = $('diy-add-shikigami-btn');
@@ -778,6 +1163,26 @@ var MyLib = (function () {
     if (addShi) addShi.addEventListener('click', function () { openShikigamiEdit(-1); });
     if (addCard) addCard.addEventListener('click', function () { openCardEdit(-1); });
     if (addOther) addOther.addEventListener('click', function () { openOtherEdit(-1); });
+
+    // ── 导出 / 导入 ──
+    var exportBtn = $('diy-export-btn');
+    if (exportBtn) exportBtn.addEventListener('click', function () {
+      if (_selMode) exitSelMode(); else enterSelMode();   // 再点一次 = 关闭导出（多选）窗口
+    });
+    var importBtn = $('diy-import-btn');
+    if (importBtn) importBtn.addEventListener('click', startImport);
+    var importFile = $('diy-import-file');
+    if (importFile) importFile.addEventListener('change', function () { onImportFile(importFile); });
+    var selAllBtn = $('diy-sel-all');
+    if (selAllBtn) selAllBtn.addEventListener('click', function () { selAll('all'); });
+    var selInvertBtn = $('diy-sel-invert');
+    if (selInvertBtn) selInvertBtn.addEventListener('click', function () { selAll('invert'); });
+    var selDoBtn = $('diy-sel-do');
+    if (selDoBtn) selDoBtn.addEventListener('click', doExport);
+    var selCancelBtn = $('diy-sel-cancel');
+    if (selCancelBtn) selCancelBtn.addEventListener('click', exitSelMode);
+    var withChildren = $('diy-sel-withchildren');
+    if (withChildren) withChildren.addEventListener('change', function () { _autoGroup = !!withChildren.checked; });
 
     var tabs = $('diy-tabs');
     if (tabs) {
@@ -801,6 +1206,10 @@ var MyLib = (function () {
     var list = $('diy-list-container');
     if (list) {
       list.addEventListener('click', function (e) {
+        var cb = e.target.closest ? e.target.closest('.diy-item-check') : null;
+        if (cb) { toggleSelKey(cb.dataset.key); return; }
+        var tg = e.target.closest ? e.target.closest('.diy-toggle') : null;
+        if (tg) { toggleGroup(tg.dataset.toggle); return; }
         var btn = e.target.closest('.diy-btn');
         if (btn) {
           var kind = btn.dataset.kind;

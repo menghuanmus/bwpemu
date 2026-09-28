@@ -13,21 +13,42 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 90;                  /* 在卡图之上、各徽章（z-index 100）之下 */
+  z-index: 1;                    /* 只高于卡图，但比其它特效（z-index:auto）高一层 */
   pointer-events: none;
   font-size: 38px;
   line-height: 1;
   user-select: none;
-  /* 颜色疃淡一点（浅蓝），亮色卡图上也能看清：提亮 + 降他和 + 描黑边 + 淡蓝光晕 */
-  filter: brightness(1.28) saturate(0.5) drop-shadow(0 0 2px rgba(0, 0, 0, 0.2)) drop-shadow(0 0 5px rgba(150, 210, 255, 0.85));
-  /* 逆时针旋转 */
+  /* 逆时针旋转（缩放/淡入淡出交给内层 glyph，两个动画互不抢 transform） */
   animation: stun-fx-spin 1.6s linear infinite reverse;
+}
+
+.stun-fx__glyph {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  /* 颜色浅一点（浅蓝），亮色卡图上也能看清：提亮 + 降他和 + 淡蓝光晕 */
+  filter: brightness(1.28) saturate(0.5) drop-shadow(0 0 2px rgba(0, 0, 0, 0.2)) drop-shadow(0 0 5px rgba(150, 210, 255, 0.85));
 }
 
 @keyframes stun-fx-spin {
   from { transform: rotate(0deg); }
   to   { transform: rotate(360deg); }
 }
+
+/* 入场：半透明 + 1.5 倍 → 不透明 1 倍 */
+@keyframes stun-fx-enter {
+  from { opacity: 0.25; transform: scale(1.5); }
+  to   { opacity: 1;    transform: scale(1); }
+}
+/* 离场：反着来（不透明 1 倍 → 全透明 1.5 倍） */
+@keyframes stun-fx-exit {
+  from { opacity: 1; transform: scale(1); }
+  to   { opacity: 0; transform: scale(1.5); }
+}
+.stun-fx--enter .stun-fx__glyph { animation: stun-fx-enter 340ms ease-out both; }
+.stun-fx--exit  .stun-fx__glyph { animation: stun-fx-exit  300ms ease-in  both; }
 
 /* 牌手（头像左上角外侧）：挂到 .player-avatar-name-row 上 */
 .stun-fx--avatar {
@@ -40,6 +61,266 @@
 
 /* 空槽不显示（与其它徽章一致） */
 .card-slot:not(.has-image) .stun-fx { display: none; }
+
+/* ================================================================
+   状态特效：不屈（冒金光） / 屏障（金色椭圆护罩） / 帷幕（七彩流光）
+   判定同样看「效果记录」里的来源，样式在这里
+   ================================================================ */
+
+/* ── 不屈：卡边一圈金色发光（金色描边 + 向外扩散的光晕 + 往卡内渗的金光） ── */
+.fx-aura {
+  position: absolute;
+  inset: -2px;
+  border-radius: 14px;
+  pointer-events: none;
+  z-index: auto;                /* 不抬层级：靠 DOM（插在卡图之后）决定——总共只在卡图之上、其它元素之下 */
+  border: 2px solid rgba(255, 228, 145, 0.95);
+  box-shadow:
+    0 0 8px 1px rgba(255, 214, 110, 0.85),
+    0 0 18px 4px rgba(255, 190, 60, 0.55),
+    0 0 34px 10px rgba(255, 165, 30, 0.28),
+    inset 0 0 12px 2px rgba(255, 205, 90, 0.45);
+  animation: fx-aura-glow 2.4s ease-in-out infinite;
+}
+.fx-aura::before {                /* 卡顶以上的弧形金边（参考图那种「拱形 + 下层奶油色带」） */
+  content: '';
+  position: absolute;
+  left: -2px;
+  right: -2px;
+  top: -11px;
+  height: 22px;
+  border-radius: 50% 50% 0 0 / 100% 100% 0 0;
+  border: 2.5px solid rgba(255, 232, 155, 0.95);
+  border-bottom: none;
+  background: linear-gradient(180deg,
+    rgba(255, 245, 205, 0.42) 0%, rgba(255, 232, 160, 0.20) 55%, rgba(255, 215, 120, 0) 100%);
+  box-shadow: 0 -3px 12px rgba(255, 205, 90, 0.6), 0 -1px 4px rgba(255, 238, 170, 0.9);
+}
+/* 卡内浅淡的金色弧形：上半两条上弯（大圆的顶边）、下半两条下弯（大圆的底边） */
+.fx-aura__arcs {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  overflow: hidden;              /* 把弧形裁在卡内 */
+  pointer-events: none;
+}
+.fx-aura__arc {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  border-radius: 50%;
+  border: 2px solid rgba(255, 245, 205, 0.6);                                         /* 亮度 60% */
+  box-shadow: 0 0 12px rgba(255, 214, 110, 0.55), 0 0 24px rgba(255, 196, 70, 0.33);
+}
+.fx-aura__arc--t1 { top: 7%;    width: 280%; height: 200%; }
+.fx-aura__arc--t2 { top: 25%;   width: 340%; height: 240%; border-color: rgba(255, 232, 165, 0.6); }
+.fx-aura__arc--b1 { bottom: 7%;  width: 280%; height: 200%; }
+.fx-aura__arc--b2 { bottom: 25%; width: 340%; height: 240%; border-color: rgba(255, 232, 165, 0.6); }
+
+.fx-aura::after {                /* 上/下缘的一层金属光，让金边更立体 */
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: linear-gradient(180deg,
+    rgba(255, 242, 195, 0.22) 0%, rgba(255, 205, 95, 0) 32%,
+    rgba(255, 205, 95, 0) 68%, rgba(255, 230, 160, 0.16) 100%);
+}
+@keyframes fx-aura-glow {
+  0%, 100% {
+    box-shadow:
+      0 0 7px 1px rgba(255, 214, 110, 0.75),
+      0 0 16px 3px rgba(255, 190, 60, 0.45),
+      0 0 30px 8px rgba(255, 165, 30, 0.22),
+      inset 0 0 10px 2px rgba(255, 205, 90, 0.38);
+  }
+  50% {
+    box-shadow:
+      0 0 10px 2px rgba(255, 228, 145, 0.95),
+      0 0 22px 6px rgba(255, 198, 66, 0.65),
+      0 0 42px 13px rgba(255, 172, 40, 0.34),
+      inset 0 0 16px 4px rgba(255, 218, 115, 0.55);
+  }
+}
+
+/* ── 屏障：浅蓝色椭圆护罩（比卡大 25%，罩内淡蓝约 40%，缓慢呼吸） ── */
+.fx-shield {
+  position: absolute;
+  inset: -11%;                   /* 四周各外扩 11%（加上 2px 边框 ≈ 整体比卡大 25%） */
+  border-radius: 50%;
+  pointer-events: none;
+  z-index: auto;                 /* 同上：只高于卡图 */
+  border: 2px solid rgba(150, 222, 255, 0.9);
+  background: radial-gradient(ellipse at 50% 45%,
+    rgba(175, 228, 255, 0.34) 0%, rgba(140, 205, 255, 0.40) 62%, rgba(120, 190, 250, 0.44) 100%);
+  animation: fx-shield-breathe 2.4s ease-in-out infinite;
+}
+@keyframes fx-shield-breathe {
+  0%, 100% { transform: scale(0.985); box-shadow: 0 0 14px rgba(140, 210, 255, 0.45), inset 0 0 18px rgba(150, 215, 255, 0.35); }
+  50%      { transform: scale(1.012); box-shadow: 0 0 26px rgba(160, 225, 255, 0.75), inset 0 0 28px rgba(170, 230, 255, 0.55); }
+}
+
+/* ── 帷幕：七彩流光旋转扫过卡面（无缝，不会看到矩形边缘线） ── */
+.fx-veil {
+  position: absolute;
+  inset: 0;
+  border-radius: 12px;
+  overflow: hidden;              /* 把旋转的彩虹带裁在卡内 */
+  pointer-events: none;
+  z-index: auto;                 /* 只高于卡图 */
+  mix-blend-mode: screen;
+  opacity: 0.8;
+  /* 散发紫光：贴着卡边的亮紫 + 向外扩散的紫韵 + 往卡内渗的淡紫 */
+  box-shadow:
+    0 0 10px 2px rgba(186, 130, 255, 0.6),
+    0 0 22px 6px rgba(150, 90, 255, 0.4),
+    0 0 38px 12px rgba(130, 70, 240, 0.22),
+    inset 0 0 14px 2px rgba(190, 140, 255, 0.35);
+  animation: fx-veil-glow 2.6s ease-in-out infinite;
+}
+@keyframes fx-veil-glow {
+  0%, 100% {
+    box-shadow:
+      0 0 9px 2px rgba(186, 130, 255, 0.5),
+      0 0 20px 5px rgba(150, 90, 255, 0.32),
+      0 0 34px 10px rgba(130, 70, 240, 0.18),
+      inset 0 0 12px 2px rgba(190, 140, 255, 0.3);
+  }
+  50% {
+    box-shadow:
+      0 0 13px 3px rgba(198, 150, 255, 0.75),
+      0 0 28px 8px rgba(158, 100, 255, 0.5),
+      0 0 46px 15px rgba(135, 75, 245, 0.28),
+      inset 0 0 18px 4px rgba(198, 152, 255, 0.45);
+  }
+}
+.fx-veil::before {              /* 超大彩虹带，绕卡心旋转 */
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 320%;
+  height: 320%;
+  transform: translate(-50%, -50%);
+  background: linear-gradient(90deg,
+    rgba(255, 255, 255, 0) 0%, rgba(255, 120, 120, 0.75) 12%, rgba(255, 220, 120, 0.83) 26%,
+    rgba(130, 255, 185, 0.83) 40%, rgba(125, 200, 255, 0.83) 54%, rgba(205, 130, 255, 0.75) 68%,
+    rgba(255, 255, 255, 0) 82%, rgba(255, 255, 255, 0) 100%);
+  animation: fx-veil-spin 7s linear infinite;
+}
+@keyframes fx-veil-spin {
+  from { transform: translate(-50%, -50%) rotate(0deg); }
+  to   { transform: translate(-50%, -50%) rotate(360deg); }
+}
+
+/* 三种特效的入场 / 离场：渐显放大一点点 ↔ 渐隐放大一点点 */
+@keyframes fx-fade-in  { from { opacity: 0; transform: scale(1.07); } to { opacity: 1; transform: scale(1); } }
+@keyframes fx-fade-out { from { opacity: 1; transform: scale(1); } to { opacity: 0; transform: scale(1.07); } }
+.fx-aura--enter   { animation: fx-aura-glow 2.4s ease-in-out infinite, fx-fade-in 440ms ease-out both; }
+.fx-shield--enter { animation: fx-shield-breathe 2.4s ease-in-out infinite, fx-fade-in 400ms ease-out both; }
+.fx-veil--enter   { animation: fx-veil-glow 2.6s ease-in-out infinite, fx-fade-in 520ms ease-out both; }
+.fx-aura--exit    { animation: fx-fade-out 320ms ease-in both; }
+.fx-shield--exit  { animation: fx-fade-out 300ms ease-in both; }
+.fx-veil--exit    { animation: fx-fade-out 360ms ease-in both; }
+
+/* 空槽不显示 */
+.card-slot:not(.has-image) .fx-aura,
+.card-slot:not(.has-image) .fx-shield,
+.card-slot:not(.has-image) .fx-veil { display: none; }
+
+/* ── 庇佑：卡槽底部一朵金黑色莲花底座托着式神 ── */
+.fx-lotus {
+  position: absolute;
+  left: 50%;
+  bottom: 15px;                  /* 名字栏（卡底往上约 13px）再往上 1px */
+  width: 100%;                   /* 铺满整个式神槽宽度 */
+  height: 40px;
+  transform: translateX(-50%);
+  pointer-events: none;
+  z-index: auto;                 /* 只高于卡图 */
+  animation: fx-lotus-breathe 2.8s ease-in-out infinite;
+}
+.fx-lotus__petal {               /* 花瓣：窄长水滴形（顶部收尖、底部圆润），底部为旋转中心，向两侧扇开 */
+  position: absolute;
+  left: 50%;
+  bottom: 0;
+  width: 16%;                    /* 收窄：各瓣之间留出可见间隙，不再糊成一团 */
+  height: 100%;
+  transform-origin: 50% 100%;
+  border-radius: 50% 50% 50% 50% / 85% 85% 15% 15%;
+  background: linear-gradient(180deg,
+    rgba(255, 230, 150, 0.95) 0%, rgba(196, 148, 46, 0.95) 38%,
+    rgba(72, 50, 14, 0.96) 72%, rgba(20, 13, 4, 0.98) 100%);
+  border: 1px solid rgba(255, 214, 120, 0.7);
+  box-shadow: inset 0 -3px 6px rgba(0, 0, 0, 0.55), 0 0 7px rgba(255, 205, 90, 0.35);
+}
+/* 中间：一片立起的大水滴；两侧：逐级向外铺开、角度逐渐变平（0→±28→±56→±84°） */
+.fx-lotus__petal--1 { transform: translateX(-50%) rotate(-84deg); height: 78%; }
+.fx-lotus__petal--2 { transform: translateX(-50%) rotate(-56deg); height: 88%; }
+.fx-lotus__petal--3 { transform: translateX(-50%) rotate(-28deg); height: 96%; }
+.fx-lotus__petal--4 { transform: translateX(-50%) rotate(0deg);   height: 100%; width: 22%; }
+.fx-lotus__petal--5 { transform: translateX(-50%) rotate(28deg);  height: 96%; }
+.fx-lotus__petal--6 { transform: translateX(-50%) rotate(56deg);  height: 88%; }
+.fx-lotus__petal--7 { transform: translateX(-50%) rotate(84deg);  height: 78%; }
+.fx-lotus__side {                /* 两侧的暗金花瓣（枝）：从莲花基部沿牌框向上延伸 */
+  position: absolute;
+  bottom: calc(4% - 5px);        /* 整体下移 5px */
+  width: 15%;
+  transform-origin: 50% 100%;
+  border-radius: 50% 50% 45% 45% / 82% 82% 18% 18%;
+  background: linear-gradient(180deg,
+    rgba(88, 62, 18, 0.92) 0%, rgba(34, 24, 8, 0.96) 32%, rgba(12, 8, 3, 0.98) 100%);
+  border: 1px solid rgba(255, 205, 100, 0.42);
+  box-shadow: inset 0 -4px 8px rgba(0, 0, 0, 0.6), 0 0 5px rgba(255, 200, 90, 0.22);
+}
+.fx-lotus__side--l1 { left: -1%;   height: 250%; transform: rotate(-7deg); }
+.fx-lotus__side--l2 { left: 11%;   height: 178%; transform: rotate(-15deg); }
+.fx-lotus__side--r1 { right: -1%;  height: 250%; transform: rotate(7deg); }
+.fx-lotus__side--r2 { right: 11%;  height: 178%; transform: rotate(15deg); }
+
+.fx-lotus__core {                /* 花心：暗金色圆珠 */
+  position: absolute;
+  left: 50%;
+  bottom: 1px;
+  width: 14%;
+  height: 24%;
+  transform: translateX(-50%);
+  border-radius: 50%;
+  background: radial-gradient(circle at 50% 38%, #ffeab0 0%, #c99a2c 55%, #2b1d07 100%);
+  box-shadow: 0 0 8px rgba(255, 210, 100, 0.85);
+}
+.fx-lotus::after {               /* 莲花底下的金色光晕 */
+  content: '';
+  position: absolute;
+  left: 50%;
+  bottom: -6px;
+  width: 128%;
+  height: 74%;
+  transform: translateX(-50%);
+  background: radial-gradient(ellipse at 50% 70%, rgba(255, 214, 110, 0.5) 0%, rgba(255, 200, 80, 0.18) 45%, rgba(255, 200, 80, 0) 75%);
+  animation: fx-lotus-glow 2.8s ease-in-out infinite;
+}
+@keyframes fx-lotus-breathe {
+  0%, 100% { transform: translateX(-50%) scale(0.985); }
+  50%      { transform: translateX(-50%) scale(1.03); }
+}
+@keyframes fx-lotus-glow {
+  0%, 100% { opacity: 0.75; }
+  50%      { opacity: 1; }
+}
+@keyframes fx-lotus-in {
+  from { opacity: 0; transform: translateX(-50%) translateY(9px) scale(0.85); }
+  to   { opacity: 1; transform: translateX(-50%) translateY(0) scale(1); }
+}
+@keyframes fx-lotus-out {
+  from { opacity: 1; transform: translateX(-50%) translateY(0) scale(1); }
+  to   { opacity: 0; transform: translateX(-50%) translateY(9px) scale(0.85); }
+}
+.fx-lotus--enter { animation: fx-lotus-breathe 2.8s ease-in-out infinite, fx-lotus-in 460ms ease-out both; }
+.fx-lotus--exit  { animation: fx-lotus-out 340ms ease-in both; }
+
+/* 空槽不显示 */
+.card-slot:not(.has-image) .fx-lotus { display: none; }
 
 /* ---------------- 手机端：跟着徽章一起缩小 ---------------- */
 @media (max-width: 768px) {
@@ -57,4 +338,15 @@
     height: 22px;
     font-size: 18px;
   }
+  /* 卡更小 → 三种特效的尺寸/模糊也等比收一点，别糊成一团 */
+  .fx-aura { inset: -1px; border-radius: 10px; border-width: 1.5px; }
+  .fx-aura::before { left: -1px; right: -1px; top: -7px; height: 14px; border-width: 1.6px; }
+  .fx-aura__arc--b1, .fx-aura__arc--b2 { display: none; }   /* 手机端下半部不显示弧线（下面几排是名字/形态/蓄力/灵咒/化身） */
+  /* 护罩在手机端压到下面几排（名字/形态/蓄力/灵咒/化身）之下；整体上移 5px、高度矮一点 */
+  .fx-shield { inset: calc(4% - 5px) -10% calc(4% + 5px); }
+  /* 庇佑莲花：手机端名字栏上方 1px，宽度铺满，高度小一点 */
+  .fx-lotus { width: 100%; height: 28px; bottom: calc(var(--info-h) + 1px); }
+  .fx-lotus__side--l1, .fx-lotus__side--r1 { height: 210%; }
+  .fx-lotus__side--l2, .fx-lotus__side--r2 { height: 150%; }
+  .fx-veil { border-radius: 10px; }
 }

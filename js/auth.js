@@ -253,26 +253,76 @@
     _doLobbyJoin(window._pendingJoinCode, window._pendingJoinSpec, pw);
   };
 
+  // ── 进入房间的加载遮罩 ──
+  //  观众/玩家进房间时要收一份完整对局存档，内容多时界面会卡好几秒没有反应；
+  //  点击瞬间先把「空房间」切出来、遮罩压在上面（复用 #auth-loading），铺完数据再关掉。
+  var _enterTimers = [];
+  function _clearEnterTimers() {
+    _enterTimers.forEach(function(t) { clearTimeout(t); });
+    _enterTimers = [];
+  }
+  /** 先把游戏界面亮出来（此时板上什么都没有），遮罩盖在上面 */
+  function preEnterRoomView() {
+    showView(GAME_VIEW);
+    ROOM_OVERLAY.hidden = true;
+    ROOM_HOME.hidden = true;
+    ROOM_WAITING.hidden = true;
+    var joining = $('room-joining');
+    if (joining) joining.hidden = true;
+  }
+  function showEnterLoading() {
+    _clearEnterTimers();
+    showLoading('正在加载房间…');
+    _enterTimers.push(setTimeout(function() { showLoading('房间内容较多，正在加载…'); }, 5000));
+    _enterTimers.push(setTimeout(function() {
+      _clearEnterTimers();
+      hideLoading();
+      showLobby(window._gameNickname || '');   // 超时：退回大厅，别把人晾在空房间里
+      var e = $('lobby-error');
+      if (e) e.textContent = '加载超时，请重试';
+    }, 15000));
+  }
+  function hideEnterLoading() {
+    _clearEnterTimers();
+    hideLoading();
+  }
+
   function _doLobbyJoin(code, asSpec, password) {
     var evt = asSpec ? 'spectate-room' : 'join-room';
+    preEnterRoomView();
+    showEnterLoading();
     socket.emit(evt, { room: code, password: password }, function(res) {
       setBtn($('lobby-join-btn'), false);
-      if (!res) { $('lobby-error').textContent = '服务端无响应'; return; }
-      if (res.error) { $('lobby-error').textContent = res.error; return; }
+      if (!res) {
+        hideEnterLoading(); showLobby(window._gameNickname || '');
+        $('lobby-error').textContent = '服务端无响应';
+        return;
+      }
+      if (res.error) {
+        hideEnterLoading(); showLobby(window._gameNickname || '');
+        $('lobby-error').textContent = res.error;
+        return;
+      }
       if (asSpec && res.spectating) {
         if (res.state && typeof applyFullState === 'function') applyFullState(res.state);
-        enterGame(res); return;
+        enterGame(res);
+        hideEnterLoading(); return;
       }
       if (res.solo) {
         if (res.state && typeof applyFullState === 'function') applyFullState(res.state);
         enterGame(res);
+        hideEnterLoading();
         return;
       }
       if (res.roomStatus === 'waiting' || res.roomStatus === 'ready') {
         showReadyRoom(res);
+        hideEnterLoading();
       } else if (res.joined) {
         if (res.state && typeof applyFullState === 'function') applyFullState(res.state);
         enterGame(res);
+        hideEnterLoading();
+      } else {
+        hideEnterLoading();
       }
     });
   }

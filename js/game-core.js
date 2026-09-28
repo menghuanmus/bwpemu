@@ -922,6 +922,16 @@
         badge.addEventListener('click', (e) => { e.stopPropagation(); openCursePanel(_curseTargetForSlot(slot)); });
         container.appendChild(badge);
       });
+      // 超过 5 条：电脑端最多只放 5 格，第 5 格换成「＋N」（手机端灵咒是横排可滑动的，CSS 里不隐藏）
+      if (curses.length > 5) {
+        container.classList.add('is-folded');
+        const more = document.createElement('span');
+        more.className = 'curse-more';
+        more.textContent = '＋' + (curses.length - 4);
+        more.title = '还有 ' + (curses.length - 4) + ' 条灵咒，点击查看全部';
+        more.addEventListener('click', (e) => { e.stopPropagation(); openCursePanel(_curseTargetForSlot(slot)); });
+        container.appendChild(more);
+      }
       slot.appendChild(container);
     }
 
@@ -1067,7 +1077,8 @@
 
     function isInteractiveTarget(el) {
       // .incarn-row（手机端化身那一排）：要能点、能左右滑动，不能被拖拽/指针捕获抢走
-      return el.closest('.card-badge, input, label, button, .charge-indicator, .incarn-row');
+      // .curse-badge / .curse-more（灵咒徽章与「＋N」）：要能点开灵咒面板
+      return el.closest('.card-badge, input, label, button, .charge-indicator, .incarn-row, .curse-badge, .curse-more');
     }
 
     /** 判断点击坐标是否落在卡图区域内（card-art 有 pointer-events:none，不能用 closest 判断） */
@@ -1092,7 +1103,7 @@
       document.querySelectorAll('.card-slot').forEach(slot => {
         slot.addEventListener('pointerdown', (e) => {
           if (typeof isSpectator !== 'undefined' && isSpectator) return;
-          if (e.button !== 0 || isInteractiveTarget(e.target) || e.target.closest('.curse-badge')) return;
+          if (e.button !== 0 || isInteractiveTarget(e.target)) return;
           pointerOrigin = { x: e.clientX, y: e.clientY, slot };
           slot.setPointerCapture(e.pointerId);
         });
@@ -1132,7 +1143,7 @@
           } else if (e.target.closest('.card-form-badge')) {
             // 点击形态标签 → 打开式神管理
             if (typeof BonusPanel !== 'undefined') BonusPanel.open(slot);
-          } else if (!isInteractiveTarget(e.target) && _pointInCardArt(slot, e.clientX, e.clientY) && !isTargeting && !slot.querySelector('.ko-overlay') && !e.target.closest('.curse-badge')) {
+          } else if (!isInteractiveTarget(e.target) && _pointInCardArt(slot, e.clientX, e.clientY) && !isTargeting && !slot.querySelector('.ko-overlay')) {
             // 只有点击卡图区域才触发上传（信息栏等其他区域不触发）；没有卡图时点击上传，有卡图时不响应
             if ((typeof isSpectator === 'undefined' || !isSpectator) && !slot.classList.contains('has-image')) {
               openImagePicker(slot);

@@ -21,6 +21,12 @@
     function _hpIconHTML() {
       return '<img src="images/属性/生命.png" alt="命" style="width:15px;height:15px;vertical-align:middle;margin:0 2px;image-rendering:auto;">';
     }
+    function _shieldIconHTML() {
+      return '<img src="images/属性/护甲.png" alt="甲" style="width:15px;height:15px;vertical-align:middle;margin:0 2px;image-rendering:auto;">';
+    }
+    function _breakShieldIconHTML() {
+      return '<img src="images/属性/破甲.png" alt="破甲" style="width:15px;height:15px;vertical-align:middle;margin:0 2px;image-rendering:auto;">';
+    }
     function _factionIconHTML(faction) {
       if (faction === '无相') return '🌐';
       return `<img src="images/派系/${faction}.png" alt="${faction}" style="width:20px;height:20px;vertical-align:middle;margin-right:2px;image-rendering:auto;">`;
@@ -577,7 +583,8 @@
         case 'battle':
         case 'bond':
           if (card.atkBonus > 0) statsHTML += `<span>${_atkIconHTML()}+${card.atkBonus}</span>`;
-          if (card.shieldBonus > 0) statsHTML += `<span>🛡 +${card.shieldBonus}</span>`;
+          if (card.shieldBonus > 0) statsHTML += `<span>${_shieldIconHTML()}+${card.shieldBonus}</span>`;
+          else if (card.shieldBonus < 0) statsHTML += `<span>${_breakShieldIconHTML()}${card.shieldBonus}</span>`;
           break;
         case 'form':
           statsHTML += `<span>${_atkIconHTML()}${card.attack}</span>`;

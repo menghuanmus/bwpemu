@@ -102,7 +102,7 @@
       /** 交互控件：按钮/输入框/徽章等，点击它们绝不触发长按浮窗 */
       function _isControl(target) {
         if (!target || !target.closest) return false;
-        return !!target.closest('input, textarea, select, button, .card-form-badge, .curse-badge, .charge-indicator, .incarn-row, .card-badge:not(.card-badge--name)');
+        return !!target.closest('input, textarea, select, button, .card-form-badge, .curse-badge, .curse-more, .charge-indicator, .incarn-row, .card-badge:not(.card-badge--name)');
       }
 
       /** 去掉牌面列表的「协战*」前缀，便于按真名查库 */
@@ -173,6 +173,12 @@
         if (bondOpt && !(target.closest && target.closest('button'))) {
           const bnm = bondOpt.querySelector('.bond-opt__name');
           if (bnm) return _stripBondPrefix(bnm.textContent);
+        }
+        // 幻境/效果整行（观战锁定时输入框是 pointer-events:none，鼠标会命中行本身）
+        const effItem = target.closest ? target.closest('.effect-item') : null;
+        if (effItem) {
+          const effInput = effItem.querySelector('.effect-name');
+          if (effInput && effInput.value) return effInput.value;
         }
         // 卡牌槽内任意位置
         const slot = target.closest('.card-slot');

@@ -243,6 +243,13 @@
       pointer-events: none !important;
       opacity: 0.45;
     }
+    /* 幻境/效果那一整行就是输入框：观战锁的 pointer-events:none 会把悬浮事件吞掉 →
+       单独放行这两个输入框的鼠标事件（内容本来就是 readOnly，能看不能改） */
+    .player-zone--locked[data-locked="all"] .effects-panel .effect-name,
+    .player-zone--locked[data-locked="all"] .effects-panel .effect-value {
+      pointer-events: auto !important;
+      cursor: default;
+    }
     /* 观战可查看的按钮（手牌/牌库/坟场/启悟区入口）放行，其余牌库操作按钮仍拦截 */
     .player-zone--locked[data-locked="all"] .btn-deck:not([data-action="hand"]):not([data-action="deck"]):not(.btn-deck--grave):not([data-action="oracle-zone"]) {
       pointer-events: none !important;
