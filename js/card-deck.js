@@ -1503,13 +1503,33 @@
       divineTempOpId = operatorId || playerId;
       divineXRow.hidden = false;
       divineMain.hidden = true;
-      divineActions.hidden = true;
+      // 未占卜前：底部只显示可点的「取消」；「确认占卜」等牌展示后才出现
+      divineActions.hidden = false;
+      const divineConfirmBtn = document.getElementById('divine-confirm');
+      const divineCancelBtn = document.getElementById('divine-cancel');
+      if (divineConfirmBtn) divineConfirmBtn.hidden = true;
+      if (divineCancelBtn) divineCancelBtn.disabled = false;
+      // 未占卜前：数量输入框（可改、显示）、「🔮 确认」与快捷占卜按钮都显示；标题恢复纯文本
+      divineXInput.disabled = false;
+      divineXInput.hidden = false;
+      const xLabel = document.getElementById('divine-x-label');
+      if (xLabel) xLabel.textContent = '占卜数量：';
+      const xConfirmBtn = document.getElementById('divine-x-confirm');
+      const quickRow = document.querySelector('.divine-quick-row');
+      if (xConfirmBtn) xConfirmBtn.hidden = false;
+      if (quickRow) quickRow.hidden = false;
       divineTitle.textContent = `🔮 占卜 — ${getPlayerName(playerId)}`;
       divineXInput.max = state.deck.length;
-      divineXInput.value = Math.min(3, state.deck.length);
+      divineXInput.value = Math.min(8, state.deck.length);
       divineOverlay.hidden = false;
-      divineXInput.focus();
-      divineXInput.select();
+      // 不自动聚焦输入框：打开弹窗时不进入输入模式（手机端也不会自动顶起软键盘），点输入框才聚焦
+      // 快捷占卜：点「1 张 ~ 6 张」直接开始占卜（牌库不够就按牌库数夹取）
+      document.querySelectorAll('.divine-quick-btn').forEach(btn => {
+        btn.onclick = () => {
+          const x = parseInt(btn.dataset.divineX, 10) || 1;
+          startDivine(playerId, Math.min(x, state.deck.length));
+        };
+      });
       // 绑定一次性事件
       document.getElementById('divine-x-confirm').onclick = () => {
         const x = parseInt(divineXInput.value, 10);
@@ -1539,8 +1559,8 @@
       const viewerId = getViewerPlayerId();
       if (!playerRevealedCards[viewerId]) playerRevealedCards[viewerId] = new Set();
       divineCards.forEach(c => playerRevealedCards[viewerId].add(c.id));
-      // 同步到服务器（占卜揭示持久化，单人房/联机刷新重连后都能恢复）
-      if (isConnected() && typeof sendToPeer === 'function') {
+      // 同步到服务器（占卜揭示持久化，单人房/联机刷新重连后都能恢复；isConnected 只在进房后才挂到 window，必须带 typeof 守卫）
+      if (typeof isConnected === 'function' && isConnected() && typeof sendToPeer === 'function') {
         sendToPeer({ type: 'revealed-cards', playerId: viewerId, cardIds: [...playerRevealedCards[viewerId]] });
       }
       divineContext = {
@@ -1551,13 +1571,24 @@
         operatorId: divineTempOpId || playerId,
       };
       divineTempOpId = null;
-      // UI切换
-      divineXRow.hidden = true;
+      // UI切换：保留「占卜数量」一行（用文字显示本次数量），隐藏输入框、小确认和快捷占卜
+      divineXRow.hidden = false;
+      divineXInput.value = String(clampedX);
+      divineXInput.disabled = true;
+      divineXInput.hidden = true;                       // 输入框换成纯文字展示
+      const xLabel = document.getElementById('divine-x-label');
+      if (xLabel) xLabel.textContent = `占卜数量：${clampedX}张`;
+      const xConfirmBtn = document.getElementById('divine-x-confirm');
+      const quickRow = document.querySelector('.divine-quick-row');
+      if (xConfirmBtn) xConfirmBtn.hidden = true;
+      if (quickRow) quickRow.hidden = true;
       divineMain.hidden = false;
       divineActions.hidden = false;
-      // 已展示占卜牌后：取消按钮置灰，只能点「确认占卜」
+      // 已展示占卜牌后：取消按钮置灰（不能取消），只显示并允许「确认占卜」
       const divineCancelBtn = document.getElementById('divine-cancel');
       if (divineCancelBtn) divineCancelBtn.disabled = true;
+      const divineConfirmBtn = document.getElementById('divine-confirm');
+      if (divineConfirmBtn) divineConfirmBtn.hidden = false;
       divineTitle.textContent = `🔮 占卜 ${clampedX} — ${getPlayerName(playerId)}`;
       renderDivineLists();
       const opId = divineContext.operatorId;
@@ -1869,7 +1900,7 @@
       if (window.Undo && Undo.noteMessage) Undo.noteMessage('完成占卜');
 
       // 其他人（对手/观众）看到摘要信息（只有数量，不知道牌名）
-      if (!isSoloMode && isConnected() && typeof sendToPeer === 'function') {
+      if (!isSoloMode && typeof isConnected === 'function' && isConnected() && typeof sendToPeer === 'function') {
         const topWord = topCount > 0 ? `${topCount}张` : '0张';
         const bottomWord = bottomCount > 0 ? `${bottomCount}张` : '0张';
         const summaryPrefix = isHelp ? `【系统】${opName}完成了对${playerName}的占卜${xVal}` : `【系统】${playerName}完成了占卜${xVal}`;
@@ -1890,13 +1921,21 @@
       divineXRow.hidden = false;
       divineMain.hidden = true;
       divineActions.hidden = true;
-      // 恢复取消按钮（下次打开占卜输入时可取消）
+      // 恢复取消按钮与数量输入框（下次打开占卜时可正常输入/取消；标题也恢复纯文本）
       const divineCancelBtn = document.getElementById('divine-cancel');
       if (divineCancelBtn) divineCancelBtn.disabled = false;
+      divineXInput.disabled = false;
+      divineXInput.hidden = false;
+      const xLabel = document.getElementById('divine-x-label');
+      if (xLabel) xLabel.textContent = '占卜数量：';
+      const xConfirmBtn = document.getElementById('divine-x-confirm');
+      const quickRow = document.querySelector('.divine-quick-row');
+      if (xConfirmBtn) xConfirmBtn.hidden = false;
+      if (quickRow) quickRow.hidden = false;
       // 清空弹窗内容，下次打开是干净的
       divineTopList.innerHTML = '';
       divineBottomList.innerHTML = '';
-      divineXInput.value = '3';
+      divineXInput.value = '8';
     }
 
     // 绑定占卜对话框按钮事件

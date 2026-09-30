@@ -389,6 +389,11 @@
     }
     .divine-dialog .speak-dialog-actions { flex-shrink: 0; }
 
+    /* hidden 兜底：这几个容器都定义了 display:flex，没有本规则时 hidden 属性会被覆盖失效 */
+    .divine-x-row[hidden],
+    .divine-main[hidden],
+    .divine-quick-row[hidden] { display: none !important; }
+
     .divine-x-row {
       display: flex;
       align-items: center;
@@ -450,6 +455,40 @@
       background: linear-gradient(135deg, rgba(200, 160, 70, 0.85), rgba(160, 115, 45, 0.85));
       border-color: rgba(255, 215, 130, 0.7);
       box-shadow: 0 0 10px rgba(255, 200, 100, 0.25);
+    }
+
+    /* 快捷占卜：两排各 3 个（1~6 张），点一下直接开始；第二排空出标题位与第一排对齐 */
+    .divine-quick-row {
+      flex-basis: 100%;
+      display: grid;
+      grid-template-columns: auto repeat(3, 1fr);
+      gap: 8px;
+      margin-top: 6px;
+    }
+    .divine-quick-btn[data-divine-x="4"] { grid-column: 2; }
+    .divine-quick-title {
+      font-size: 14px;
+      color: #c0c8d8;
+      white-space: nowrap;
+      align-self: center;
+    }
+    .divine-quick-btn {
+      flex: 1;
+      padding: 8px 0;
+      font-size: 14px;
+      font-weight: 600;
+      font-family: inherit;
+      color: #dce8ff;
+      background: rgba(30, 46, 76, 0.85);
+      border: 1px solid rgba(150, 180, 220, 0.45);
+      border-radius: 8px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .divine-quick-btn:hover {
+      background: rgba(45, 68, 108, 0.95);
+      border-color: rgba(180, 210, 255, 0.7);
+      box-shadow: 0 0 10px rgba(120, 170, 255, 0.25);
     }
 
     .divine-main {
@@ -580,6 +619,16 @@
     .divine-actions {
       padding-top: 8px;
       border-top: 1px solid rgba(150, 180, 220, 0.15);
+    }
+
+    /* 占卜对话框：可点击的「取消」用与「确认占卜」同款的亮色（置灰时仍为暗色，避免误导） */
+    .divine-actions .btn-dialog-cancel:not(:disabled) {
+      background: linear-gradient(180deg, #5a7fb5, #3d5a80);
+      border-color: #6b8cae;
+      color: #fff;
+    }
+    .divine-actions .btn-dialog-cancel:not(:disabled):hover {
+      background: linear-gradient(180deg, #6a8fc5, #4d6a90);
     }
 
     /* 占卜按钮高亮 */
