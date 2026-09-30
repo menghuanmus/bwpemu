@@ -5,8 +5,10 @@
 //    · 不屈：整张卡持续冒金光（呼吸式金光 + 向上飘的光）
 //    · 屏障：金色椭圆护罩（缓慢呼吸）
 //    · 帷幕：七彩流光旋转扫过卡面 + 紫色发光
+//    · 昂扬：金色的流光从左下向右上掠过（如光如风）
+//    · 迅捷：蓝色的流光从右下向左上掠过（如光如风）
 //    · 庇佑：卡槽底部一朵金黑色莲花托着式神
-//  说明：这四个都只看「效果记录」（slot._permEffects）里的来源，**不在机制菜单里加按钮**；
+//  说明：这些都只看「效果记录」（slot._permEffects）里的来源，**不在机制菜单里加按钮**；
 //        牌手（.player-zone）只支持眩晕（用「幻境/效果」面板里名为「眩晕」的一条判定）。
 //  用法：任何修改效果记录的地方调 StunFx.sync(目标)（另有低频兜底轮询）
 // ================================================================
@@ -50,12 +52,18 @@ const StunFx = (() => {
     if (el.classList.contains('card-slot')) return slotHasStun(el);
     return false;
   }
-  /** 效果记录里的「来源」→ 卡面特效。眩晕额外支持牌手（挂头像行）；其余三个只作用于式神卡槽 */
+  /**
+   * 效果记录里的「来源」→ 卡面特效。眩晕额外支持牌手（挂头像行）；其余只作用于式神卡槽。
+   * 排列顺序 = 层级从低到高（卡图 < 帷幕 < 不屈 < 屏障 < 昂扬 < 迅捷 < 庇佑 < 其它元素），
+   * 与 css 里的 z-index 双保险；眩晕在最上（8）。
+   */
   const FX_DEFS = [
     { source: '眩晕', cls: 'stun-fx',   title: '眩晕', glyph: '🌀', zone: true,  avatarCls: 'stun-fx--avatar', enterMs: ENTER_MS, exitMs: EXIT_MS },
+    { source: '帷幕', cls: 'fx-veil',   title: '帷幕', zone: false, enterMs: 520, exitMs: 360 },
     { source: '不屈', cls: 'fx-aura',   title: '不屈', zone: false, arcs: 2, enterMs: 440, exitMs: 320 },
     { source: '屏障', cls: 'fx-shield', title: '屏障', zone: false, enterMs: 400, exitMs: 300 },
-    { source: '帷幕', cls: 'fx-veil',   title: '帷幕', zone: false, enterMs: 520, exitMs: 360 },
+    { source: '昂扬', cls: 'fx-fervor', title: '昂扬', zone: false, streaks: 8, enterMs: 420, exitMs: 320 },
+    { source: '迅捷', cls: 'fx-swift',  title: '迅捷', zone: false, streaks: 8, enterMs: 420, exitMs: 320 },
     { source: '庇佑', cls: 'fx-lotus',  title: '庇佑', zone: false, petals: 7, sides: 2, enterMs: 460, exitMs: 340 }
   ];
 
@@ -69,7 +77,7 @@ const StunFx = (() => {
     return Array.isArray(list) && list.some(e => srcOf(e) === source);
   }
 
-  /** 造一个特效元素（glyph = 🌀 那种字；petals = 莲花花瓣；arcs = 卡内上下各几条浅金色弧形） */
+  /** 造一个特效元素（glyph = 🌀 那种字；petals = 莲花花瓣；sides = 莲花两侧长瓣；streaks = 流光条；arcs = 卡内上下各几条浅金色弧形） */
   function buildFx(def, isZone) {
     const d = document.createElement('div');
     d.className = def.cls + (isZone && def.avatarCls ? ' ' + def.avatarCls : '');
@@ -98,6 +106,17 @@ const StunFx = (() => {
           sd.className = def.cls + '__side ' + def.cls + '__side--' + side + i;
           d.appendChild(sd);
         });
+      }
+    }
+    if (def.streaks) {
+      /* 流光条（迅捷/昂扬）：每条都给随机的小角度抖动 + 随机自转角 + 随机相位，每次出现都不重样 */
+      for (let i = 1; i <= def.streaks; i++) {
+        const stk = document.createElement('i');
+        stk.className = def.cls + '__streak ' + def.cls + '__streak--' + i;
+        stk.style.setProperty('--jit', ((Math.random() * 10) - 5).toFixed(1) + 'deg');
+        stk.style.setProperty('--spin', ((Math.random() < 0.5 ? -1 : 1) * (7 + Math.random() * 8)).toFixed(1) + 'deg');
+        stk.style.animationDelay = (-Math.random() * 2.4).toFixed(2) + 's';
+        d.appendChild(stk);
       }
     }
     if (def.arcs) {
@@ -211,6 +230,29 @@ const StunFx = (() => {
     return true;
   }
 
+  /** 消耗「一个」指定来源的效果：有层数就 −1，只剩 1 层就整条移除。返回是否真的消耗了（屏障/不屈用） */
+  function consumeOne(slot, source) {
+    if (!slot || !Array.isArray(slot._permEffects)) return false;
+    const idx = slot._permEffects.findIndex(e => srcOf(e) === source);
+    if (idx < 0) return false;
+    const ef = slot._permEffects[idx];
+    if ((ef.layers || 1) > 1) ef.layers -= 1;
+    else slot._permEffects.splice(idx, 1);
+    sync(slot);
+    return true;
+  }
+
+  /** 气绝：移除全部卡面特效对应的效果记录（屏障/不屈/庇佑/帷幕/眩晕/迅捷/昂扬） */
+  function clearAllFx(slot) {
+    if (!slot || !Array.isArray(slot._permEffects)) return false;
+    const sources = FX_DEFS.map(d => d.source);
+    const before = slot._permEffects.length;
+    slot._permEffects = slot._permEffects.filter(e => !sources.includes(srcOf(e)));
+    if (slot._permEffects.length === before) return false;
+    sync(slot);
+    return true;
+  }
+
   /** 牌手：给已存在的「眩晕」行补上说明（只补空值，不覆盖用户自填） */
   function fillPlayerDesc(zone) {
     if (!zone) return false;
@@ -239,5 +281,5 @@ const StunFx = (() => {
     init();
   }
 
-  return { init, sync, syncAll, hasStun, toggleSlot, togglePlayer, clearStun, SOURCE, DESC };
+  return { init, sync, syncAll, hasStun, toggleSlot, togglePlayer, clearStun, clearAllFx, consumeOne, hasSourceOn, SOURCE, DESC };
 })();

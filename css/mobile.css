@@ -652,11 +652,8 @@
   /* ── 灵咒面板：在机制菜单里，无边框紧凑 ── */
   .curse-target-panel {
     border: none;
-    border-top: 1px solid rgba(210, 170, 100, 0.3);
     border-radius: 0;
     background: transparent;
-    padding: 8px 4px 2px;
-    margin-top: 4px;
     flex-wrap: nowrap;
   }
   .curse-target-panel input {
@@ -692,8 +689,8 @@
     display: grid;
     grid-template-columns: repeat(5, 1fr);
     gap: 6px;
-    max-height: none;
-    overflow-y: visible;
+    max-height: calc(100vh - 120px);   /* 兜底：万一按钮再多也不会顶出屏幕（可滚动） */
+    overflow-y: auto;
     box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.6);
   }
   .dropdown-mechanic__menu[hidden] { display: none; }
@@ -705,23 +702,26 @@
   }
   .dropdown-mechanic__item {
     padding: 10px 4px;
-    font-size: 13px !important;
+    /* 字号自适应：随屏宽收缩，保证 4 字按钮（置入食材/命运抉择等）在最窄屏幕上也保持一行 */
+    font-size: clamp(10px, calc((100vw - 100px) / 20), 13px) !important;
     text-align: center;
-    white-space: normal;
+    white-space: nowrap;
     border: 1px solid rgba(210, 170, 100, 0.3);
     border-radius: 8px;
     line-height: 1.2;
   }
-  /* 灵咒行：横跨整行 */
+  /* 灵咒行：与「回合开始 / 重置属性」同一排（占其余 3 列），不再单独占一行 */
   .curse-target-panel {
-    grid-column: 1 / -1;
+    grid-column: span 3;
     display: flex;
-    gap: 8px;
-    padding: 8px 4px 2px;
-    border-top: 1px solid rgba(210, 170, 100, 0.3);
+    align-items: center;
+    gap: 6px;
+    padding: 0;
+    border: none;
+    border-top: none;
     border-radius: 0;
     background: transparent;
-    margin-top: 2px;
+    margin-top: 0;
     flex-wrap: nowrap;
   }
   .curse-target-panel input {

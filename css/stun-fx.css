@@ -13,7 +13,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 1;                    /* 只高于卡图，但比其它特效（z-index:auto）高一层 */
+  z-index: 8;                    /* 层级最高（高于全部状态特效 1~6），但低于其它信息元素（10+） */
   pointer-events: none;
   font-size: 38px;
   line-height: 1;
@@ -73,7 +73,7 @@
   inset: -2px;
   border-radius: 14px;
   pointer-events: none;
-  z-index: auto;                /* 不抬层级：靠 DOM（插在卡图之后）决定——总共只在卡图之上、其它元素之下 */
+  z-index: 2;                   /* 层级：卡图 < 帷幕1 < 不屈2 < 屏障3 < 昂扬4 < 迅捷5 < 庇佑6 < 其它元素 */
   border: 2px solid rgba(255, 228, 145, 0.95);
   box-shadow:
     0 0 8px 1px rgba(255, 214, 110, 0.85),
@@ -149,7 +149,7 @@
   inset: -11%;                   /* 四周各外扩 11%（加上 2px 边框 ≈ 整体比卡大 25%） */
   border-radius: 50%;
   pointer-events: none;
-  z-index: auto;                 /* 同上：只高于卡图 */
+  z-index: 3;                    /* 层级 3（屏障） */
   border: 2px solid rgba(150, 222, 255, 0.9);
   background: radial-gradient(ellipse at 50% 45%,
     rgba(175, 228, 255, 0.34) 0%, rgba(140, 205, 255, 0.40) 62%, rgba(120, 190, 250, 0.44) 100%);
@@ -167,7 +167,7 @@
   border-radius: 12px;
   overflow: hidden;              /* 把旋转的彩虹带裁在卡内 */
   pointer-events: none;
-  z-index: auto;                 /* 只高于卡图 */
+  z-index: 1;                    /* 层级最低：紧贴卡图之上 */
   mix-blend-mode: screen;
   opacity: 0.8;
   /* 散发紫光：贴着卡边的亮紫 + 向外扩散的紫韵 + 往卡内渗的淡紫 */
@@ -213,20 +213,145 @@
   to   { transform: translate(-50%, -50%) rotate(360deg); }
 }
 
+/* ── 迅捷：右下角起的蓝色流光，旋转着飘向左上（如光如风） ── */
+.fx-swift {
+  position: absolute;
+  inset: -6%;
+  border-radius: 14px;
+  overflow: hidden;              /* 光路裁在卡片范围内 */
+  pointer-events: none;
+  z-index: 5;                    /* 层级 5（迅捷） */
+  --fly: 120px;                  /* 流光条的滑行距离（完整穿过卡面） */
+  /* 四边向内渐隐（两层渐变相交）：光梭进出边缘时渐进渐出，不会被生硬裁断 */
+  -webkit-mask-image:
+    linear-gradient(to right, rgba(0, 0, 0, 0) 0%, #000 14%, #000 86%, rgba(0, 0, 0, 0) 100%),
+    linear-gradient(to bottom, rgba(0, 0, 0, 0) 0%, #000 14%, #000 86%, rgba(0, 0, 0, 0) 100%);
+  mask-image:
+    linear-gradient(to right, rgba(0, 0, 0, 0) 0%, #000 14%, #000 86%, rgba(0, 0, 0, 0) 100%),
+    linear-gradient(to bottom, rgba(0, 0, 0, 0) 0%, #000 14%, #000 86%, rgba(0, 0, 0, 0) 100%);
+  mask-composite: intersect;
+  -webkit-mask-composite: source-in;
+}
+.fx-swift::before {              /* 氛围：右下往左上的淡蓝雾气（呼吸） */
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(-45deg,
+    rgba(110, 190, 255, 0.32) 0%, rgba(120, 195, 255, 0.12) 36%, rgba(120, 195, 255, 0) 64%);
+  animation: fx-mist-breathe 3.4s ease-in-out infinite;
+}
+.fx-swift__streak {              /* 一条流光：只有正中间颜色明显，向上/下/左/右四周逐渐透明 */
+  position: absolute;
+  width: 64px;
+  height: 44%;
+  border-radius: 999px;
+  background: linear-gradient(to top,
+    rgba(140, 205, 255, 0) 0%, rgba(160, 220, 255, 0.35) 28%,
+    rgba(235, 250, 255, 1) 50%, rgba(160, 220, 255, 0.35) 72%, rgba(140, 205, 255, 0) 100%);
+  /* 横截面：中间最实，向左右两侧逐渐透明 */
+  -webkit-mask-image: linear-gradient(to right, rgba(0, 0, 0, 0) 0%, rgba(0, 0, 0, 0.5) 24%, #000 50%, rgba(0, 0, 0, 0.5) 76%, rgba(0, 0, 0, 0) 100%);
+  mask-image: linear-gradient(to right, rgba(0, 0, 0, 0) 0%, rgba(0, 0, 0, 0.5) 24%, #000 50%, rgba(0, 0, 0, 0.5) 76%, rgba(0, 0, 0, 0) 100%);
+  filter: drop-shadow(0 0 4px rgba(130, 205, 255, 0.95)) drop-shadow(0 0 10px rgba(90, 170, 255, 0.5));
+  opacity: 0;
+  animation: fx-swift-fly var(--dur, 2.8s) linear infinite;
+  animation-delay: var(--delay, 0s);
+}
+.fx-swift__streak--1 { left: 6%;  top: 94%; height: 80%; --dur: 1.4s;  --delay: 0s;    --op: 1; }
+.fx-swift__streak--2 { left: 17%; top: 83%; height: 60%; --dur: 1.6s;  --delay: -0.5s; --op: 0.75; }
+.fx-swift__streak--3 { left: 29%; top: 71%; height: 92%; --dur: 1.8s;  --delay: -1.0s; --op: 0.9; }
+.fx-swift__streak--4 { left: 40%; top: 60%; height: 64%; --dur: 2.0s;  --delay: -0.3s; --op: 0.7; }
+.fx-swift__streak--5 { left: 51%; top: 49%; height: 88%; --dur: 2.2s;  --delay: -0.8s; --op: 0.85; }
+.fx-swift__streak--6 { left: 63%; top: 37%; height: 56%; --dur: 1.5s;  --delay: -1.3s; --op: 0.8; }
+.fx-swift__streak--7 { left: 74%; top: 26%; height: 76%; --dur: 1.75s; --delay: -0.6s; --op: 0.95; }
+.fx-swift__streak--8 { left: 86%; top: 14%; height: 84%; --dur: 2.4s;  --delay: -1.1s; --op: 0.72; }
+@keyframes fx-swift-fly {        /* 从右下角外一路飘到左上角外（全程可见，离开画面后才淡出） */
+  0%   { transform: translate(var(--fly), var(--fly)) rotate(calc(-45deg + var(--jit, 0deg))); opacity: 0; }
+  10%  { opacity: var(--op, 0.9); }
+  88%  { opacity: var(--op, 0.9); }
+  100% { transform: translate(calc(var(--fly) * -1), calc(var(--fly) * -1)) rotate(calc(-45deg + var(--jit, 0deg) + var(--spin, 8deg))); opacity: 0; }
+}
+
+/* ── 昂扬：左下角起的金色流光，旋转着飘向右上（如光如风） ── */
+.fx-fervor {
+  position: absolute;
+  inset: -6%;
+  border-radius: 14px;
+  overflow: hidden;
+  pointer-events: none;
+  z-index: 4;                    /* 层级 4（昂扬） */
+  --fly: 86px;  /* 四边向内渐隐（两层渐变相交）：光梭进出边缘时渐进渐出，不会被生硬裁断 */
+  -webkit-mask-image:
+    linear-gradient(to right, rgba(0, 0, 0, 0) 0%, #000 14%, #000 86%, rgba(0, 0, 0, 0) 100%),
+    linear-gradient(to bottom, rgba(0, 0, 0, 0) 0%, #000 14%, #000 86%, rgba(0, 0, 0, 0) 100%);
+  mask-image:
+    linear-gradient(to right, rgba(0, 0, 0, 0) 0%, #000 14%, #000 86%, rgba(0, 0, 0, 0) 100%),
+    linear-gradient(to bottom, rgba(0, 0, 0, 0) 0%, #000 14%, #000 86%, rgba(0, 0, 0, 0) 100%);
+  mask-composite: intersect;
+  -webkit-mask-composite: source-in;}
+.fx-fervor::before {             /* 氛围：左下往右上的金色雾气 */
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(45deg,
+    rgba(255, 214, 110, 0.32) 0%, rgba(255, 205, 90, 0.12) 36%, rgba(255, 205, 90, 0) 64%);
+  animation: fx-mist-breathe 3.4s ease-in-out infinite;
+}
+.fx-fervor__streak {
+  position: absolute;
+  width: 64px;
+  height: 44%;
+  border-radius: 999px;
+  background: linear-gradient(to top,
+    rgba(255, 224, 140, 0) 0%, rgba(255, 228, 155, 0.35) 28%,
+    rgba(255, 248, 218, 1) 50%, rgba(255, 228, 155, 0.35) 72%, rgba(255, 224, 140, 0) 100%);
+  /* 横截面：中间最实，向左右两侧逐渐透明 */
+  -webkit-mask-image: linear-gradient(to right, rgba(0, 0, 0, 0) 0%, rgba(0, 0, 0, 0.5) 24%, #000 50%, rgba(0, 0, 0, 0.5) 76%, rgba(0, 0, 0, 0) 100%);
+  mask-image: linear-gradient(to right, rgba(0, 0, 0, 0) 0%, rgba(0, 0, 0, 0.5) 24%, #000 50%, rgba(0, 0, 0, 0.5) 76%, rgba(0, 0, 0, 0) 100%);
+  filter: drop-shadow(0 0 4px rgba(255, 214, 100, 0.95)) drop-shadow(0 0 10px rgba(255, 190, 60, 0.5));
+  opacity: 0;
+  animation: fx-fervor-fly var(--dur, 2.8s) linear infinite;
+  animation-delay: var(--delay, 0s);
+}
+.fx-fervor__streak--1 { left: 12%; top: 12%; height: 80%; --dur: 1.4s;  --delay: -0.2s; --op: 1; }
+.fx-fervor__streak--2 { left: 23%; top: 23%; height: 60%; --dur: 1.6s;  --delay: -0.7s; --op: 0.75; }
+.fx-fervor__streak--3 { left: 34%; top: 34%; height: 92%; --dur: 1.8s;  --delay: -1.2s; --op: 0.9; }
+.fx-fervor__streak--4 { left: 45%; top: 45%; height: 64%; --dur: 2.0s;  --delay: -0.4s; --op: 0.7; }
+.fx-fervor__streak--5 { left: 57%; top: 57%; height: 88%; --dur: 2.2s;  --delay: -0.9s; --op: 0.85; }
+.fx-fervor__streak--6 { left: 68%; top: 68%; height: 56%; --dur: 1.5s;  --delay: -1.4s; --op: 0.8; }
+.fx-fervor__streak--7 { left: 79%; top: 79%; height: 76%; --dur: 1.75s; --delay: -0.6s; --op: 0.95; }
+.fx-fervor__streak--8 { left: 90%; top: 90%; height: 84%; --dur: 2.4s;  --delay: -1.0s; --op: 0.72; }
+@keyframes fx-fervor-fly {       /* 从左下角外一路飘到右上角外（全程可见，离开画面后才淡出） */
+  0%   { transform: translate(calc(var(--fly) * -1), var(--fly)) rotate(calc(45deg - var(--jit, 0deg))); opacity: 0; }
+  10%  { opacity: var(--op, 0.9); }
+  88%  { opacity: var(--op, 0.9); }
+  100% { transform: translate(var(--fly), calc(var(--fly) * -1)) rotate(calc(45deg - var(--jit, 0deg) + var(--spin, 8deg))); opacity: 0; }
+}
+
+@keyframes fx-mist-breathe {     /* 雾气的明暗呼吸（两种流光共用） */
+  0%, 100% { opacity: 0.75; }
+  50%      { opacity: 1; }
+}
+
 /* 三种特效的入场 / 离场：渐显放大一点点 ↔ 渐隐放大一点点 */
 @keyframes fx-fade-in  { from { opacity: 0; transform: scale(1.07); } to { opacity: 1; transform: scale(1); } }
 @keyframes fx-fade-out { from { opacity: 1; transform: scale(1); } to { opacity: 0; transform: scale(1.07); } }
 .fx-aura--enter   { animation: fx-aura-glow 2.4s ease-in-out infinite, fx-fade-in 440ms ease-out both; }
 .fx-shield--enter { animation: fx-shield-breathe 2.4s ease-in-out infinite, fx-fade-in 400ms ease-out both; }
 .fx-veil--enter   { animation: fx-veil-glow 2.6s ease-in-out infinite, fx-fade-in 520ms ease-out both; }
+.fx-fervor--enter { animation: fx-fade-in 420ms ease-out both; }
+.fx-swift--enter  { animation: fx-fade-in 420ms ease-out both; }
 .fx-aura--exit    { animation: fx-fade-out 320ms ease-in both; }
 .fx-shield--exit  { animation: fx-fade-out 300ms ease-in both; }
 .fx-veil--exit    { animation: fx-fade-out 360ms ease-in both; }
+.fx-fervor--exit  { animation: fx-fade-out 320ms ease-in both; }
+.fx-swift--exit   { animation: fx-fade-out 320ms ease-in both; }
 
 /* 空槽不显示 */
 .card-slot:not(.has-image) .fx-aura,
 .card-slot:not(.has-image) .fx-shield,
-.card-slot:not(.has-image) .fx-veil { display: none; }
+.card-slot:not(.has-image) .fx-veil,
+.card-slot:not(.has-image) .fx-fervor,
+.card-slot:not(.has-image) .fx-swift { display: none; }
 
 /* ── 庇佑：卡槽底部一朵金黑色莲花底座托着式神 ── */
 .fx-lotus {
@@ -237,7 +362,7 @@
   height: 40px;
   transform: translateX(-50%);
   pointer-events: none;
-  z-index: auto;                 /* 只高于卡图 */
+  z-index: 6;                    /* 层级最高（在流光之上），但仍低于其它信息元素 */
   animation: fx-lotus-breathe 2.8s ease-in-out infinite;
 }
 .fx-lotus__petal {               /* 花瓣：窄长水滴形（顶部收尖、底部圆润），底部为旋转中心，向两侧扇开 */
@@ -349,4 +474,7 @@
   .fx-lotus__side--l1, .fx-lotus__side--r1 { height: 210%; }
   .fx-lotus__side--l2, .fx-lotus__side--r2 { height: 150%; }
   .fx-veil { border-radius: 10px; }
+  /* 流光特效：手机端滑行距离收短、光条收细、圆角跟上卡片 */
+  .fx-swift, .fx-fervor { --fly: 68px; border-radius: 10px; }
+  .fx-swift__streak, .fx-fervor__streak { width: 48px; }
 }

@@ -608,7 +608,7 @@
           setSlotImage(slot, dataUrl);
           // 初次上传卡图且未设派系：默认归入无相
           if (!slot.dataset.slotFaction) slot.dataset.slotFaction = '无相';
-          // 新式神（还没填名字）：攻/命保持空，等级默认 1；首次修改攻/命时自动记为“基础值”
+          // 新式神（还没填名字）：攻/命保持空，等级默认 0；首次修改攻/命时自动记为“基础值”
           const nameInp0 = slot.querySelector('.card-name');
           if (!nameInp0 || !nameInp0.value.trim()) {
             const aInp0 = slot.querySelector('.card-attack');
@@ -616,7 +616,7 @@
             const lInp0 = slot.querySelector('.card-level');
             if (aInp0) aInp0.value = '';
             if (hInp0) hInp0.value = '';
-            if (lInp0) lInp0.value = '1';
+            if (lInp0) lInp0.value = '0';
           }
           syncSlotToPeer(slot);
         };

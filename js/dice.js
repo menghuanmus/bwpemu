@@ -1371,8 +1371,8 @@
           sendToPeer({ type: 'fx-revive', playerId: slot.dataset.slotPlayer, slotIndex: parseInt(slot.dataset.slotIndex, 10) });
         }
       } else {
-        // 气绝：清除眩晕效果（效果记录里的「眩晕」一并删掉，🌀 也跟着撤）
-        if (typeof StunFx !== 'undefined') StunFx.clearStun(slot);
+        // 气绝：移除全部状态特效对应的效果记录（屏障/不屈/庇佑/帷幕/眩晕/迅捷/昂扬）
+        if (typeof StunFx !== 'undefined' && typeof StunFx.clearAllFx === 'function') StunFx.clearAllFx(slot);
         // 气绝倒计时初始值：默认 3，可在式神管理面板「倒计时/能量」里调整
         createKoOverlay(slot, String(slot._baseKoCountdown || 3));
         // 气绝时普通倒计时重置为基础值
@@ -1449,28 +1449,42 @@
     }
 
     function applyDamageToCard(slot, dmg) {
+      const cardName = slot.querySelector('.card-name').value || '未命名卡牌';
+      const fxApi = typeof StunFx !== 'undefined' && typeof StunFx.consumeOne === 'function';
+      // 屏障：消耗一个「屏障」效果，本次伤害被完全抵消（不扣血、不动护甲、不气绝）
+      if (fxApi && StunFx.consumeOne(slot, '屏障')) {
+        broadcastSystemMsg(`【系统】「${cardName}」的屏障抵消了本次伤害`);
+        syncSlotToPeer(slot);
+        return;
+      }
+      // 受伤前的生命值（「不屈」判定用：>1 才会被保下）
+      const hpInput = slot.querySelector('.card-hp');
+      const hpBefore = hpInput ? (parseInt(hpInput.value, 10) || 0) : 0;
       // 护甲抵伤 / 破甲加伤 结算（已扣血）
       const deal = (typeof window.dealDamageToSlot === 'function')
         ? window.dealDamageToSlot(slot, dmg)
         : null;
       const finalDmg = deal ? deal.final : dmg;
       const newHp = deal ? deal.newHp : 0;
+      // 不屈：致命伤害且受伤前生命 >1 → 强行保留 1 点生命、失去不屈、不气绝；受伤前生命恰为 1 → 照常气绝
+      const savedByIndomitable = newHp <= 0 && hpBefore > 1 && fxApi && StunFx.consumeOne(slot, '不屈');
+      if (savedByIndomitable && hpInput) hpInput.value = '1';   // 不屈保命：强行留 1 点血
       // 【特效】伤害动画
       if (typeof DamageEffects !== 'undefined') {
         DamageEffects.playDamage(slot, finalDmg, 'damage');
       }
-      const cardName = slot.querySelector('.card-name').value || '未命名卡牌';
       let dmgMsg = `【系统】${getDamageSourceLabel()}对「${cardName}」造成了${finalDmg}点伤害`;
       if (deal && deal.absorb > 0) dmgMsg += `（护甲抵消${deal.absorb}）`;
       if (deal && deal.extra > 0) dmgMsg += `（破甲额外${deal.extra}）`;
+      if (savedByIndomitable) dmgMsg += `（不屈生效：保留 1 点生命，失去不屈）`;
       broadcastSystemMsg(dmgMsg);
       // 【联机】同步状态 + 播放伤害动画（此处必须带 typeof 守卫：后面紧跟的「生命归零→气绝」不能被打断）
       syncSlotToPeer(slot);
       if (typeof isConnected === 'function' && isConnected() && typeof sendToPeer === 'function') {
         sendToPeer({ type: 'card-damage', playerId: slot.dataset.slotPlayer, slotIndex: parseInt(slot.dataset.slotIndex, 10), dmg: finalDmg });
       }
-      // 如果生命归零且未气绝，进入气绝状态（重置攻防+倒计时）
-      if (newHp <= 0 && !slot.querySelector('.ko-overlay')) {
+      // 如果生命归零且未气绝（且未被不屈救下），进入气绝状态（重置攻防+倒计时）
+      if (newHp <= 0 && !savedByIndomitable && !slot.querySelector('.ko-overlay')) {
         applyKoToCard(slot);
       }
     }

@@ -524,7 +524,7 @@
       position: absolute;
       inset: 0;
       background: rgba(0, 0, 0, 0.55);
-      z-index: 2;
+      z-index: 7;                  /* 高于全部状态特效（帷幕1~庇佑6），低于其它信息元素 */
       border-radius: 10px;
       display: flex;
       align-items: center;
