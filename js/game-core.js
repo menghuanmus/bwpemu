@@ -67,6 +67,8 @@
     /* 同步单个卡牌槽状态到对方 */
     function syncSlotToPeer(slot) {
       if (slotSyncSuppress) return;
+      // 观众只读：不向服务器发送任何槽同步（否则会被拒并刷屏「观众不能操作」）
+      if (typeof isSpectator !== 'undefined' && isSpectator) return;
       if (window.Undo && Undo.noteSync) Undo.noteSync();
       if (!window._gameSocket || !window._gameSocket.connected) return;
       const playerId = slot.dataset.slotPlayer;
@@ -471,9 +473,14 @@
         baseHp: slot._baseHp !== undefined ? slot._baseHp : 0,
         armor: slot._armor || 0,
         power: slot._power || 0,
+        // 基础值记录（切换目标之间需要逐目标还原，防止跨目标残留）
+        permBaseAtk: slot._permBaseAtk,
+        permBaseHp: slot._permBaseHp,
         // 化身（数组；深拷贝，避免两端共享同一个对象）
         incarn: (typeof Incarnation !== 'undefined' && Array.isArray(slot._incarn))
           ? Incarnation.clone(slot._incarn) : [],
+        // 切换（变身）：独立副本；undefined = 未使用切换（不传输）
+        _switch: (typeof SwitchMgr !== 'undefined' && SwitchMgr.exportData) ? SwitchMgr.exportData(slot) : undefined,
       };
     }
 
@@ -520,14 +527,26 @@
       // 类型 / 派系
       if (state.slotType) slot.dataset.slotType = state.slotType;
       if (state.awakenName !== undefined) slot._awakenCardName = state.awakenName;
-      if (state.slotFaction) slot.dataset.slotFaction = state.slotFaction;
+      // 派系：显式传入时更新（空串 = 清空，防切换目标时跨目标残留；undefined = 保持旧值兼容）
+      if (state.slotFaction !== undefined) slot.dataset.slotFaction = state.slotFaction || '';
       // 基础攻/命（玩家在式神管理中设置，用于重置/复活）
       if (state.baseAtk !== undefined) slot._baseAtk = state.baseAtk;
       if (state.baseHp !== undefined) slot._baseHp = state.baseHp;
+      // 基础值记录：逐目标还原（未带 = 该目标无记录 → 清除，防跨目标残留）
+      if (state.permBaseAtk !== undefined) slot._permBaseAtk = state.permBaseAtk;
+      else delete slot._permBaseAtk;
+      if (state.permBaseHp !== undefined) slot._permBaseHp = state.permBaseHp;
+      else delete slot._permBaseHp;
+      // 切换（变身）：undefined = 不动；null = 清除；对象 = 覆盖
+      if (state._switch !== undefined && typeof SwitchMgr !== 'undefined' && SwitchMgr.importData) {
+        SwitchMgr.importData(slot, state._switch);
+      }
       // 护甲/战力状态（正=护甲/战力，负=破甲/乏力）
       if (state.armor !== undefined) slot._armor = state.armor;
       if (state.power !== undefined) slot._power = state.power;
       updateStatusBadges(slot);
+      // 切换徽章：载入后刷新显隐与化身下移
+      if (typeof SwitchMgr !== 'undefined' && SwitchMgr.refreshBadge) SwitchMgr.refreshBadge(slot);
       // 蓄力：优先使用完整同步的蓄力卡列表（含使用者），保证两端数据一致
       if (Array.isArray(state.chargedCards)) {
         slot._chargedCards = state.chargedCards.map(function(c) {
@@ -1330,6 +1349,18 @@
       const slot = bonusBtn.closest('.card-slot');
       if (!slot) return;
       if (typeof BonusPanel !== 'undefined') BonusPanel.open(slot);
+    });
+
+    // ================================================================
+    //  🎭 切换变身徽章事件（1 个变身直接切；多个弹窗选）
+    // ================================================================
+    document.addEventListener('click', (e) => {
+      const swBtn = e.target.closest('.switch-badge');
+      if (!swBtn) return;
+      e.stopPropagation();
+      e.preventDefault();
+      const slot = swBtn.closest('.card-slot');
+      if (slot && typeof SwitchMgr !== 'undefined') SwitchMgr.onBadgeClick(slot);
     });
 
     /** 记录永久基础值（取自卡牌数据库，自定义卡用当前值） */

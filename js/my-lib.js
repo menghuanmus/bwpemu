@@ -129,6 +129,7 @@ var MyLib = (function () {
   function openShikigamiEdit(idx) {
     var unit = cache.shikigami[idx];
     var isSummon = !!(unit && unit.type === 'summon');
+    var isTransform = !!(unit && unit.type === 'transform');
     var m = openModal('式神' + (idx >= 0 ? '编辑' : '新增'), [
       fieldHTML('名称', 'diy-f-name', inputHTML('diy-f-name', '必填，不能与官方卡牌同名', 'text', 'maxlength="40"'), true),
       '<div class="diy-row">' +
@@ -137,6 +138,7 @@ var MyLib = (function () {
       fieldHTML('生命', 'diy-f-hp', inputHTML('diy-f-hp', '', 'number', 'min="1" max="99"'), true) +
       '</div>',
       '<label class="diy-field diy-check"><input type="checkbox" id="diy-f-summon"><span style="display:inline;margin:0 6px 0 0;">是否为召唤物</span></label>',
+      '<label class="diy-field diy-check"><input type="checkbox" id="diy-f-transform"><span style="display:inline;margin:0 6px 0 0;">是否为变身</span></label>',
       '<div id="diy-f-owner-wrap" style="display:none">' + fieldHTML('所属式神', 'diy-f-owner', inputHTML('diy-f-owner', '选填，召唤物所属的式神', 'text', 'maxlength="40"')) + '</div>',
       '<label class="diy-field"><span class="diy-field__head">能力描述（≤300字）<span class="diy-char-count" id="diy-f-count">(0/300)</span></span><textarea id="diy-f-text" maxlength="300" rows="3" placeholder="能力/效果描述"></textarea></label>',
     ].join(''));
@@ -146,14 +148,20 @@ var MyLib = (function () {
     $('diy-f-hp').value = (unit && unit.hp != null) ? unit.hp : '';
     $('diy-f-text').value = (unit && unit.ability) || '';
     $('diy-f-summon').checked = isSummon;
-    function syncOwner() {
+    $('diy-f-transform').checked = isTransform;
+    function syncOwner(e) {
+      // 召唤物与变身互斥
+      var sum = $('diy-f-summon'), tr = $('diy-f-transform');
+      if (e && e.target === sum && sum.checked) tr.checked = false;
+      if (e && e.target === tr && tr.checked) sum.checked = false;
       var wrap = $('diy-f-owner-wrap');
-      if (wrap) wrap.style.display = $('diy-f-summon').checked ? '' : 'none';
+      if (wrap) wrap.style.display = sum.checked ? '' : 'none';
       var ownEl = $('diy-f-owner');
       if (ownEl) ownEl.value = isSummon && unit && unit.owner ? unit.owner : '';
     }
     syncOwner();
     $('diy-f-summon').addEventListener('change', syncOwner);
+    $('diy-f-transform').addEventListener('change', syncOwner);
     bindCharCount($('diy-f-text'), $('diy-f-count'), MAX_TEXT);
 
     m.onOk(function () {
@@ -170,7 +178,9 @@ var MyLib = (function () {
         hp: parseInt($('diy-f-hp').value, 10) || 1,
         ability: $('diy-f-text').value.trim()
       };
-      if ($('diy-f-summon').checked) {
+      if ($('diy-f-transform').checked) {
+        saved.type = 'transform';
+      } else if ($('diy-f-summon').checked) {
         saved.type = 'summon';
         var ownerVal = $('diy-f-owner').value.trim();
         if (ownerVal) saved.owner = ownerVal; // 选填：留空则归入「无归属」
@@ -491,6 +501,7 @@ var MyLib = (function () {
     var tags = '';
     if (kind === 'shikigami') {
       if (unit.type === 'summon') tags += '<span class="diy-tag diy-tag--summon">召唤物</span>';
+      if (unit.type === 'transform') tags += '<span class="diy-tag diy-tag--transform">变身</span>';
       if (unit.faction) tags += '<span class="diy-tag">' + esc(unit.faction) + '</span>';
       if (unit.attack != null && unit.hp != null) tags += '<span class="diy-tag">' + esc(unit.attack) + '/' + esc(unit.hp) + '</span>';
     } else if (kind === 'card') {

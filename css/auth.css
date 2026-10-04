@@ -966,6 +966,7 @@
 .diy-check { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; }
 .diy-check input[type="checkbox"] { width: 18px; height: 18px; accent-color: #7C83FF; }
 .diy-tag--summon { background: rgba(82,196,172,0.15); color: #7ad8c4; }
+.diy-tag--transform { background: rgba(160,120,235,0.18); color: #c4a6ff; }
 .diy-tag--awakened { background: rgba(220,180,60,0.15); color: #dcc04c; }
 .diy-tag--derivative { background: rgba(255,130,180,0.15); color: #ffa8c8; }
 .diy-tag--stack { background: rgba(255,200,100,0.16); color: #ffd98a; }

@@ -243,10 +243,11 @@
       /** 数据库没有的式神：用卡槽当前设置（式神管理里的名字/基础/能力）拼出信息 */
       function _buildSlotCardInfo(slot, name) {
         const isSummon = slot.dataset.slotType === 'summon';
+        const isSwitchTarget = !!(slot._switch && (slot._switch.idx | 0) > 0);   // 当前显示的是变身
         const baseAtk = (slot._baseAtk !== undefined && slot._baseAtk !== null) ? slot._baseAtk : null;
         const baseHp = (slot._baseHp !== undefined && slot._baseHp !== null) ? slot._baseHp : null;
         return {
-          type: isSummon ? 'summon' : 'shikigami',
+          type: isSwitchTarget ? 'transform' : (isSummon ? 'summon' : 'shikigami'),
           name: name || '暂未命名',
           faction: slot.dataset.slotFaction || '无相',
           attack: '无',
@@ -319,7 +320,7 @@
       }
 
       function _render(card) {
-        const typeNames = { shikigami: '式神', summon: '召唤物', spell: '法术', battle: '战斗', form: '形态', realm: '幻境', curse: '灵咒', bond: '协战' };
+        const typeNames = { shikigami: '式神', summon: '召唤物', spell: '法术', battle: '战斗', form: '形态', realm: '幻境', curse: '灵咒', bond: '协战', transform: '变身' };
         // 食材/佳肴特殊处理
         if (card._food) {
           const foodTypeNames = { '山珍': '🍄 山珍', '海味': '🐟 海味', '时蔬': '🥬 时蔬', '佳肴': '🍲 佳肴' };
@@ -394,7 +395,8 @@
         if (card.owner) statsHTML += `<span class="stat stat--owner">👤 ${card.owner}</span>`;
         switch (card.type) {
           case 'shikigami':
-          case 'summon': {
+          case 'summon':
+          case 'transform': {
             if (card.faction) {
               if (card.faction === '无相') {
                 statsHTML += `<span class="stat stat--faction">🌐 无相</span>`;
@@ -586,7 +588,7 @@
         // 结附灵咒（从战场卡牌槽或手牌/牌库数据读取）
         let cursesHTML = '';
         let curses = null;
-        if (currentSlot && (card.type === 'shikigami' || card.type === 'summon')) {
+        if (currentSlot && (card.type === 'shikigami' || card.type === 'summon' || card.type === 'transform')) {
           curses = getSlotCurses(currentSlot);
         }
         if (!curses || !curses.length) {

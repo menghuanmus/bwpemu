@@ -118,6 +118,7 @@ const Presets = (() => {
       curses: state.curses || [],
       awakened: state.awakened || false,
       incarn: (typeof Incarnation !== 'undefined' && Array.isArray(state.incarn)) ? Incarnation.clone(state.incarn) : [],
+      _switch: state._switch,   // 【切换】预设携带变身列表（undefined = 无）
       ko: ''
     };
 
@@ -201,6 +202,7 @@ const Presets = (() => {
         baseAtk: p.attack,
         baseHp: p.hp,
         chargedCards: [],   // 部署/替换式神时清空该槽原有蓄力
+        _switch: p._switch || null,   // 【切换】部署携带变身列表；旧预设无此字段 → 清除槽内旧目标
       });
     }
 

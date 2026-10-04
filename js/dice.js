@@ -1219,6 +1219,8 @@
             setTimeout(() => {
               const overlay = slot.querySelector('.ko-overlay');
               if (!overlay) return;
+              // 【切换】勾了「气绝/复活时切回」的变身：不复活，改为切回本体 + 重置
+              if (typeof SwitchMgr !== 'undefined' && SwitchMgr.checkReviveSwitchBack && SwitchMgr.checkReviveSwitchBack(slot)) return;
               overlay.remove();
               if (typeof DamageEffects !== 'undefined' && DamageEffects.playReviveEffect) {
                 DamageEffects.playReviveEffect(slot, overlay);
@@ -1345,6 +1347,8 @@
           if (typeof updateSlotEnergyBadge === 'function') updateSlotEnergyBadge(slot, '');
           if (typeof updateKoOverlay === 'function') updateKoOverlay(slot, '');
           if (typeof Incarnation !== 'undefined') Incarnation.clearSlot(slot);   // 化身一并消失
+          // 【切换】召唤物气绝 = 整槽移除（含其全部变身目标）
+          if (typeof SwitchMgr !== 'undefined') { slot._switch = null; SwitchMgr.refreshBadge(slot); }
           delete slot.dataset.slotType;
           syncSlotToPeer(slot);
         }, 800);
@@ -1353,6 +1357,8 @@
 
       const hadKo = !!slot.querySelector('.ko-overlay');
       if (hadKo) {
+        // 【切换】勾了「气绝/复活时切回」的变身：不复活，改为切回本体 + 重置
+        if (typeof SwitchMgr !== 'undefined' && SwitchMgr.checkReviveSwitchBack && SwitchMgr.checkReviveSwitchBack(slot)) return;
         // 先摘除气绝遮罩（避免同步残留），保留引用播动画
         const koOverlay = slot.querySelector('.ko-overlay');
         if (koOverlay) koOverlay.remove();
@@ -1371,8 +1377,18 @@
           sendToPeer({ type: 'fx-revive', playerId: slot.dataset.slotPlayer, slotIndex: parseInt(slot.dataset.slotIndex, 10) });
         }
       } else {
+        // 【切换】本体气绝时改为切换此变身（本体不进入气绝倒计时，仍执行清除效果）
+        if (typeof SwitchMgr !== 'undefined' && SwitchMgr.checkBodyKoSwitch && SwitchMgr.checkBodyKoSwitch(slot)) return;
+        // 【切换】勾了「气绝/复活时改为切回」的变身：不进入气绝，改为切回本体 + 重置
+        if (typeof SwitchMgr !== 'undefined' && SwitchMgr.checkKoSwitchBack && SwitchMgr.checkKoSwitchBack(slot)) return;
         // 气绝：移除全部状态特效对应的效果记录（屏障/不屈/庇佑/帷幕/眩晕/迅捷/昂扬）
         if (typeof StunFx !== 'undefined' && typeof StunFx.clearAllFx === 'function') StunFx.clearAllFx(slot);
+        // 气绝清除：战力/护甲清零
+        if (slot._armor || slot._power) {
+          slot._armor = 0;
+          slot._power = 0;
+          if (typeof updateStatusBadges === 'function') updateStatusBadges(slot);
+        }
         // 气绝倒计时初始值：默认 3，可在式神管理面板「倒计时/能量」里调整
         createKoOverlay(slot, String(slot._baseKoCountdown || 3));
         // 气绝时普通倒计时重置为基础值

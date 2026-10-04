@@ -28,6 +28,7 @@ const BonusPanel = (() => {
       <div class="bonus-dialog">
         <div class="bonus-dialog__header">
           <span class="bonus-dialog__title">💠 式神管理</span>
+          <button type="button" class="bonus-switch-btn" id="bonus-switch-btn" title="切换变身">🎭 切换变身</button>
           <button type="button" class="bonus-dialog__close" title="关闭">✕</button>
         </div>
         <div class="bonus-dialog__body" id="bonus-body"></div>
@@ -35,6 +36,12 @@ const BonusPanel = (() => {
     `;
     document.body.appendChild(overlay);
     overlay.querySelector('.bonus-dialog__close').addEventListener('click', close);
+    // 🎭 切换变身：挂在头部（标题右边）；header 不在 #bonus-body 的委托里，需要单独绑定
+    overlay.querySelector('.bonus-dialog__header').addEventListener('click', (e) => {
+      if (e.target && e.target.id === 'bonus-switch-btn' && ctx && typeof SwitchMgr !== 'undefined') {
+        SwitchMgr.openManager(ctx.slot);
+      }
+    });
     // 手机端：拦截弹窗外滑动，防止滚动穿透到战场（弹窗内正常滚动）
     if (!window._bonusOverlayTouchBound) {
       window._bonusOverlayTouchBound = true;
@@ -182,12 +189,18 @@ const BonusPanel = (() => {
       const raw = e.target.value.trim();
       const v = raw === '' ? null : parseInt(raw, 10);
       ctx.slot._baseAtk = (Number.isNaN(v) || v < 0) ? null : v;
+      // 【修复】设置基础后，卡槽上的攻显示同步刷新（新基础 + 永久 + 临时；0 也要显示为 0）
+      const atkIn2 = ctx.slot.querySelector('.card-attack');
+      if (atkIn2 && typeof calcFullAtk === 'function') atkIn2.value = String(calcFullAtk(ctx.slot) || 0);
       syncSlotToPeer(ctx.slot);
     }
     if (e.target.id === 'bonus-base-hp') {
       const raw = e.target.value.trim();
       const v = raw === '' ? null : parseInt(raw, 10);
       ctx.slot._baseHp = (Number.isNaN(v) || v < 0) ? null : v;
+      // 【修复】设置基础后，卡槽上的命显示同步刷新（新基础 + 永久 + 临时；0 也要显示为 0）
+      const hpIn2 = ctx.slot.querySelector('.card-hp');
+      if (hpIn2 && typeof calcFullHp === 'function') hpIn2.value = String(calcFullHp(ctx.slot) || 0);
       syncSlotToPeer(ctx.slot);
     }
     if (e.target.id === 'bonus-armor') {
@@ -1131,6 +1144,8 @@ const BonusPanel = (() => {
     if (typeof updateSlotEnergyBadge === 'function') updateSlotEnergyBadge(slot, '');
     if (typeof updateKoOverlay === 'function') updateKoOverlay(slot, '');
     if (typeof Incarnation !== 'undefined') Incarnation.clearSlot(slot);   // 化身一并消失
+    // 【切换】删除式神 = 清空该槽的全部变身目标
+    if (typeof SwitchMgr !== 'undefined') { slot._switch = null; SwitchMgr.refreshBadge(slot); }
     if (typeof syncSlotToPeer === 'function') syncSlotToPeer(slot);
     if (typeof broadcastSystemMsg === 'function') {
       broadcastSystemMsg(`【系统】${ctx.playerName}从战场上移除了「${name}」`);
@@ -1144,5 +1159,10 @@ const BonusPanel = (() => {
     init();
   }
 
-  return { open, close };
+  /** 切换变身等操作后：面板开着的话原地重开，刷新数据 */
+  function reopen() {
+    if (ctx && ctx.slot) open(ctx.slot);
+  }
+
+  return { open, close, reopen };
 })();

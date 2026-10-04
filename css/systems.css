@@ -53,6 +53,7 @@
     .card-tooltip__badge--realm     { background: #6a6a2a; color: #ffffc0; }
     .card-tooltip__badge--curse     { background: #8a3a6a; color: #ffc0e0; }
     .card-tooltip__badge--bond   { background: #8a5a2a; color: #ffe0b0; }
+    .card-tooltip__badge--transform { background: #5a3a8a; color: #e8d0ff; }
 
     .card-tooltip__name {
       font-size: 23px;
