@@ -23,6 +23,17 @@ const SwitchMgr = (() => {
   function myPid() { return (typeof localPlayerId !== 'undefined' && localPlayerId) ? String(localPlayerId) : '1'; }
   function isMySlot(slot) { return !!slot && String(slot.dataset.slotPlayer || '') === myPid(); }
   function _defaultOpts() { return { koSwitchBack: false, permaKo: false, bodyKoSwitch: false }; }
+  /** 快捷创建时默认勾选全部三个选项的名字（武魂形态 / 茨木童子·鬼蚀 是气绝联动型变身） */
+  const QUICK_ALL_OPTS = ['武魂形态', '茨木童子·鬼蚀'];
+  function _quickDefaultOpts(name) {
+    const o = _defaultOpts();
+    if (QUICK_ALL_OPTS.indexOf(String(name || '').trim()) !== -1) {
+      o.koSwitchBack = true;
+      o.permaKo = true;
+      o.bodyKoSwitch = true;
+    }
+    return o;
+  }
   /** 读取选项（兼容旧字段名 startKo） */
   function _optVal(o, key) {
     if (!o) return false;
@@ -577,12 +588,12 @@ const SwitchMgr = (() => {
       const name = qi.dataset.name;
       const card = _quickCards().find(c => c.name === name);
       if (!card) return;
-      const res = appendTarget(dlgSlot, name, card, _defaultOpts());
+      const res = appendTarget(dlgSlot, name, card, _quickDefaultOpts(name));
       if (res.error) { _msg(res.error, true); return; }
       _msg('');
       switchTo(dlgSlot, res.idx);          // 快捷创建 → 立即切换
       if (typeof autoUpdateSlotImage === 'function') autoUpdateSlotImage(dlgSlot);
-      expandedIdx = null;
+      expandedIdx = res.idx;               // 展开选项行，玩家能直接看到默认勾选状态
       _renderDialog();
       return;
     }

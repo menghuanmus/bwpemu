@@ -178,7 +178,8 @@
           shiArr.forEach(function(s) {
             if (s && s.name && typeof s.name === 'string') {
               const sc = Object.assign({}, s);
-              sc.type = (sc.type === 'summon') ? 'summon' : 'shikigami';
+              // 保留 summon / transform（变身），其余按普通式神处理（变身要能被切换管理快捷创建识别）
+              sc.type = (sc.type === 'summon' || sc.type === 'transform') ? sc.type : 'shikigami';
               sc._lib = true; sc._libOwner = playerId;
               shikigami.set(sc.name, sc);
             }

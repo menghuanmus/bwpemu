@@ -135,7 +135,7 @@ var MyLib = (function () {
       '<div class="diy-row">' +
       fieldHTML('派系', 'diy-f-faction', '<select id="diy-f-faction">' + ['苍叶', '红莲', '青岚', '紫岩', '无相'].map(function (f) { return '<option>' + f + '</option>'; }).join('') + '</select>') +
       fieldHTML('攻击', 'diy-f-atk', inputHTML('diy-f-atk', '', 'number', 'min="0" max="99"'), true) +
-      fieldHTML('生命', 'diy-f-hp', inputHTML('diy-f-hp', '', 'number', 'min="1" max="99"'), true) +
+      fieldHTML('生命', 'diy-f-hp', inputHTML('diy-f-hp', '', 'number', 'min="0" max="99"'), true) +
       '</div>',
       '<label class="diy-field diy-check"><input type="checkbox" id="diy-f-summon"><span style="display:inline;margin:0 6px 0 0;">是否为召唤物</span></label>',
       '<label class="diy-field diy-check"><input type="checkbox" id="diy-f-transform"><span style="display:inline;margin:0 6px 0 0;">是否为变身</span></label>',
@@ -155,11 +155,14 @@ var MyLib = (function () {
       if (e && e.target === sum && sum.checked) tr.checked = false;
       if (e && e.target === tr && tr.checked) sum.checked = false;
       var wrap = $('diy-f-owner-wrap');
-      if (wrap) wrap.style.display = sum.checked ? '' : 'none';
+      // 召唤物与变身都要填「所属式神」
+      if (wrap) wrap.style.display = (sum.checked || tr.checked) ? '' : 'none';
       var ownEl = $('diy-f-owner');
-      if (ownEl) ownEl.value = isSummon && unit && unit.owner ? unit.owner : '';
+      if (ownEl) ownEl.placeholder = tr.checked ? '该变身所属的式神' : '选填，召唤物所属的式神';
     }
     syncOwner();
+    // 回填已有「所属式神」（召唤物 / 变身）；只在打开时回填，切换勾选不会清空已输入内容
+    if (unit && unit.owner && (isSummon || isTransform) && $('diy-f-owner')) $('diy-f-owner').value = unit.owner;
     $('diy-f-summon').addEventListener('change', syncOwner);
     $('diy-f-transform').addEventListener('change', syncOwner);
     bindCharCount($('diy-f-text'), $('diy-f-count'), MAX_TEXT);
@@ -175,14 +178,15 @@ var MyLib = (function () {
         name: name,
         faction: $('diy-f-faction').value || '苍叶',
         attack: parseInt($('diy-f-atk').value, 10) || 0,
-        hp: parseInt($('diy-f-hp').value, 10) || 1,
+        hp: isNaN(parseInt($('diy-f-hp').value, 10)) ? 1 : parseInt($('diy-f-hp').value, 10),
         ability: $('diy-f-text').value.trim()
       };
+      var ownerVal = $('diy-f-owner').value.trim();
       if ($('diy-f-transform').checked) {
         saved.type = 'transform';
+        if (ownerVal) saved.owner = ownerVal; // 变身所属式神（选填：留空则归入「无归属」）
       } else if ($('diy-f-summon').checked) {
         saved.type = 'summon';
-        var ownerVal = $('diy-f-owner').value.trim();
         if (ownerVal) saved.owner = ownerVal; // 选填：留空则归入「无归属」
       }
       if (idx >= 0) cache.shikigami[idx] = keepAuthor('shikigami', idx, saved); else cache.shikigami.push(saved);
@@ -544,7 +548,7 @@ var MyLib = (function () {
     var shiNames = {};
     cache.shikigami.forEach(function (s) { shiNames[s.name] = true; });
     var html = '';
-    // 每个式神分组内条目排序：卡牌(等级小→大) → 召唤物 → 关键词 → 灵咒
+    // 每个式神分组内条目排序：卡牌(等级小→大) → 召唤物 → 变身 → 关键词 → 灵咒
     function cardsByLevel() {
       return cache.cards.map(function (c, i) { return { u: c, i: i }; }).sort(function (a, b) {
         var la = parseInt(a.u.level, 10) || 99, lb = parseInt(b.u.level, 10) || 99;
@@ -553,7 +557,7 @@ var MyLib = (function () {
       });
     }
     cache.shikigami.forEach(function (s, si) {
-      if (s.type === 'summon') return; // 召唤物归到其所属式神下面展示
+      if (s.type === 'summon' || s.type === 'transform') return; // 召唤物 / 变身归到其所属式神下面展示
       var children = [];
       // 1) 卡牌（等级从小到大）；协战牌按两名所属式神同时挂到两个式神下（同一条记录，不复制）
       cardsByLevel().forEach(function (e) {
@@ -566,6 +570,10 @@ var MyLib = (function () {
       // 2) 召唤物
       cache.shikigami.forEach(function (sm, smi) {
         if (sm.type === 'summon' && sm.owner === s.name && matchesSearch(sm)) children.push(itemHTMLFor('shikigami', sm, smi, 1));
+      });
+      // 2.5) 变身（同样归到所属式神下面）
+      cache.shikigami.forEach(function (sm, smi) {
+        if (sm.type === 'transform' && sm.owner === s.name && matchesSearch(sm)) children.push(itemHTMLFor('shikigami', sm, smi, 1));
       });
       // 3) 关键词  4) 灵咒
       cache.others.forEach(function (o, oi) {
@@ -583,7 +591,7 @@ var MyLib = (function () {
     });
     // 无归属（或所属式神不在库中）的卡牌 / 其他 / 召唤物
     var loose = [];
-    // 无归属区同样排序：卡牌(等级小→大) → 召唤物 → 关键词 → 灵咒
+    // 无归属区同样排序：卡牌(等级小→大) → 召唤物/变身 → 关键词 → 灵咒
     cardsByLevel().forEach(function (e) {
       var u = e.u;
       var isLoose;
@@ -596,7 +604,8 @@ var MyLib = (function () {
       if (isLoose && matchesSearch(u)) loose.push(itemHTMLFor('card', u, e.i, 0));
     });
     cache.shikigami.forEach(function (sm, smi) {
-      if (sm.type === 'summon' && (!sm.owner || !shiNames[sm.owner]) && matchesSearch(sm)) loose.push(itemHTMLFor('shikigami', sm, smi, 0));
+      var isSub = (sm.type === 'summon' || sm.type === 'transform');
+      if (isSub && (!sm.owner || !shiNames[sm.owner]) && matchesSearch(sm)) loose.push(itemHTMLFor('shikigami', sm, smi, 0));
     });
     cache.others.forEach(function (o, oi) {
       if ((!o.owner || !shiNames[o.owner]) && o.type !== 'curse' && matchesSearch(o)) loose.push(itemHTMLFor('other', o, oi, 0));
@@ -686,10 +695,11 @@ var MyLib = (function () {
     var effect = '';
     if (kind === 'shikigami') {
       if (unit.type === 'summon') meta.push(pill('召唤物', 'diy-tag--summon'));
+      else if (unit.type === 'transform') meta.push(pill('变身', 'diy-tag--transform'));
       else meta.push(pill('式神'));
       if (unit.faction) meta.push(pill(unit.faction));
       if (unit.attack != null && unit.hp != null) meta.push(pill(unit.attack + '/' + unit.hp));
-      if (unit.type === 'summon' && unit.owner) meta.push(pill('所属：' + unit.owner));
+      if ((unit.type === 'summon' || unit.type === 'transform') && unit.owner) meta.push(pill('所属：' + unit.owner));
       effect = unit.ability || '';
     } else if (kind === 'card') {
       // 稀有度「无」：不显示稀有度标签
