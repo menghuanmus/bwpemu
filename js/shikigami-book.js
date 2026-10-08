@@ -98,19 +98,24 @@
       if (typeof CardDB === 'undefined' || !CardDB.getPlayerShikigami) return map;
       const shikigami = CardDB.getPlayerShikigami(myPid);
       for (const s of shikigami) {
-        map.set(s.name, { shikigami: s, cards: [], curses: [], isDiy: true, isMine: true });
+        map.set(s.name, { shikigami: s, cards: [], curses: [], keywords: [], isDiy: true, isMine: true });
       }
       const cards = CardDB.getPlayerLibCards(myPid);
-      for (const c of cards) {
+      const addToOwners = function (c) {
         const owners = (c.type === 'bond' && Array.isArray(c.bondOwners))
           ? c.bondOwners.filter(Boolean)
           : (c.owner ? [c.owner] : []);
         owners.forEach(function (o) {
           if (!map.has(o)) return;
           if (c.type === 'curse') map.get(o).curses.push(c);
+          else if (c.type === 'keyword') map.get(o).keywords.push(c);
           else map.get(o).cards.push(c);
         });
-      }
+      };
+      for (const c of cards) addToOwners(c);
+      // 自创灵咒 / 关键词（我的卡库「其他」）：同样归入对应式神详情
+      if (CardDB.getPlayerLibCurses) CardDB.getPlayerLibCurses(myPid).forEach(addToOwners);
+      if (CardDB.getPlayerLibKeywords) CardDB.getPlayerLibKeywords(myPid).forEach(addToOwners);
       return map;
     }
 
@@ -206,7 +211,7 @@
       let hasResults = false;
       for (const { key, entry } of entries) {
         hasResults = true;
-        const total = entry.cards.length + entry.curses.length;
+        const total = entry.cards.length + entry.curses.length + ((entry.keywords && entry.keywords.length) || 0);
         const item = document.createElement('div');
         item.className = 'shikigami-book__item';
         if (key === _bookSelectedKey) item.classList.add('shikigami-book__item--active');
@@ -341,9 +346,11 @@
         meta.className = 'shikigami-book__profile-meta';
         const faction = shikigami.faction || '无相';
         meta.innerHTML = `<span>${_factionIconHTML(faction)} ${faction}</span><span>${_atkIconHTML()}${shikigami.attack}</span><span>${_hpIconHTML()}${shikigami.hp}</span>`;
-        // DIY 显示作者
-        if (entry.isDiy && shikigami.author && shikigami.author !== '官方') {
-          meta.innerHTML += `<span class="shikigami-book__profile-author">作者：${_escapeHTML(shikigami.author)}</span>`;
+        // 自创标识（我的卡库 / 导入的作者）
+        if (entry.isDiy) {
+          if (entry.isMine) meta.innerHTML += `<span class="shikigami-book__profile-author">DIY</span>`;
+          else if (shikigami.author && shikigami.author !== '官方') meta.innerHTML += `<span class="shikigami-book__profile-author">DIY · 作者：${_escapeHTML(shikigami.author)}</span>`;
+          else meta.innerHTML += `<span class="shikigami-book__profile-author">DIY</span>`;
         }
         info.appendChild(meta);
 
@@ -440,7 +447,13 @@
         shikigamiBookDetail.appendChild(createBookCardEntry(card));
       }
 
-      if (normalCards.length === 0 && derivativeCards.length === 0 && sortedCurses.length === 0) {
+      // 关键词（我的卡库）
+      const sortedKeywords = [...(entry.keywords || [])].sort((a, b) => a.name.localeCompare(b.name, 'zh'));
+      for (const kw of sortedKeywords) {
+        shikigamiBookDetail.appendChild(createBookCardEntry(kw));
+      }
+
+      if (normalCards.length === 0 && derivativeCards.length === 0 && sortedCurses.length === 0 && sortedKeywords.length === 0) {
         const empty = document.createElement('div');
         empty.className = 'card-list-empty';
         empty.textContent = '暂无卡牌数据';
@@ -503,7 +516,7 @@
     // ================================================================
 
     function createBookCardEntry(card) {
-      const typeNames = { shikigami: '式神', summon: '召唤物', spell: '法术', battle: '战斗', bond: '协战', form: '形态', realm: '幻境', curse: '灵咒', transform: '变身' };
+      const typeNames = { shikigami: '式神', summon: '召唤物', spell: '法术', battle: '战斗', bond: '协战', form: '形态', realm: '幻境', curse: '灵咒', keyword: '关键词', transform: '变身' };
       const typeCN = typeNames[card.type] || card.type;
 
       const entry = document.createElement('div');
@@ -542,7 +555,7 @@
       nameEl.textContent = (window.Bond && Bond.displayName) ? Bond.displayName(card.name) : card.name;
       head.appendChild(nameEl);
 
-      // 标签
+      // 标签（觉醒 / 衍生）
       if (card.awakened || card.derivative) {
         const tags = document.createElement('span');
         tags.className = 'shikigami-book__card-tags';

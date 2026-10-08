@@ -1,8 +1,9 @@
 // ================================================================
-//  js/renyin.js — 连引系统（六步筛选面板）
+//  js/renyin.js — 连引系统（七步筛选面板）
 //  步骤1: 选择连引对象式神  步骤2: 设定各对象数量
 //  步骤3: 筛选等级          步骤4: 筛选类型
-//  步骤5: 筛选稀有度        步骤6: 标签过滤（必须全含 / 至少含一）
+//  步骤5: 筛选稀有度        步骤6: 灵咒结附（可选项，命中所选灵咒之一）
+//  步骤7: 标签过滤（必须全含 / 至少含一）
 //  依赖: CardDB, game-core (战场卡槽), card-deck, chat
 // ================================================================
 
@@ -129,6 +130,7 @@ const Renyin = (() => {
       targets, totalCount, selectedIndices, quantities,
       levelSelected, typeSelected, rarSelected,
       must, any,
+      curseSelected: new Set(),   // 步骤7：已选灵咒名（空 = 不限）
       phase: 'conditions',
       foundCards: [], selectedIndex: -1,
     };
@@ -156,6 +158,26 @@ const Renyin = (() => {
     const cardName = ctx.card.name || '(未命名)';
     const t = ctx.targets;
     activePicker = null; // 重建面板时重置选择器状态
+
+    // 步骤7：收集当前牌库中已有的灵咒（灵咒名 → 结附张数），并清理已失效的选择
+    const curseMap = (function () {
+      const map = new Map();
+      try {
+        const state = getPlayerCardState(ctx.playerId);
+        (state.deck || []).forEach(c => {
+          if (!c || typeof c !== 'object') return;
+          (c.curses || []).forEach(x => { if (x && x.name) map.set(x.name, (map.get(x.name) || 0) + 1); });
+        });
+      } catch (e) { /* 静默 */ }
+      return map;
+    })();
+    ctx.curseSelected = new Set([...ctx.curseSelected].filter(n => curseMap.has(n)));
+    let curseBtns = `<span class="renyin-opt-btn${ctx.curseSelected.size === 0 ? ' renyin-opt-btn--active' : ''}" data-curse="__all__">不限</span>`;
+    curseMap.forEach((count, name) => {
+      const act = ctx.curseSelected.has(name) ? ' renyin-opt-btn--active' : '';
+      curseBtns += `<span class="renyin-opt-btn${act}" data-curse="${escapeHTML(name)}">${escapeHTML(name)}（${count}）</span>`;
+    });
+    if (!curseMap.size) curseBtns += `<span class="renyin-curse-empty">（牌库中暂无灵咒）</span>`;
 
     body.innerHTML = `
       <div class="renyin-used-card">
@@ -221,9 +243,14 @@ const Renyin = (() => {
           }).join('')}
         </div>
       </div>
-      <!-- 步骤6 -->
+      <!-- 步骤6：灵咒结附（可选项） -->
       <div class="renyin-step">
-        <div class="renyin-step__label">🏷 第六步：标签过滤 <span class="renyin-step__hint">（关键词 / 卡牌名 / 描述）</span></div>
+        <div class="renyin-step__label">⛓️ 第六步：灵咒结附 <span class="renyin-step__hint">（可选项，命中所选灵咒之一）</span></div>
+        <div class="renyin-btn-group" id="renyin-curses">${curseBtns}</div>
+      </div>
+      <!-- 步骤7 -->
+      <div class="renyin-step">
+        <div class="renyin-step__label">🏷 第七步：标签过滤 <span class="renyin-step__hint">（关键词 / 卡牌名 / 描述）</span></div>
         <div class="renyin-filter-block">
           <div class="renyin-filter-block__label">🔒 必须全含（以下所有条件都要满足）</div>
           <div class="renyin-filter-btns">
@@ -334,6 +361,20 @@ const Renyin = (() => {
         btn.classList.toggle('renyin-opt-btn--active');
       });
     });
+    // 步骤7：灵咒结附（不限 = 未选中任何灵咒）
+    body.querySelectorAll('#renyin-curses .renyin-opt-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const v = btn.dataset.curse;
+        if (v === '__all__') {
+          ctx.curseSelected.clear();
+        } else if (ctx.curseSelected.has(v)) {
+          ctx.curseSelected.delete(v);
+        } else {
+          ctx.curseSelected.add(v);
+        }
+        refreshCurseBtns();
+      });
+    });
     body.querySelectorAll('.renyin-filter-add-btn').forEach(btn => {
       btn.addEventListener('click', () => openFilterPicker(btn.dataset.kind, btn.dataset.mode));
     });
@@ -349,6 +390,17 @@ const Renyin = (() => {
     });
     const cancelBtn = document.getElementById('renyin-cancel');
     if (cancelBtn) cancelBtn.addEventListener('click', () => close(false));
+  }
+
+  /** 刷新第七步灵咒按钮高亮（不限 = 未选中任何灵咒） */
+  function refreshCurseBtns() {
+    const box = document.getElementById('renyin-curses');
+    if (!box) return;
+    box.querySelectorAll('.renyin-opt-btn').forEach(b => {
+      const v = b.dataset.curse;
+      if (v === '__all__') b.classList.toggle('renyin-opt-btn--active', ctx.curseSelected.size === 0);
+      else b.classList.toggle('renyin-opt-btn--active', ctx.curseSelected.has(v));
+    });
   }
 
   /** 关闭全部选择器窗口（must/any 两组的关键词与文本窗） */
@@ -582,6 +634,11 @@ const Renyin = (() => {
 
         // 第六步条件过滤（关键词 / 卡牌名 / 描述）
         pool = filterByConditions(pool);
+
+        // 第七步：灵咒结附（可选项：需结附所选灵咒之一）
+        if (ctx.curseSelected.size > 0) {
+          pool = pool.filter(c => (c.curses || []).some(x => x && ctx.curseSelected.has(x.name)));
+        }
 
         // 随机抽
         if (pool.length > 0) {

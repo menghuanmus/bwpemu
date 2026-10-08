@@ -381,6 +381,8 @@
         var t1 = document.getElementById('tag-your'), t2 = document.getElementById('tag-opp');
         if (t1) { t1.className = 'zone-owner-tag zone-owner-tag--yours tag-above-bar'; t1.hidden = false; }
         if (t2) { t2.className = 'zone-owner-tag zone-owner-tag--opponent tag-below-bar'; t2.hidden = false; }
+        var specRowSolo = document.getElementById('spectator-name-row');
+        if (specRowSolo) specRowSolo.hidden = true;   // 清掉观战残留的"观众模式"字样
         resetPermissionLock();
         return;
       }

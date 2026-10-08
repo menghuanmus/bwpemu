@@ -139,6 +139,9 @@
   // ═══ 大厅 ═══
   function showLobby(nickname) {
     showView(LOBBY_VIEW);
+    // 清掉可能残留的"观众模式"字样（从观战退出回大厅时）
+    var specRowLobby = $('spectator-name-row');
+    if (specRowLobby) specRowLobby.hidden = true;
     // 回到大厅时彻底清空上一局的战场数据，防止新房间继承旧状态
     if (typeof resetGameState === 'function') resetGameState();
     // 若开着预设面板（退出对局/房间）一并关闭

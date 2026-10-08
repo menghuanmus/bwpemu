@@ -606,6 +606,24 @@
           row.appendChild(ctl);
         }
 
+        // 灵咒按钮（仅自己的牌库、非观众——与堆叠控件同条件）：给这张牌结附/查看/修改灵咒
+        if (deckOwn) {
+          const curseBtn = document.createElement('button');
+          curseBtn.type = 'button';
+          curseBtn.className = 'btn-card-action btn-card-curse-deck';
+          curseBtn.textContent = '⛓️';
+          curseBtn.title = '结附 / 查看灵咒';
+          curseBtn.style.cssText = 'font-size:10px;padding:2px 6px;flex-shrink:0;';
+          curseBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const revealed = !!(isRevealed || isFateRevealed);
+            openCursePanel(_curseTargetForCard(playerId, card, '牌库中的', {
+              title: revealed ? card.name : ('牌库第 ' + (idx + 1) + ' 张'),
+            }));
+          });
+          row.appendChild(curseBtn);
+        }
+
         // 弃牌按钮（自己牌库可点；观众可见但不可点）
         if (isViewingOwnCards(playerId) || specView) {
           const discardBtn = document.createElement('button');
@@ -691,6 +709,13 @@
         curseBar.classList.toggle('curse-random-bar--spec', !!specLock);
         curseBar.querySelectorAll('input, button').forEach(el => { el.disabled = !!specLock; });
       }
+      // 牌库模式：显示「⚙️ 更多方式」、隐藏「🔄 优先不重复」（牌库默认即优先不重复）；手牌模式相反，维持原样
+      const curseMoreBtn = document.getElementById('btn-curse-more');
+      if (curseMoreBtn) curseMoreBtn.hidden = (type !== 'deck');
+      const curseToggleBtnOpen = document.getElementById('btn-curse-toggle');
+      if (curseToggleBtnOpen) curseToggleBtnOpen.hidden = (type === 'deck');
+      // 打开/切换列表时关掉可能还开着的批量面板（避免上下文变化）
+      _closeCurseBatchPanel();
       // 置入启悟区开关：仅在该牌手已开启启悟机制时显示
       const toOracleToggle = document.querySelector('.hand-toggle-btn[data-hand-mode="tooracle"]');
       if (toOracleToggle) {
@@ -733,6 +758,7 @@
       cardListOverlay.hidden = true;
       cardListContext = null;
       _deckMoveClose();
+      _closeCurseBatchPanel();
       cardListBody.innerHTML = '';
       document.getElementById('deck-summary-header').hidden = true;
       document.getElementById('deck-summary-header').innerHTML = '';
@@ -2550,6 +2576,8 @@
       if (initBtn) initBtn.textContent = isMobile ? '初始手牌' : '🎴 初始手牌';
       const bcr = document.getElementById('btn-curse-random');
       if (bcr) bcr.textContent = isMobile ? '随机结附灵咒' : '🎲 随机结附灵咒';
+      const bcm = document.getElementById('btn-curse-more');
+      if (bcm) bcm.textContent = isMobile ? '⚙️ 更多' : '⚙️ 更多方式';
       const bct = document.getElementById('btn-curse-toggle');
       if (bct) bct.textContent = (typeof curseRandomRepeat !== 'undefined' && curseRandomRepeat) ? (isMobile ? '全随机' : '🔁 全随机') : (isMobile ? '优先不重复' : '🔄 优先不重复');
     }
@@ -2586,7 +2614,7 @@
     let renyinBtnsVisible = false;
 
     // 随机结附灵咒
-    let curseRandomRepeat = false; // false=优先不重复, true=全随机
+    let curseRandomRepeat = false; // 手牌模式用开关：false=优先不重复, true=全随机（牌库模式固定优先不重复，按钮已按需求删除）
     document.getElementById('btn-curse-toggle').addEventListener('click', function() {
       curseRandomRepeat = !curseRandomRepeat;
       _refreshCardListBtnTexts();
@@ -2597,26 +2625,364 @@
       const name = document.getElementById('curse-random-input').value.trim();
       if (!name) return;
       const { playerId, type } = cardListContext;
-      const state = getPlayerCardState(playerId);
-      const cards = type === 'hand' ? state.hand : state.deck;
-      if (!cards.length) return;
-      let pool;
-      if (curseRandomRepeat) {
-        pool = cards;
-      } else {
-        const without = cards.filter(c => !(c.curses || []).some(cur => cur.name === name));
-        pool = without.length ? without : cards;
-      }
-      const target = pool[Math.floor(Math.random() * pool.length)];
-      if (!target.curses) target.curses = [];
-      const existing = target.curses.find(c => c.name === name);
-      if (existing) { existing.layers += 1; }
-      else { target.curses.push({ name, layers: 1 }); }
-      refreshOpenListDialog(playerId);
-      if (typeof syncDeckStateForce === 'function') syncDeckStateForce(playerId); else syncDeckState(playerId);
-      const loc = type === 'hand' ? '手牌中的' : '牌库中的';
-      broadcastSystemMsg('【系统】' + getPlayerName(playerId) + '为' + loc + '一张牌随机结附了灵咒「' + name + '」×1');
+      // 牌库模式固定“优先不重复”；手牌模式沿用原开关
+      const repeatAll = (type === 'hand') ? curseRandomRepeat : false;
+      _applyCurseAction({ playerId, type, curseName: name, mode: 'random', count: 1, layers: 1, repeatAll });
     });
+
+    // ══════════════ 灵咒批量 / 指定结附（牌库「⚙️ 更多方式」） ══════════════
+
+    /** 判断一张牌是否属于某式神（与牌表分组逻辑一致；协战牌按任一所属式神匹配；__neutral__ = 中立/无所属） */
+    function _cardBelongsToOwner(card, ownerName) {
+      if (!card || !ownerName) return false;
+      let db = null;
+      try { db = (typeof CardDB !== 'undefined' && CardDB.lookup) ? CardDB.lookup(card.name) : null; } catch (e) { db = null; }
+      const owner = String(card.owner || (db && db.owner) || '');
+      if (ownerName === '__neutral__') return !owner || owner === '中立';
+      if (db && db.type === 'bond' && Array.isArray(db.bondOwners) && db.bondOwners.indexOf(ownerName) !== -1) return true;
+      return owner === ownerName;
+    }
+
+    /** 批量结附/移除的系统消息（按方式生成；不暴露具体是哪张牌；removeLayers=每张扣层数，null=全部移除） */
+    function _curseSysMsg(opts, name, n, layers, loc, removeLayers) {
+      const who = getPlayerName(opts.playerId);
+      const mode = opts.mode;
+      const cnt = Math.max(1, Math.min(99, parseInt(opts.count, 10) || 1));
+      const arg = String(opts.arg || '').trim();
+      const argDisp = (arg === '__neutral__') ? '中立/无所属' : arg;
+      const rmSuffix = (removeLayers != null) ? ('（各 ' + removeLayers + ' 层）') : '';
+      switch (mode) {
+        case 'random':
+          if (opts.repeatAll && cnt > 1) return '【系统】' + who + '为' + loc + '随机结附了灵咒「' + name + '」（重复 ' + cnt + ' 次，可能叠加同一张）';
+          if (n === 1 && layers === 1) return '【系统】' + who + '为' + loc + '一张牌随机结附了灵咒「' + name + '」×1';
+          return '【系统】' + who + '为' + loc + n + ' 张牌结附了灵咒「' + name + '」';
+        case 'top': return '【系统】' + who + '为' + loc + '顶部的 ' + n + ' 张牌结附了灵咒「' + name + '」';
+        case 'bottom': return '【系统】' + who + '为' + loc + '底部的 ' + n + ' 张牌结附了灵咒「' + name + '」';
+        case 'index': return '【系统】' + who + '为' + loc + '一张牌结附了灵咒「' + name + '」×' + layers;
+        case 'byName': return '【系统】' + who + '为' + loc + '所有「' + arg + '」（共 ' + n + ' 张）结附了灵咒「' + name + '」';
+        case 'byOwner': return '【系统】' + who + '为「' + argDisp + '」的 ' + n + ' 张牌结附了灵咒「' + name + '」';
+        case 'all': return '【系统】' + who + '为' + loc + '全部 ' + n + ' 张牌结附了灵咒「' + name + '」';
+        case 'randomRemove': return '【系统】' + who + '移除了' + loc + n + ' 张牌的灵咒「' + name + '」' + rmSuffix;
+        case 'byNameRemove': return '【系统】' + who + '移除了' + loc + '所有「' + arg + '」（共 ' + n + ' 张）的灵咒「' + name + '」' + rmSuffix;
+        case 'byOwnerRemove': return '【系统】' + who + '移除了「' + argDisp + '」的 ' + n + ' 张牌的灵咒「' + name + '」' + rmSuffix;
+        case 'allRemove': return '【系统】' + who + '移除了' + loc + '所有结附「' + name + '」的 ' + n + ' 张牌' + rmSuffix;
+        default: return '';
+      }
+    }
+
+    /**
+     * 批量结附/移除统一入口
+     * opts: { playerId, type:'deck'|'hand', curseName, mode, count, layers, repeatAll, arg, dryRun }
+     * mode: random|byName|byOwner|top|bottom|index|all|randomRemove|byNameRemove|byOwnerRemove|allRemove
+     * 返回 { ok, affected, done, error }
+     */
+    function _applyCurseAction(opts) {
+      const curseName = String(opts.curseName || '').trim();
+      if (!curseName) return { error: '请输入灵咒名' };
+      const type = opts.type || 'deck';
+      const mode = opts.mode;
+      const state = getPlayerCardState(opts.playerId);
+      const rawList = type === 'hand' ? state.hand : state.deck;
+      const cards = (rawList || []).filter(c => c && typeof c === 'object');
+      if (!cards.length) return { error: type === 'hand' ? '手牌为空' : '牌库为空' };
+      const loc = type === 'hand' ? '手牌中的' : '牌库中的';
+      const locShort = type === 'hand' ? '手牌中' : '牌库中';
+      const count = Math.max(1, Math.min(99, parseInt(opts.count, 10) || 1));
+      const layers = Math.max(1, Math.min(99, parseInt(opts.layers, 10) || 1));
+      const isRemove = mode === 'randomRemove' || mode === 'byNameRemove' || mode === 'byOwnerRemove' || mode === 'allRemove';
+      const hasCurse = (c) => (c.curses || []).some(x => x && x.name === curseName);
+
+      // ── 选目标（pickMap：牌 → 命中次数，全随机可能同张多次）──
+      const pickMap = new Map();
+      const addPick = (c, n) => { if (c) pickMap.set(c, (pickMap.get(c) || 0) + (n || 1)); };
+      if (mode === 'random') {
+        if (opts.repeatAll) {
+          for (let i = 0; i < count; i++) addPick(cards[Math.floor(Math.random() * cards.length)]);
+        } else {
+          const picks = [];
+          const pool = cards.filter(c => !hasCurse(c)).slice();
+          while (picks.length < count && pool.length) picks.push(pool.splice(Math.floor(Math.random() * pool.length), 1)[0]);
+          const pool2 = cards.filter(c => hasCurse(c)).slice();   // 未结附的不够时，从已结附的里补足
+          while (picks.length < count && pool2.length) picks.push(pool2.splice(Math.floor(Math.random() * pool2.length), 1)[0]);
+          picks.forEach(c => addPick(c));
+        }
+      } else if (mode === 'top') {
+        cards.slice(0, count).forEach(c => addPick(c));
+      } else if (mode === 'bottom') {
+        cards.slice(Math.max(0, cards.length - count)).forEach(c => addPick(c));
+      } else if (mode === 'index') {
+        if (count > cards.length) return { error: '第 ' + count + ' 张超出牌库张数（共 ' + cards.length + ' 张）' };
+        addPick(cards[count - 1]);
+      } else if (mode === 'byName' || mode === 'byNameRemove') {
+        const arg = String(opts.arg || '').trim();
+        if (!arg) return { error: '请输入牌名' };
+        const hit = cards.filter(c => String(c.name || '').trim() === arg);
+        if (!hit.length) return { error: locShort + '没有名为「' + arg + '」的牌' };
+        hit.forEach(c => addPick(c));
+      } else if (mode === 'byOwner' || mode === 'byOwnerRemove') {
+        const arg = String(opts.arg || '').trim();
+        if (!arg) return { error: '请输入式神名' };
+        const hit = cards.filter(c => _cardBelongsToOwner(c, arg));
+        if (!hit.length) return { error: locShort + '没有「' + arg + '」的牌' };
+        hit.forEach(c => addPick(c));
+      } else if (mode === 'all') {
+        cards.forEach(c => addPick(c));
+      } else if (mode === 'randomRemove') {
+        const withCurse = cards.filter(c => hasCurse(c));
+        if (!withCurse.length) return { error: locShort + '没有结附「' + curseName + '」的牌' };
+        const pool = withCurse.slice();
+        const picks = [];
+        while (picks.length < count && pool.length) picks.push(pool.splice(Math.floor(Math.random() * pool.length), 1)[0]);
+        picks.forEach(c => addPick(c));
+      } else if (mode === 'allRemove') {
+        const withCurse = cards.filter(c => hasCurse(c));
+        if (!withCurse.length) return { error: locShort + '没有结附「' + curseName + '」的牌' };
+        withCurse.forEach(c => addPick(c));
+      } else {
+        return { error: '未知方式' };
+      }
+
+      let targets = [...pickMap.entries()];
+      if (isRemove) targets = targets.filter(([c]) => hasCurse(c));
+      if (!targets.length) return { error: locShort + '没有可操作的目标' };
+      if (opts.dryRun) return { ok: true, affected: targets.length };
+
+      // ── 应用 ──
+      // 移除层数：空 = 全部移除；数字 = 每张扣 N 层（扣到 ≤0 整条移除）
+      let removeLayers = null;
+      if (isRemove) {
+        const raw = String(opts.layers == null ? '' : opts.layers).trim();
+        const v = parseInt(raw, 10);
+        removeLayers = (raw === '' || isNaN(v) || v < 1) ? null : Math.min(99, v);
+      }
+      targets.forEach(([c, times]) => {
+        if (!c.curses) c.curses = [];
+        if (isRemove) {
+          const entry = c.curses.find(x => x && x.name === curseName);
+          if (!entry) return;
+          if (removeLayers == null) {
+            c.curses = c.curses.filter(x => !(x && x.name === curseName));
+          } else {
+            entry.layers -= removeLayers;
+            if (entry.layers <= 0) c.curses = c.curses.filter(x => !(x && x.name === curseName));
+          }
+        } else {
+          const ex = c.curses.find(x => x && x.name === curseName);
+          if (ex) ex.layers += layers * times;
+          else c.curses.push({ name: curseName, layers: layers * times });
+        }
+      });
+      const affected = targets.length;
+
+      // ── 刷新 + 同步（一次）+ 系统消息 ──
+      refreshOpenListDialog(opts.playerId);
+      if (typeof syncDeckStateForce === 'function') syncDeckStateForce(opts.playerId);
+      else if (typeof syncDeckState === 'function') syncDeckState(opts.playerId);
+      const sysMsg = _curseSysMsg(opts, curseName, affected, layers, loc, removeLayers);
+      if (sysMsg && typeof broadcastSystemMsg === 'function') broadcastSystemMsg(sysMsg);
+      const done = isRemove
+        ? ('已移除 ' + affected + ' 张牌的灵咒「' + curseName + '」' + (removeLayers != null ? ('（各 ' + removeLayers + ' 层）') : ''))
+        : ('已为 ' + affected + ' 张牌结附灵咒「' + curseName + '」×' + layers);
+      return { ok: true, affected, done };
+    }
+
+    // ── 「⚙️ 更多方式」批量结附面板（仅牌库模式）──
+    let curseBatchOverlay = null;
+
+    function _buildCurseBatchPanel() {
+      const ov = document.createElement('div');
+      ov.id = 'curse-batch-overlay';
+      ov.hidden = true;
+      ov.innerHTML = `
+        <div class="curse-batch-panel">
+          <h3>⛓️ 结附 / 移除灵咒</h3>
+          <div class="cb-row cb-name-row"><span class="cb-label">灵咒名</span><input id="cb-name" type="text" maxlength="12" placeholder="灵咒名"></div>
+          <div class="cb-row"><span class="cb-label">方式</span><select id="cb-mode">
+            <optgroup label="── 结附 ──">
+              <option value="random">🎲 随机 N 张</option>
+              <option value="byName">📛 同名牌结附</option>
+              <option value="byOwner">🎎 按所属式神</option>
+              <option value="top">⬆️ 顶部 N 张</option>
+              <option value="bottom">⬇️ 底部 N 张</option>
+              <option value="index">🔢 指定第 N 张</option>
+              <option value="all">🗂 全部牌</option>
+            </optgroup>
+            <optgroup label="── 移除 ──">
+              <option value="randomRemove">🧹 随机移除 N 张</option>
+              <option value="byNameRemove">🧹 所有同名牌移除</option>
+              <option value="byOwnerRemove">🧹 按所属式神移除</option>
+              <option value="allRemove">🧹 同名灵咒移除</option>
+            </optgroup>
+          </select></div>
+          <div class="cb-row cb-curse-row" hidden><span class="cb-label">灵咒</span><select id="cb-curse-select"></select></div>
+          <div class="cb-row cb-owner-row" hidden><span class="cb-label">式神</span><select id="cb-owner-select"></select></div>
+          <div class="cb-row cb-strategy-row"><span class="cb-label">随机策略</span><select id="cb-strategy">
+            <option value="noRepeat">优先不重复（默认）</option>
+            <option value="repeat">全随机（可叠同张）</option>
+          </select></div>
+          <div class="cb-row cb-arg-row" hidden><span class="cb-label">牌名</span><input id="cb-arg" type="text" maxlength="40" placeholder="牌名"></div>
+          <div class="cb-row cb-count-row"><span class="cb-label" id="cb-count-label">数量 N</span><input id="cb-count" type="number" min="1" max="99" value="1"></div>
+          <div class="cb-row cb-layers-row"><span class="cb-label" id="cb-layers-label">每张层数</span><input id="cb-layers" type="number" min="1" max="99" placeholder="默认 1"></div>
+          <div class="cb-msg" id="cb-msg" hidden></div>
+          <div class="cb-actions">
+            <button type="button" class="cb-exec" id="cb-exec">⛓️ 执行</button>
+            <button type="button" class="cb-cancel" id="cb-cancel">取消</button>
+          </div>
+        </div>`;
+      document.body.appendChild(ov);
+      ov.querySelector('#cb-mode').addEventListener('change', () => _cbSyncFields());
+      ov.querySelector('#cb-cancel').addEventListener('click', () => _closeCurseBatchPanel());
+      ov.querySelector('#cb-exec').addEventListener('click', () => _cbExec());
+      // 面板只能通过「取消」按钮关闭（点击遮罩空白处不关闭）
+      return ov;
+    }
+
+    function _openCurseBatchPanel() {
+      if (!cardListContext || cardListContext.type !== 'deck') return;
+      if (typeof isSpectator !== 'undefined' && isSpectator) return;
+      if (!curseBatchOverlay) curseBatchOverlay = _buildCurseBatchPanel();
+      // 带入工具栏已输入的灵咒名
+      const barName = document.getElementById('curse-random-input');
+      const nameIn = curseBatchOverlay.querySelector('#cb-name');
+      if (nameIn && barName && barName.value.trim() && !nameIn.value.trim()) nameIn.value = barName.value.trim();
+      _cbMsg('');
+      _cbSyncFields();
+      curseBatchOverlay.hidden = false;
+      if (nameIn) nameIn.focus();
+    }
+
+    function _closeCurseBatchPanel() {
+      if (curseBatchOverlay) curseBatchOverlay.hidden = true;
+    }
+
+    /** 收集某玩家场上的式神名（读卡槽名字输入框；不含空槽） */
+    function _collectFieldShikigami(playerId) {
+      const out = [];
+      try {
+        document.querySelectorAll('.player-zone[data-player="' + playerId + '"] .card-slot').forEach(slot => {
+          const el = slot.querySelector('.card-name');
+          const v = el && el.value ? el.value.trim() : '';
+          if (v && out.indexOf(v) === -1) out.push(v);
+        });
+      } catch (e) { /* 静默 */ }
+      return out;
+    }
+
+    /** 收集某玩家牌库中已有的灵咒（灵咒名 → 结附张数） */
+    function _collectDeckCurses(playerId) {
+      const map = new Map();
+      try {
+        const state = getPlayerCardState(playerId);
+        (state.deck || []).forEach(c => {
+          if (!c || typeof c !== 'object') return;
+          (c.curses || []).forEach(x => {
+            if (!x || !x.name) return;
+            map.set(x.name, (map.get(x.name) || 0) + 1);
+          });
+        });
+      } catch (e) { /* 静默 */ }
+      return map;
+    }
+
+    function _cbFillOwnerOptions() {
+      const sel = curseBatchOverlay.querySelector('#cb-owner-select');
+      if (!sel || !cardListContext) return;
+      const prev = sel.value;
+      const names = _collectFieldShikigami(cardListContext.playerId);
+      let html = '';
+      names.forEach(n => { html += '<option value="' + escapeHTML(n) + '">' + escapeHTML(n) + '</option>'; });
+      html += '<option value="__neutral__">中立 / 无所属</option>';
+      sel.innerHTML = html;
+      if (prev && [...sel.options].some(o => o.value === prev)) sel.value = prev;
+    }
+
+    function _cbFillCurseOptions() {
+      const sel = curseBatchOverlay.querySelector('#cb-curse-select');
+      if (!sel || !cardListContext) return;
+      const prev = sel.value;
+      const map = _collectDeckCurses(cardListContext.playerId);
+      if (!map.size) {
+        sel.innerHTML = '<option value="">（牌库中还没有灵咒）</option>';
+        return;
+      }
+      let html = '';
+      map.forEach((count, name) => {
+        html += '<option value="' + escapeHTML(name) + '">' + escapeHTML(name) + '（' + count + ' 张）</option>';
+      });
+      sel.innerHTML = html;
+      if (prev && [...sel.options].some(o => o.value === prev)) sel.value = prev;
+    }
+
+    function _cbSyncFields() {
+      if (!curseBatchOverlay) return;
+      const mode = curseBatchOverlay.querySelector('#cb-mode').value;
+      const isRemove = /Remove$/.test(mode);
+      const isRandom = (mode === 'random');
+      const isByCurse = (mode === 'allRemove');                              // 同名灵咒移除：灵咒从下拉选
+      const isByOwner = (mode === 'byOwner' || mode === 'byOwnerRemove');   // 按所属式神：式神从下拉选
+      const needsCount = ['random', 'top', 'bottom', 'index', 'randomRemove'].indexOf(mode) !== -1;
+      const needsName = (mode === 'byName' || mode === 'byNameRemove');     // 牌名输入
+      curseBatchOverlay.querySelector('.cb-name-row').hidden = isByCurse;
+      curseBatchOverlay.querySelector('.cb-curse-row').hidden = !isByCurse;
+      curseBatchOverlay.querySelector('.cb-owner-row').hidden = !isByOwner;
+      curseBatchOverlay.querySelector('.cb-strategy-row').hidden = !isRandom;
+      curseBatchOverlay.querySelector('.cb-arg-row').hidden = !needsName;
+      curseBatchOverlay.querySelector('.cb-count-row').hidden = !needsCount;
+      // 层数行：结附类 = 每张层数（留空=1）；移除类 = 移除层数（留空=全部移除）
+      const layersLabel = curseBatchOverlay.querySelector('#cb-layers-label');
+      const layersInput = curseBatchOverlay.querySelector('#cb-layers');
+      layersLabel.textContent = isRemove ? '移除层数' : '每张层数';
+      layersInput.placeholder = isRemove ? '留空=全部' : '默认 1';
+      layersInput.value = '';   // 切换方式/打开面板时重置
+      curseBatchOverlay.querySelector('#cb-count-label').textContent = (mode === 'index') ? '第 N 张' : '数量 N';
+      if (isByCurse) _cbFillCurseOptions();
+      if (isByOwner) _cbFillOwnerOptions();
+    }
+
+    function _cbMsg(text, isErr) {
+      if (!curseBatchOverlay) return;
+      const m = curseBatchOverlay.querySelector('#cb-msg');
+      m.textContent = text || '';
+      m.hidden = !text;
+      m.classList.toggle('is-err', !!isErr);
+    }
+
+    function _cbExec() {
+      if (!cardListContext || cardListContext.type !== 'deck' || !curseBatchOverlay) return;
+      if (typeof isSpectator !== 'undefined' && isSpectator) return;
+      const mode = curseBatchOverlay.querySelector('#cb-mode').value;
+      // 灵咒名来源：同名灵咒移除 → 下拉选；其余 → 输入框
+      const curseName = (mode === 'allRemove')
+        ? String(curseBatchOverlay.querySelector('#cb-curse-select').value || '').trim()
+        : curseBatchOverlay.querySelector('#cb-name').value.trim();
+      // 归属来源：按所属式神（结附/移除）→ 下拉选（可能为 __neutral__）；其余 → 输入框
+      const arg = (mode === 'byOwner' || mode === 'byOwnerRemove')
+        ? curseBatchOverlay.querySelector('#cb-owner-select').value
+        : curseBatchOverlay.querySelector('#cb-arg').value;
+      const opts = {
+        playerId: cardListContext.playerId,
+        type: 'deck',
+        curseName,
+        mode,
+        repeatAll: curseBatchOverlay.querySelector('#cb-strategy').value === 'repeat',
+        arg,
+        count: curseBatchOverlay.querySelector('#cb-count').value,
+        layers: curseBatchOverlay.querySelector('#cb-layers').value,
+      };
+      if (!opts.curseName) { _cbMsg(mode === 'allRemove' ? '❌ 请选择要移除的灵咒' : '❌ 请输入灵咒名', true); return; }
+      // 危险操作：先数一下将影响的张数，确认后再执行
+      const needConfirm = ['all', 'byName', 'byOwner', 'allRemove', 'byNameRemove', 'byOwnerRemove'].indexOf(opts.mode) !== -1;
+      if (needConfirm) {
+        const dry = _applyCurseAction(Object.assign({}, opts, { dryRun: true }));
+        if (dry.error) { _cbMsg('❌ ' + dry.error, true); return; }
+        if (!confirm('将影响 ' + dry.affected + ' 张牌，确定执行吗？')) return;
+      }
+      const res = _applyCurseAction(opts);
+      if (res.error) { _cbMsg('❌ ' + res.error, true); return; }
+      _cbMsg('✅ ' + res.done);
+    }
+
+    document.getElementById('btn-curse-more').addEventListener('click', () => { _openCurseBatchPanel(); });
 
     // ================================================================
     //  牌表侧窗：按所属式神分组展示牌库内容
@@ -4256,6 +4622,7 @@
       levels: { '1': true, '2': true, '3': true, '其他': true },
       types: { battle: true, spell: true, realm: true, form: true, bond: true, '其他': true },
       rarities: { 'R': true, 'SR': true, 'SSR': true, '其他': true },
+      curses: { all: true, names: [] },
     };
 
     function _searchIsMobile() {
@@ -4334,6 +4701,10 @@
               <div class="search-range-row">
                 <span class="search-range-label">稀有度</span>
                 <div class="search-range-opts" id="search-opts-rarity"></div>
+              </div>
+              <div class="search-range-row">
+                <span class="search-range-label">灵咒</span>
+                <div class="search-range-opts" id="search-opts-curse"></div>
               </div>
             </div>
             <div class="search-error" id="search-error" hidden></div>
@@ -4414,6 +4785,16 @@
           searchFilters.types[v] = !searchFilters.types[v];
         } else if (rg === 'rarity') {
           searchFilters.rarities[v] = !searchFilters.rarities[v];
+        } else if (rg === 'curse') {
+          if (v === 'all') {
+            searchFilters.curses.all = !searchFilters.curses.all;
+            if (searchFilters.curses.all) searchFilters.curses.names = [];
+          } else {
+            const arr = searchFilters.curses.names;
+            const i = arr.indexOf(v);
+            if (i === -1) { arr.push(v); searchFilters.curses.all = false; }
+            else arr.splice(i, 1);
+          }
         }
         _searchRenderRanges();
       });
@@ -4496,6 +4877,20 @@
         html += `<button type="button" class="search-range-btn${f.rarities[r] ? ' active' : ''}" data-rg="rarity" data-v="${r}">${r}</button>`;
       });
       optsRarity.innerHTML = html;
+
+      // 灵咒组：全部 + 当前牌库现有灵咒（多选，命中任一即可；「全部」= 不限制）
+      const optsCurse = document.getElementById('search-opts-curse');
+      if (optsCurse) {
+        const curseMap = _collectDeckCurses(_searchPid());
+        // 清理已不存在于牌库的灵咒选择
+        f.curses.names = f.curses.names.filter(function(n) { return curseMap.has(n); });
+        let h = `<button type="button" class="search-range-btn${f.curses.all ? ' active' : ''}" data-rg="curse" data-v="all">全部</button>`;
+        curseMap.forEach(function(count, name) {
+          h += `<button type="button" class="search-range-btn${f.curses.names.indexOf(name) !== -1 ? ' active' : ''}" data-rg="curse" data-v="${escapeHTML(name)}">${escapeHTML(name)}（${count}）</button>`;
+        });
+        if (!curseMap.size) h += `<span class="search-range-empty">（牌库中暂无灵咒）</span>`;
+        optsCurse.innerHTML = h;
+      }
     }
 
     /** 三个维度范围取交集，筛己方牌库 */
@@ -4524,6 +4919,10 @@
         if (!f.types[type]) return;
         if (!f.levels[level]) return;
         if (!f.rarities[rarity]) return;
+        if (!f.curses.all) {
+          const hasCurse = (card.curses || []).some(function(x) { return x && f.curses.names.indexOf(x.name) !== -1; });
+          if (!hasCurse) return;
+        }
         if (f.shikigami.all) { out.push(card); return; }
         const isNeutral = (!owners.length || owners.every(o => o === '中立' || o === '无相'));
         if (isNeutral) {
@@ -4541,7 +4940,8 @@
       const anyType = f.types.battle || f.types.spell || f.types.realm || f.types.form || f.types.bond || f.types['其他'];
       const anyShiki = f.shikigami.all || f.shikigami.neutral || f.shikigami.names.length > 0;
       const anyRarity = f.rarities['R'] || f.rarities['SR'] || f.rarities['SSR'] || f.rarities['其他'];
-      if (!anyLevel || !anyType || !anyShiki || !anyRarity) {
+      const anyCurse = f.curses.all || f.curses.names.length > 0;
+      if (!anyLevel || !anyType || !anyShiki || !anyRarity || !anyCurse) {
         _searchShowError('请每种范围至少选择一个');
         return false;
       }
@@ -4597,7 +4997,7 @@
       _searchRenderResults();
     }
 
-    /** 检索结果：取卡牌的等级/类型/稀有度标签（查库优先，牌面兜底；没有的不显示） */
+    /** 检索结果：取卡牌的等级/类型/稀有度/结附灵咒标签（查库优先，牌面兜底；没有的不显示） */
     function _searchCardMeta(card) {
       if (!card || typeof card !== 'object') return '';
       const db = (typeof CardDB !== 'undefined' && CardDB.lookup) ? CardDB.lookup(card.name) : null;
@@ -4609,6 +5009,9 @@
       const tnames = { battle: '战斗', spell: '法术', realm: '幻境', form: '形态' };
       if (tp && tnames[tp]) out.push(tnames[tp]);
       if (rr === 'R' || rr === 'SR' || rr === 'SSR') out.push(rr);
+      (card.curses || []).forEach(function(x) {
+        if (x && x.name) out.push('⛓️' + x.name + '×' + x.layers);
+      });
       return out.map(function(t) { return '<span class="search-item__tag">' + escapeHTML(t) + '</span>'; }).join('');
     }
 

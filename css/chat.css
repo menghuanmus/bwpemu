@@ -589,6 +589,70 @@
       white-space: nowrap;
     }
     .btn-curse-toggle:hover { background: #3a4a5a; }
+    /* 「⚙️ 更多方式」按钮（仅牌库模式显示）+ 隐藏保险（防 display 覆盖 hidden） */
+    .curse-random-bar [hidden] { display: none !important; }
+    .btn-curse-more {
+      padding: 4px 10px;
+      border-radius: 4px;
+      border: 1px solid #7a5aa8;
+      background: #3a2a4a;
+      color: #d0b0ff;
+      cursor: pointer;
+      font-size: 12px;
+      font-weight: 600;
+      white-space: nowrap;
+    }
+    .btn-curse-more:hover { background: #4a3a5a; }
+
+    /* ── 灵咒批量/指定结附面板（牌库「⚙️ 更多方式」）── */
+    #curse-batch-overlay {
+      position: fixed; inset: 0;
+      background: rgba(0,0,0,0.45);
+      z-index: 3600;
+      display: flex; align-items: center; justify-content: center;
+    }
+    #curse-batch-overlay[hidden] { display: none; }
+    .curse-batch-panel {
+      background: linear-gradient(160deg, #1e2a3a, #162030);
+      border: 2px solid rgba(170,120,235,0.55);
+      border-radius: 10px;
+      padding: 14px 16px;
+      min-width: 280px;
+      max-width: 340px;
+      color: #e0d8c8;
+      font-size: 13px;
+    }
+    .curse-batch-panel h3 { margin: 0 0 10px; font-size: 14px; color: #d0b0ff; }
+    .cb-row { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+    .cb-row[hidden] { display: none !important; }
+    .cb-label { width: 64px; flex-shrink: 0; color: #b8a8c8; font-size: 12px; }
+    .cb-row input, .cb-row select {
+      flex: 1; min-width: 0;
+      padding: 5px 8px;
+      background: #121a28; border: 1px solid #5a4a6a;
+      border-radius: 4px; color: #eee; font-size: 13px; outline: none;
+    }
+    .cb-row input:focus, .cb-row select:focus { border-color: #b088e0; }
+    .cb-row input[type="number"] { text-align: center; }
+    .cb-msg {
+      margin: 4px 0 8px; padding: 6px 8px;
+      border-radius: 4px;
+      background: rgba(60,100,60,0.25);
+      color: #b0e0b0; font-size: 12px; word-break: break-all;
+    }
+    .cb-msg[hidden] { display: none; }
+    .cb-msg.is-err { background: rgba(120,50,50,0.3); color: #ffb0b0; }
+    .cb-actions { display: flex; gap: 8px; margin-top: 10px; }
+    .cb-actions button {
+      flex: 1; padding: 7px 0; border-radius: 5px;
+      font-size: 13px; font-weight: 600; cursor: pointer;
+    }
+    .cb-exec { border: 1px solid #8a5a7a; background: #4a2a3a; color: #ffc0e0; }
+    .cb-exec:hover { background: #5a3a4a; }
+    .cb-cancel { border: 1px solid #666; background: #2a3a4a; color: #ccc; }
+    .cb-cancel:hover { background: #3a4a5a; }
+    .btn-card-curse-deck { background: rgba(100,35,75,0.55); border-color: #8a5a7a; color: #ffc0e0; }
+    .btn-card-curse-deck:hover { background: rgba(130,50,95,0.75); }
 
     /* 上传卡牌窗口 */
     .upload-card-dialog {

@@ -653,9 +653,11 @@ var MyLib = (function () {
     list.innerHTML = html;
     list.scrollTop = keepScroll;
     updateSelInfo();
+    refreshPreviewPane();   // 编辑/删除等改变数据后，右侧详情立即同步
   }
 
   // ═══════════════ 详情预览 ═══════════════
+  var _previewSel = null;   // 当前预览中的条目 { kind, idx }（编辑保存后据此刷新右侧详情）
   function isMobile() { return window.matchMedia('(max-width: 768px)').matches; }
 
   function getUnit(kind, idx) {
@@ -752,6 +754,7 @@ var MyLib = (function () {
   function showPreview(kind, idx, itemEl) {
     var unit = getUnit(kind, idx);
     if (!unit) return;
+    _previewSel = { kind: kind, idx: idx };   // 记录当前预览的条目
     var list = $('diy-list-container');
     if (list) {
       list.querySelectorAll('.diy-item--active').forEach(function (el) { el.classList.remove('diy-item--active'); });
@@ -769,6 +772,27 @@ var MyLib = (function () {
     } else {
       var pane = $('diy-preview-pane');
       if (pane) pane.innerHTML = html;
+    }
+  }
+
+  /** 刷新右侧详情：编辑保存 / 删除条目后调用（列表重建时保持预览与高亮同步） */
+  function refreshPreviewPane() {
+    if (!_previewSel) return;
+    var pane = $('diy-preview-pane');
+    if (!pane) return;
+    var unit = getUnit(_previewSel.kind, _previewSel.idx);
+    if (!unit) {
+      // 条目已被删除：清空右侧
+      pane.innerHTML = '<div class="diy-preview__placeholder">← 点击左侧条目查看详情</div>';
+      _previewSel = null;
+      return;
+    }
+    pane.innerHTML = previewHTML(_previewSel.kind, unit);
+    // 列表重建后恢复选中高亮
+    var list = $('diy-list-container');
+    if (list) {
+      var sel = list.querySelector('.diy-item[data-kind="' + _previewSel.kind + '"][data-idx="' + _previewSel.idx + '"]');
+      if (sel) sel.classList.add('diy-item--active');
     }
   }
 
@@ -1261,6 +1285,7 @@ var MyLib = (function () {
       cache = res.cardLib || { shikigami: [], cards: [], others: [] };
       if (!Array.isArray(cache.others)) cache.others = [];
       closeMobileTip();
+      _previewSel = null;   // 重新打开页签：清空右侧预览记录
       var pane = $('diy-preview-pane');
       if (pane) pane.innerHTML = '<div class="diy-preview__placeholder">← 点击左侧条目查看详情</div>';
       render();

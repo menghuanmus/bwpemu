@@ -15,6 +15,8 @@
       let currentCardCurses = null;
       let hoveredEl = null;
       let _swallowNextClick = false;   // 点击悬浮窗关闭时，吞掉紧随的点击，防止穿透到下层按键
+      let termsEl = null;              // 描述中灵咒/关键词的解释小窗容器（PC：悬浮窗旁）
+      let currentTerms = [];           // 当前描述里命中的灵咒/关键词解释项（按出现顺序）
       let _swallowTimer = null;
       const DELAY = 300;
 
@@ -284,6 +286,128 @@
         return info;
       }
 
+      /** 描述文本高亮（金黄）：关键词/灵咒 + 特殊标记「内容」（保留符号）与 [[内容]]（隐藏符号），长词优先 */
+      function _highlightKeywords(html) {
+        if (!html) return html;
+        if (typeof CardDB === 'undefined' || !CardDB.getAllKeywords) return html;
+        const EXCLUDE = ['不消耗鬼火', '气绝时可用', '免疫'];   // 这些关键词不做颜色替换
+        const uniq = [];
+        const seen = {};
+        const addKw = function (n) {
+          if (n && !seen[n] && EXCLUDE.indexOf(n) === -1) { seen[n] = 1; uniq.push(n); }
+        };
+        CardDB.getAllKeywords().forEach(function (k) { addKw(k && k.name); });
+        // 灵咒名同样高亮（官方灵咒 + 玩家 DIY 灵咒，对局中随玩家库加载后即可匹配）
+        if (CardDB.getAllCurses) CardDB.getAllCurses().forEach(function (c) { addKw(c && c.name); });
+        uniq.sort(function (a, b) { return b.length - a.length; });   // 长词优先，避免被短词截断
+        // 匹配优先级：[[内容]]（隐藏符号） > 「内容」（保留符号） > 关键词/灵咒
+        const parts = ['\\[\\[[^\\]]+?\\]\\]', '「[^」]+?」'];
+        if (uniq.length) {
+          parts.push(uniq.map(function (n) {
+            return escapeHTML(n).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+          }).join('|'));
+        }
+        const re = new RegExp('(' + parts.join('|') + ')', 'g');
+        return html.replace(re, function (m) {
+          if (m.slice(0, 2) === '[[' && m.slice(-2) === ']]') {
+            return '<span class="kw-hl">' + m.slice(2, -2) + '</span>';   // 高亮内容并隐藏 [[]]
+          }
+          if (m.charAt(0) === '「' && m.charAt(m.length - 1) === '」') {
+            return '「<span class="kw-hl">' + m.slice(1, -1) + '</span>」';   // 高亮内容、保留「」
+          }
+          return '<span class="kw-hl">' + m + '</span>';
+        });
+      }
+
+      /** 收集描述中命中的灵咒 / 关键词（解释小窗用）：长词优先、去重叠，按描述中出现顺序返回 */
+      function _collectDescTerms(descText) {
+        if (!descText) return [];
+        if (typeof CardDB === 'undefined' || !CardDB.getAllKeywords) return [];
+        const EXCLUDE = ['不消耗鬼火', '气绝时可用', '免疫'];
+        const pool = [];
+        const seen = {};
+        const addTerm = function (name, effect, kind) {
+          if (!name || seen[name] || EXCLUDE.indexOf(name) !== -1) return;
+          seen[name] = true;
+          pool.push({ name: name, effect: effect || '', kind: kind });
+        };
+        // 只给“玩家自创”的灵咒/关键词弹解释小窗（官方词大家都知道，不弹）
+        CardDB.getAllKeywords().forEach(function (k) { if (k && k._playerKw) addTerm(k.name, k.effect, 'keyword'); });
+        if (CardDB.getAllCurses) CardDB.getAllCurses().forEach(function (c) { if (c && c._lib) addTerm(c.name, c.effect, 'curse'); });
+        if (!pool.length) return [];
+        pool.sort(function (a, b) { return b.name.length - a.name.length; });   // 长词优先
+        const out = [];
+        const used = [];
+        pool.forEach(function (t) {
+          const idx = descText.indexOf(t.name);
+          if (idx === -1) return;
+          for (let i = 0; i < used.length; i++) {
+            if (idx < used[i].end && idx + t.name.length > used[i].start) return;   // 与已命中区域重叠（如「弱点·火」不再算「火」）
+          }
+          used.push({ start: idx, end: idx + t.name.length });
+          out.push(t);
+        });
+        out.sort(function (a, b) { return descText.indexOf(a.name) - descText.indexOf(b.name); });
+        return out;
+      }
+
+      /** 懒创建解释小窗容器（PC） */
+      function _ensureTermsEl() {
+        if (termsEl) return;
+        termsEl = document.createElement('div');
+        termsEl.id = 'card-tooltip-terms';
+        termsEl.hidden = true;
+        document.body.appendChild(termsEl);
+      }
+
+      /** 解释小窗跟随卡牌悬浮窗定位（右侧放不下 → 左侧） */
+      function _positionTerms() {
+        if (!termsEl || termsEl.hidden || !el || el.hidden) return;
+        if (window.matchMedia('(max-width: 768px)').matches) return;
+        const r = el.getBoundingClientRect();
+        const tr = termsEl.getBoundingClientRect();
+        const GAP = 3;   // 与悬浮窗之间的间隔
+        let x = r.right + GAP;
+        if (x + tr.width > window.innerWidth - 8) {
+          x = r.left - tr.width - GAP;   // 右侧放不下 → 放到左侧
+          if (x < 8) x = Math.max(8, window.innerWidth - tr.width - 8);
+        }
+        let y = r.top;
+        if (y + tr.height > window.innerHeight - 8) y = Math.max(8, window.innerHeight - tr.height - 8);
+        termsEl.style.left = x + 'px';
+        termsEl.style.top = y + 'px';
+      }
+
+      /** 渲染描述中的灵咒/关键词解释：PC = 悬浮窗旁小窗；手机端 = 描述下方空一行继续写 */
+      function _renderTerms() {
+        if (window.matchMedia('(max-width: 768px)').matches) {
+          if (!currentTerms || !currentTerms.length) return;
+          const effEl = el.querySelector('.card-tooltip__effect');
+          if (!effEl) return;
+          let h = '<div class="card-tooltip__terms">';
+          currentTerms.forEach(function (t) {
+            h += '<div class="card-tooltip__term card-tooltip__term--' + t.kind + '"><b>' + escapeHTML(t.name) + '</b>' +
+              (t.effect ? '：' + escapeHTML(t.effect).replace(/\n/g, '<br>') : '') + '</div>';
+          });
+          h += '</div>';
+          effEl.insertAdjacentHTML('afterend', h);
+          return;
+        }
+        // PC：独立小窗列（悬浮窗旁边，有几个增几个）
+        _ensureTermsEl();
+        if (!currentTerms || !currentTerms.length) { termsEl.hidden = true; return; }
+        let h = '';
+        currentTerms.forEach(function (t) {
+          h += '<div class="card-tooltip-term card-tooltip-term--' + t.kind + '">' +
+            (t.kind === 'curse' ? '<span class="card-tooltip-term__badge">灵咒</span>' : '') +
+            '<div class="card-tooltip-term__name">' + escapeHTML(t.name) + '</div>' +
+            (t.effect ? '<div class="card-tooltip-term__eff">' + escapeHTML(t.effect).replace(/\n/g, '<br>') + '</div>' : '') +
+            '</div>';
+        });
+        termsEl.innerHTML = h;
+        termsEl.hidden = false;
+      }
+
       function _show(mx, my) {
         if (!currentCard || !el) return;
         _render(currentCard);
@@ -300,6 +424,7 @@
         currentCardCurses = null;
         hoveredEl = null;
         if (el) el.hidden = true;
+        if (termsEl) termsEl.hidden = true;
       }
 
       function _position(mx, my) {
@@ -317,10 +442,16 @@
         if (y + rect.height > window.innerHeight - 10) y = window.innerHeight - rect.height - 10;
         el.style.left = x + 'px';
         el.style.top = y + 'px';
+        _positionTerms();   // 解释小窗跟随悬浮窗
       }
 
       function _render(card) {
-        const typeNames = { shikigami: '式神', summon: '召唤物', spell: '法术', battle: '战斗', form: '形态', realm: '幻境', curse: '灵咒', bond: '协战', transform: '变身' };
+        // 解释小窗：每次渲染先全部清理（食物/切卡/无命中等路径都不会残留）
+        currentTerms = [];
+        if (termsEl) termsEl.hidden = true;
+        const oldTermsInline = el.querySelector('.card-tooltip__terms');
+        if (oldTermsInline) oldTermsInline.remove();
+        const typeNames = { shikigami: '式神', summon: '召唤物', spell: '法术', battle: '战斗', form: '形态', realm: '幻境', curse: '灵咒', keyword: '关键词', bond: '协战', transform: '变身' };
         // 食材/佳肴特殊处理
         if (card._food) {
           const foodTypeNames = { '山珍': '🍄 山珍', '海味': '🐟 海味', '时蔬': '🥬 时蔬', '佳肴': '🍲 佳肴' };
@@ -348,7 +479,7 @@
               const eff = dbCurse ? (dbCurse.effect || '') : '';
               cursesHTML += '<div class="card-tooltip__curse-item">';
               cursesHTML += '<div class="card-tooltip__curse-head">⛓️ <span class="curse-name">' + escapeHTML(c.name) + '</span> <span class="curse-layers">×' + c.layers + '</span></div>';
-              if (eff) cursesHTML += '<div class="card-tooltip__curse-eff">' + escapeHTML(eff) + '</div>';
+              if (eff) cursesHTML += '<div class="card-tooltip__curse-eff">' + _highlightKeywords(escapeHTML(eff)) + '</div>';
               cursesHTML += '</div>';
             });
             cursesHTML += '</div>';
@@ -497,9 +628,10 @@
         }
         // 数据库没有的式神：能力未填写则显示“无”
         if (card._slotInfo && !effectText) effectText = '无';
-        const safeText = escapeHTML(effectText).replace(/\n/g, '<br>');
+        const safeText = _highlightKeywords(escapeHTML(effectText).replace(/\n/g, '<br>'));
         effectEl.innerHTML = awakenedLabel + safeText;
         effectEl.style.display = effectText ? '' : 'none';
+        currentTerms = _collectDescTerms(effectText);   // 描述中命中的灵咒/关键词（解释小窗数据）
 
         // 形态、永久属性、临时属性、效果记录
         let extraHTML = '';
@@ -508,7 +640,7 @@
           // 1. 形态
           if (currentSlot._formName) {
             parts.push(`<div class="card-tooltip__perm-head">🎴 形态：${escapeHTML(currentSlot._formName)} <span><img src="images/属性/攻击.png" class="tip-stat-icon" alt="攻"> ${currentSlot._formAtk || 0}</span> <span><img src="images/属性/生命.png" class="tip-stat-icon" alt="命"> ${currentSlot._formHp || 0}</span></div>`);
-            if (currentSlot._formAbility) parts.push(`<div class="card-tooltip__perm-item">${escapeHTML(currentSlot._formAbility)}</div>`);
+            if (currentSlot._formAbility) parts.push(`<div class="card-tooltip__perm-item">${_highlightKeywords(escapeHTML(currentSlot._formAbility))}</div>`);
           }
           // 2. 永久属性（同来源不同数值的项目全部展示）
           const permAtk = typeof calcPermAtk === 'function' ? calcPermAtk(currentSlot) : 0;
@@ -601,7 +733,7 @@
             const eff = dbCurse ? (dbCurse.effect || '') : '';
             cursesHTML += '<div class="card-tooltip__curse-item">';
             cursesHTML += '<div class="card-tooltip__curse-head">⛓️ <span class="curse-name">' + escapeHTML(c.name) + '</span> <span class="curse-layers">×' + c.layers + '</span></div>';
-            if (eff) cursesHTML += '<div class="card-tooltip__curse-eff">' + escapeHTML(eff) + '</div>';
+            if (eff) cursesHTML += '<div class="card-tooltip__curse-eff">' + _highlightKeywords(escapeHTML(eff)) + '</div>';
             cursesHTML += '</div>';
           });
           cursesHTML += '</div>';
@@ -689,6 +821,8 @@
         } else if (summaryEl) {
           summaryEl.remove();
         }
+
+        _renderTerms();   // 解释区：PC 小窗 / 手机端内联（放最后，保证插在描述正下方）
       }
 
       return { init, hide };

@@ -1802,11 +1802,23 @@
     font-size: 16px;   /* iOS 聚焦防缩放 */
   }
   .curse-random-bar .btn-curse-random,
-  .curse-random-bar .btn-curse-toggle {
+  .curse-random-bar .btn-curse-toggle,
+  .curse-random-bar .btn-curse-more {
     font-size: 11px;
     padding: 5px 8px;
     flex-shrink: 0;
   }
+  /* 灵咒批量面板（手机端小尺寸适配） */
+  .curse-batch-panel {
+    min-width: 0;
+    width: 88vw;
+    max-width: 88vw;
+    padding: 12px;
+  }
+  .curse-batch-panel h3 { font-size: 15px; }
+  .cb-label { width: 56px; font-size: 13px; }
+  .cb-row input, .cb-row select { font-size: 16px; padding: 7px 8px; }
+  .cb-actions button { font-size: 15px; padding: 10px 0; }
   /* iOS 输入框聚焦防页面缩放：所有输入框 ≥16px（小徽章用 zoom 缩小视觉） */
   input, textarea, select {
     font-size: 16px !important;

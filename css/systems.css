@@ -326,6 +326,7 @@
       padding-left: 18px;
       line-height: 1.4;
       word-break: break-word;
+      white-space: pre-wrap;
     }
 
     /* 永久加成/效果记录（工具提示中） */
@@ -344,6 +345,7 @@
       font-size: 17px;
       color: #c0a060;
       padding: 2px 0 2px 12px;
+      white-space: pre-wrap;
     }
 
     .card-tooltip__effect {
@@ -355,6 +357,77 @@
       white-space: pre-wrap;
       word-break: break-word;
     }
+
+    /* 描述中的关键词高亮：金黄（比“觉醒：”#e8b83a 稍暗、不加粗） */
+    .kw-hl { color: #cfa934; }
+
+    /* ── 描述中灵咒/关键词的解释小窗（PC：悬浮窗旁，有几个增几个） ── */
+    #card-tooltip-terms {
+      position: fixed;
+      z-index: 9499;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      width: 224px;
+      max-height: calc(100vh - 16px);
+      overflow-y: auto;
+      pointer-events: none;
+    }
+    #card-tooltip-terms[hidden] { display: none; }
+    .card-tooltip-term {
+      position: relative;
+      background: linear-gradient(160deg, #1e2a3a 0%, #162030 100%);
+      border: 1px solid rgba(255, 215, 0, 0.45);
+      border-radius: 8px;
+      padding: 8px 10px;
+      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5);
+    }
+    .card-tooltip-term--curse { border-color: rgba(255, 140, 200, 0.5); }
+    .card-tooltip-term__badge {
+      position: absolute;
+      top: 7px;
+      right: 8px;
+      font-size: 13px;
+      font-weight: 600;
+      color: #ffc0e0;
+      background: rgba(255, 140, 200, 0.18);
+      border: 1px solid rgba(255, 140, 200, 0.45);
+      border-radius: 4px;
+      padding: 1px 6px;
+      line-height: 1.4;
+    }
+    .card-tooltip-term--curse .card-tooltip-term__name { padding-right: 52px; }
+    .card-tooltip-term__name {
+      font-size: 17px;
+      font-weight: 700;
+      color: #f0d060;
+      margin-bottom: 3px;
+    }
+    .card-tooltip-term--curse .card-tooltip-term__name { color: #ffc0e0; }
+    .card-tooltip-term__eff {
+      font-size: 16px;
+      line-height: 1.45;
+      color: #cfc6b0;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+
+    /* ── 手机端：解释接在描述下方（空一行 + 浅分隔线，逐条「名字：效果」） ── */
+    .card-tooltip__terms {
+      margin-top: 10px;
+      padding-top: 8px;
+      border-top: 1px dashed rgba(240, 200, 60, 0.4);
+    }
+    .card-tooltip__term {
+      font-size: 16px;
+      line-height: 1.5;
+      color: #cfc6b0;
+      margin: 2px 0;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+    .card-tooltip__term b { color: #f0d060; }
+    .card-tooltip__term--curse b { color: #ffc0e0; }
 
     /* 当前属性总结（浮窗最底部） */
     .card-tooltip__summary {
@@ -1137,6 +1210,7 @@
     .sbt--summon   { background: rgba(200,180,100,0.25); color: #e0c860; border:1px solid rgba(200,180,100,0.35); }
     .sbt--realm    { background: rgba(140,200,200,0.25); color: #90d8d8; border:1px solid rgba(140,200,200,0.35); }
     .sbt--curse    { background: rgba(200,100,160,0.25); color: #e090c0; border:1px solid rgba(200,100,160,0.35); }
+    .sbt--keyword  { background: rgba(200,170,60,0.25); color: #dcc060; border:1px solid rgba(200,170,60,0.35); }
     .sbt--bond     { background: rgba(200,140,60,0.25); color: #f0c080; border:1px solid rgba(200,140,60,0.35); }
     .sbt--transform { background: rgba(120,170,220,0.25); color: #90c0e8; border:1px solid rgba(120,170,220,0.35); }
 
@@ -3650,6 +3724,11 @@
     }
     .grave-item--dragging { opacity: 0.65; }
     .search-range-opts { display: flex; flex-wrap: wrap; gap: 6px; flex: 1; }
+    .search-range-empty {
+      font-size: 1rem;
+      color: #7d8db0;
+      padding-top: 5px;
+    }
     .search-range-btn {
       padding: 5px 12px;
       font-size: 1rem;

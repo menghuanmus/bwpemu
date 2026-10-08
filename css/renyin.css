@@ -137,6 +137,9 @@
   border-color: rgba(180,140,220,0.7);
   color: #e8d8ff;
 }
+.renyin-curse-empty {
+  font-size: 13px; color: #8a7aa8; align-self: center;
+}
 
 /* ── 标签队列（步骤5）── */
 .renyin-tag-row {

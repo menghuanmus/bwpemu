@@ -134,18 +134,19 @@
         return null;
       }
 
-      /** 玩家库查询优先级：牌主（或自己）在前 */
+      /** 玩家库查询优先级：牌主（或自己）在前；观众（无席位）时按 1→2 全覆盖 */
       function _libOrder(preferPlayerId) {
         const mine = (typeof localPlayerId !== 'undefined' && localPlayerId) ? String(localPlayerId) : '1';
-        const other = mine === '1' ? '2' : '1';
+        const isSeat = (mine === '1' || mine === '2');   // 是否为对局玩家（观众 localPlayerId = '0'）
         const order = [];
-        if (preferPlayerId) {
-          const p = String(preferPlayerId);
-          order.push(p);
-          if (p !== mine) order.push(mine);
-          else order.push(other);
+        const push = function (id) { if (id && order.indexOf(String(id)) === -1) order.push(String(id)); };
+        if (preferPlayerId) push(preferPlayerId);
+        if (isSeat) {
+          push(mine);
+          push(mine === '1' ? '2' : '1');
         } else {
-          order.push(mine, other);
+          push('1');   // 观众：两个席位都查，保证能看到双方的 DIY 卡
+          push('2');
         }
         return order;
       }
@@ -171,6 +172,7 @@
         const shikigami = new Map();
         const cards = new Map();
         const curses = new Map();
+        const keywords = new Map();   // 本玩家的关键词（式神录「我的」用）
         if (lib && typeof lib === 'object') {
           const shiArr = Array.isArray(lib.shikigami) ? lib.shikigami : [];
           const cardArr = Array.isArray(lib.cards) ? lib.cards : [];
@@ -195,6 +197,11 @@
           otherArr.forEach(function(o) {
             if (!o || !o.name || typeof o.name !== 'string') return;
             if (o.type === 'keyword') {
+              if (!keywords.has(o.name)) {
+                const kOwn = Object.assign({}, o);
+                kOwn._playerKw = true;
+                keywords.set(kOwn.name, kOwn);
+              }
               if (!_playerKeywords.has(o.name)) {
                 const kw = Object.assign({}, o);
                 kw._playerKw = true;
@@ -207,9 +214,9 @@
             }
           });
         }
-        _playerLibs[playerId] = { shikigami: shikigami, cards: cards, curses: curses };
+        _playerLibs[playerId] = { shikigami: shikigami, cards: cards, curses: curses, keywords: keywords };
         _normalizeBonds();
-        console.log('[CardDB] 玩家 ' + playerId + ' 卡库已加载：' + shikigami.size + ' 式神 / ' + cards.size + ' 卡牌 / ' + curses.size + ' 灵咒');
+        console.log('[CardDB] 玩家 ' + playerId + ' 卡库已加载：' + shikigami.size + ' 式神 / ' + cards.size + ' 卡牌 / ' + curses.size + ' 灵咒 / ' + keywords.size + ' 关键词');
       }
 
       /** 在玩家库中查找：支持按归属式神优先（同名多张时） */
@@ -247,6 +254,20 @@
         return out;
       }
 
+      /** 某位玩家的全部灵咒（我的卡库） */
+      function getPlayerLibCurses(playerId) {
+        const lib = _playerLibs[playerId];
+        if (!lib || !lib.curses) return [];
+        return [...lib.curses.values()];
+      }
+
+      /** 某位玩家的全部关键词（我的卡库） */
+      function getPlayerLibKeywords(playerId) {
+        const lib = _playerLibs[playerId];
+        if (!lib || !lib.keywords) return [];
+        return [...lib.keywords.values()];
+      }
+
       /** 是否为官方卡牌名（DIY 保存时拦截同名用） */
       function isOfficialName(name) { return _officialNames.has(String(name || '').trim()); }
 
@@ -257,6 +278,29 @@
       function getAllKeywords() {
         const official = (typeof KEYWORD_DB_DATA !== 'undefined' && Array.isArray(KEYWORD_DB_DATA)) ? KEYWORD_DB_DATA : [];
         return official.concat(getPlayerKeywords());
+      }
+
+      /** 全部灵咒：官方（type=curse）+ 玩家库灵咒（双方，对局中随卡库加载） */
+      function getAllCurses() {
+        const out = [];
+        const seen = new Set();
+        for (const card of _cards.values()) {
+          if (card && card.type === 'curse' && card.name && !seen.has(card.name)) {
+            out.push(card);
+            seen.add(card.name);
+          }
+        }
+        ['1', '2'].forEach(function (pid) {
+          const lib = _playerLibs[pid];
+          if (!lib || !lib.curses) return;
+          lib.curses.forEach(function (c, name) {
+            if (name && !seen.has(name)) {
+              out.push(c);
+              seen.add(name);
+            }
+          });
+        });
+        return out;
       }
 
       // 便捷入口：网络层一次性加载双方卡库
@@ -330,6 +374,6 @@
         return _keywords.get(name) || null;
       }
 
-      return { init, lookup, lookupExact, addCustom, removeCustom, exportCustom, importCustom, isReady, size, getAll, lookupKeyword, loadPlayerCardLib, findInPlayerLib, getPlayerShikigami, getPlayerLibCards, isOfficialName, getPlayerKeywords, getAllKeywords };
+      return { init, lookup, lookupExact, addCustom, removeCustom, exportCustom, importCustom, isReady, size, getAll, lookupKeyword, loadPlayerCardLib, findInPlayerLib, getPlayerShikigami, getPlayerLibCards, getPlayerLibCurses, getPlayerLibKeywords, isOfficialName, getPlayerKeywords, getAllKeywords, getAllCurses };
     })();
 

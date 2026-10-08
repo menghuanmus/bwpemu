@@ -969,8 +969,8 @@
       };
     }
 
-    /** 为手牌/牌库卡牌创建灵咒操作对象 */
-    function _curseTargetForCard(playerId, card, location) {
+    /** 为手牌/牌库卡牌创建灵咒操作对象（opts.title：自定义面板标题，如未揭示牌 →「牌库第 N 张」） */
+    function _curseTargetForCard(playerId, card, location, opts) {
       return {
         getCurses: () => card.curses || [],
         setCurses: (curses) => {
@@ -978,7 +978,7 @@
           refreshOpenListDialog(playerId);
           syncDeckState(playerId);
         },
-        getLabel: () => card.name,
+        getLabel: () => ((opts && opts.title) ? opts.title : card.name),
         getLocation: () => location || '',
         getPlayerId: () => playerId,
         isReadOnly: () => !isMyZone(playerId),

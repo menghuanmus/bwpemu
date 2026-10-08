@@ -813,6 +813,7 @@ const Incarnation = (() => {
 
   function openPanel(slot) {
     if (!slot) return;
+    if (isSpec()) { toast('观众不可操作', ''); return; }   // 观众不能打开化身管理
     ensurePanel();
     curSlot = slot;
     panelOpenIdx = 0;                  // 默认展开第一个化身
