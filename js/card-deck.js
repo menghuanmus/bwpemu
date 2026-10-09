@@ -1270,6 +1270,7 @@
                   slot._permAbility = rawEffect;
                 }
                 syncSlotToPeer(slot);
+                if (typeof SwitchMgr !== 'undefined' && typeof SwitchMgr.syncSharedPerm === 'function') SwitchMgr.syncSharedPerm(slot);
                 if (typeof autoUpdateSlotImage === 'function') autoUpdateSlotImage(slot);
                 broadcastSystemMsg(`【系统】${getPlayerName(playerId)}为「${slotName}」使用了觉醒「${dbCard.name}」`);
                 if (!animTarget) animTarget = slot;

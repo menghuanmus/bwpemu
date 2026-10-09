@@ -250,6 +250,7 @@ const BonusPanel = (() => {
       ctx.slot._permAtkMods = ctx.permAtkMods; ctx.slot._permHpMods = ctx.permHpMods;
       applyPermStats(ctx.slot, oldAtk, oldHp);
       syncSlotToPeer(ctx.slot);
+      if (typeof SwitchMgr !== 'undefined' && typeof SwitchMgr.syncSharedPerm === 'function') SwitchMgr.syncSharedPerm(ctx.slot);
       broadcastBonusMsg('修改了永久属性层数', `${ctx.permAtkMods[idx].source} ×${newLayers}`);
       refresh();
     } else if (pm.dataset.tempIdx !== undefined) {
@@ -287,6 +288,7 @@ const BonusPanel = (() => {
       ctx.slot._permAtkMods = ctx.permAtkMods; ctx.slot._permHpMods = ctx.permHpMods;
       applyPermStats(ctx.slot, oldAtk, oldHp);
       syncSlotToPeer(ctx.slot);
+      if (typeof SwitchMgr !== 'undefined' && typeof SwitchMgr.syncSharedPerm === 'function') SwitchMgr.syncSharedPerm(ctx.slot);
       broadcastBonusMsg('移除了永久属性', delSrc);
     } else if (del.dataset.tempIdx !== undefined) {
       const idx = parseInt(del.dataset.tempIdx, 10);
@@ -342,6 +344,7 @@ const BonusPanel = (() => {
     document.getElementById('bonus-mod-hp').value = '0';
     applyPermStats(ctx.slot, oldAtk, oldHp);
     syncSlotToPeer(ctx.slot);
+    if (typeof SwitchMgr !== 'undefined' && typeof SwitchMgr.syncSharedPerm === 'function') SwitchMgr.syncSharedPerm(ctx.slot);
     const atkStr = atk !== 0 ? `攻击${atk >= 0 ? '+' : ''}${atk}` : '';
     const hpStr = hp !== 0 ? `生命${hp >= 0 ? '+' : ''}${hp}` : '';
     const detail = [atkStr, hpStr].filter(Boolean).join('，');
@@ -531,6 +534,7 @@ const BonusPanel = (() => {
       ctx.permHp = typeof calcPermHp === 'function' ? calcPermHp(ctx.slot) : 0;
     }
     syncSlotToPeer(ctx.slot);
+    if (typeof SwitchMgr !== 'undefined' && typeof SwitchMgr.syncSharedPerm === 'function') SwitchMgr.syncSharedPerm(ctx.slot);
     if (typeof autoUpdateSlotImage === 'function') autoUpdateSlotImage(ctx.slot);
     broadcastBonusMsg('快捷觉醒了', awaken.name);
     const picker = document.getElementById('bonus-awaken-picker');

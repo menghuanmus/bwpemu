@@ -137,8 +137,12 @@ var MyLib = (function () {
       fieldHTML('攻击', 'diy-f-atk', inputHTML('diy-f-atk', '', 'number', 'min="0" max="99"'), true) +
       fieldHTML('生命', 'diy-f-hp', inputHTML('diy-f-hp', '', 'number', 'min="0" max="99"'), true) +
       '</div>',
-      '<label class="diy-field diy-check"><input type="checkbox" id="diy-f-summon"><span style="display:inline;margin:0 6px 0 0;">是否为召唤物</span></label>',
-      '<label class="diy-field diy-check"><input type="checkbox" id="diy-f-transform"><span style="display:inline;margin:0 6px 0 0;">是否为变身</span></label>',
+      '<div class="diy-chips">' +
+      '<label class="diy-chip"><input type="checkbox" id="diy-f-summon"><span class="diy-chip__box"></span><span>召唤物</span></label>' +
+      '<label class="diy-chip"><input type="checkbox" id="diy-f-transform"><span class="diy-chip__box"></span><span>变身</span></label>' +
+      '<label class="diy-chip"><input type="checkbox" id="diy-f-countdown"><span class="diy-chip__box"></span><span>倒计时</span><input type="number" id="diy-f-base-countdown" class="diy-chip__num" min="1" max="99" placeholder="2" hidden></label>' +
+      '<label class="diy-chip"><input type="checkbox" id="diy-f-energy"><span class="diy-chip__box"></span><span>能量</span></label>' +
+      '</div>',
       '<div id="diy-f-owner-wrap" style="display:none">' + fieldHTML('所属式神', 'diy-f-owner', inputHTML('diy-f-owner', '选填，召唤物所属的式神', 'text', 'maxlength="40"')) + '</div>',
       '<label class="diy-field"><span class="diy-field__head">能力描述（≤300字）<span class="diy-char-count" id="diy-f-count">(0/300)</span></span><textarea id="diy-f-text" maxlength="300" rows="3" placeholder="能力/效果描述"></textarea></label>',
     ].join(''));
@@ -149,6 +153,18 @@ var MyLib = (function () {
     $('diy-f-text').value = (unit && unit.ability) || '';
     $('diy-f-summon').checked = isSummon;
     $('diy-f-transform').checked = isTransform;
+    // 倒计时 / 能量（勾选后：预设拖出 / 快捷创建变身时自动挂机制）
+    $('diy-f-countdown').checked = !!(unit && unit.hasCountdown);
+    $('diy-f-energy').checked = !!(unit && unit.hasEnergy);
+    $('diy-f-base-countdown').value = (unit && unit.baseCountdown) ? unit.baseCountdown : '';
+    function syncCdEnergy() {
+      var num = $('diy-f-base-countdown');
+      if (num) num.hidden = !$('diy-f-countdown').checked;
+    }
+    syncCdEnergy();
+    $('diy-f-countdown').addEventListener('change', syncCdEnergy);
+    // 数值框点击不触发所在芯片的勾选切换
+    if ($('diy-f-base-countdown')) $('diy-f-base-countdown').addEventListener('click', function (e) { e.stopPropagation(); });
     function syncOwner(e) {
       // 召唤物与变身互斥
       var sum = $('diy-f-summon'), tr = $('diy-f-transform');
@@ -182,6 +198,13 @@ var MyLib = (function () {
         ability: $('diy-f-text').value.trim()
       };
       var ownerVal = $('diy-f-owner').value.trim();
+      // 倒计时 / 能量（普通式神、召唤物、变身都支持）
+      saved.hasCountdown = $('diy-f-countdown').checked;
+      if (saved.hasCountdown) {
+        var cdv = parseInt($('diy-f-base-countdown').value, 10);
+        saved.baseCountdown = (Number.isNaN(cdv) || cdv < 1) ? 2 : Math.min(cdv, 99);
+      }
+      saved.hasEnergy = $('diy-f-energy').checked;
       if ($('diy-f-transform').checked) {
         saved.type = 'transform';
         if (ownerVal) saved.owner = ownerVal; // 变身所属式神（选填：留空则归入「无归属」）
@@ -209,10 +232,10 @@ var MyLib = (function () {
       fieldHTML('类型', 'diy-f-type', '<select id="diy-f-type">' + CARD_TYPES.map(function (t) { return '<option value="' + t[0] + '">' + t[1] + '</option>'; }).join('') + '</select>', true) +
       fieldHTML('稀有度', 'diy-f-rarity', '<select id="diy-f-rarity"><option value="R">R</option><option value="SR">SR</option><option value="SSR">SSR</option><option value="">无</option></select>', true) +
       '</div>',
-      '<div class="diy-row">' +
-      '<span id="diy-f-awakened-wrap" style="display:inline-block;"><label class="diy-field diy-check"><input type="checkbox" id="diy-f-awakened"><span style="display:inline;margin:0;">觉醒</span></label></span>' +
-      '<span id="diy-f-derivative-wrap" style="display:inline-block;"><label class="diy-field diy-check"><input type="checkbox" id="diy-f-derivative"><span style="display:inline;margin:0;">衍生</span></label></span>' +
-      '<span id="diy-f-stack-wrap" style="display:inline-block;"><label class="diy-field diy-check"><input type="checkbox" id="diy-f-stack"><span style="display:inline;margin:0;">堆叠</span></label></span>' +
+      '<div class="diy-chips">' +
+      '<span id="diy-f-awakened-wrap" style="display:inline-block;"><label class="diy-chip"><input type="checkbox" id="diy-f-awakened"><span class="diy-chip__box"></span><span>觉醒</span></label></span>' +
+      '<span id="diy-f-derivative-wrap" style="display:inline-block;"><label class="diy-chip"><input type="checkbox" id="diy-f-derivative"><span class="diy-chip__box"></span><span>衍生</span></label></span>' +
+      '<span id="diy-f-stack-wrap" style="display:inline-block;"><label class="diy-chip"><input type="checkbox" id="diy-f-stack"><span class="diy-chip__box"></span><span>堆叠</span><input type="number" id="diy-f-maxstack" class="diy-chip__num" min="1" max="999" placeholder="3" hidden></label></span>' +
       '</div>',
       '<div id="diy-f-dynamic"></div>',
       '<label class="diy-field"><span class="diy-field__head">描述（≤300字）<span class="diy-char-count" id="diy-f-count">(0/300)</span></span><textarea id="diy-f-text" maxlength="300" rows="3" placeholder="卡牌效果描述，保存时自动检测关键词"></textarea></label>',
@@ -249,6 +272,14 @@ var MyLib = (function () {
         }
         autoDesc = next;
       }
+    }
+
+    /** 堆叠芯片内的上限输入：勾选才显示；显示且为空时预填默认 3 */
+    function syncStackNum() {
+      var cb = $('diy-f-stack'), num = $('diy-f-maxstack');
+      if (!cb || !num) return;
+      num.hidden = !cb.checked;
+      if (cb.checked && String(num.value).trim() === '') num.value = '3';
     }
 
     function renderDynamic() {
@@ -302,16 +333,8 @@ var MyLib = (function () {
       var _sw = $('diy-f-stack-wrap'); if (_sw) _sw.style.display = (type === 'bond') ? 'none' : 'inline-block';
       if (type === 'bond') { var _sc = $('diy-f-stack'); if (_sc) _sc.checked = false; }
 
-      // 堆叠上限（勾了「堆叠」才出现，不限卡牌类型；默认 3；重绘时保留已填的值）
-      // ⚠? 必须拼进 html 后再一次性赋值：之前用 innerHTML += 会把上面刚给协战牌输入框
-      //     绑的 input 监听一起冲掉（自动描述就不再更新了）
-      var msCur = $('diy-f-maxstack') ? String($('diy-f-maxstack').value).trim() : '';
-      if ($('diy-f-stack') && $('diy-f-stack').checked) {
-        var ms = msCur !== '' ? msCur : ((unit && unit.maxStack != null && unit.maxStack > 0) ? unit.maxStack : 3);
-        html += '<div class="diy-row">' +
-          fieldHTML('堆叠上限', 'diy-f-maxstack', inputHTML('diy-f-maxstack', '1~999，默认 3', 'number', 'min="1" max="999" value="' + ms + '"'), true) +
-          '</div>';
-      }
+      // 堆叠上限：内嵌在「堆叠」芯片里（勾选才显示）
+      syncStackNum();
       $('diy-f-dynamic').innerHTML = html;
       if (type === 'bond') {
         ['diy-f-bond-a', 'diy-f-bond-b', 'diy-f-bond-v1', 'diy-f-bond-v2'].forEach(function (id) {
@@ -334,6 +357,7 @@ var MyLib = (function () {
     $('diy-f-awakened').checked = !!(unit && unit.awakened);
     $('diy-f-derivative').checked = !!(unit && unit.derivative);
     $('diy-f-stack').checked = !!(unit && unit.maxStack != null && unit.maxStack > 0);
+    if ($('diy-f-maxstack')) $('diy-f-maxstack').value = (unit && unit.maxStack != null && unit.maxStack > 0) ? unit.maxStack : '';
     $('diy-f-text').value = (unit && unit.effect) || '';
     $('diy-f-tags').value = (unit && unit.tags) ? normalizeTags(unit.tags).join('、') : '';
     // 老数据若描述正是自动文案（含旧的单行格式），记为「自动填的」，改字段时会跟着更新
@@ -353,6 +377,8 @@ var MyLib = (function () {
     $('diy-f-type').addEventListener('change', renderDynamic);
     $('diy-f-awakened').addEventListener('change', renderDynamic);
     $('diy-f-stack').addEventListener('change', renderDynamic);
+    // 数值框点击不触发所在芯片的勾选切换
+    if ($('diy-f-maxstack')) $('diy-f-maxstack').addEventListener('click', function (e) { e.stopPropagation(); });
     bindCharCount($('diy-f-text'), $('diy-f-count'), MAX_TEXT);
 
     m.onOk(function () {
@@ -702,6 +728,8 @@ var MyLib = (function () {
       if (unit.faction) meta.push(pill(unit.faction));
       if (unit.attack != null && unit.hp != null) meta.push(pill(unit.attack + '/' + unit.hp));
       if ((unit.type === 'summon' || unit.type === 'transform') && unit.owner) meta.push(pill('所属：' + unit.owner));
+      if (unit.hasCountdown) meta.push(pill('倒计时' + (unit.baseCountdown || 2)));
+      if (unit.hasEnergy) meta.push(pill('能量'));
       effect = unit.ability || '';
     } else if (kind === 'card') {
       // 稀有度「无」：不显示稀有度标签

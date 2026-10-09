@@ -938,6 +938,7 @@ const Renyin = (() => {
             slot._permAtkMods.push({ source: dbCard.name, value: dbCard.atkBonus || 0, layers: 1 });
             slot._permHpMods.push({ source: dbCard.name, value: dbCard.hpBonus || 0, layers: 1 });
             if (typeof syncSlotToPeer === 'function') syncSlotToPeer(slot);
+            if (typeof SwitchMgr !== 'undefined' && typeof SwitchMgr.syncSharedPerm === 'function') SwitchMgr.syncSharedPerm(slot);
             if (typeof autoUpdateSlotImage === 'function') autoUpdateSlotImage(slot);
             break;
           }

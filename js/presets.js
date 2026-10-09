@@ -431,10 +431,16 @@ const Presets = (() => {
   function _minePresetFromLib(s) {
     const isSummon = s.type === 'summon';
     const ab = String(s.ability || '');
-    // 描述含「倒计时x」→ 自动挂倒计时（基础 x）；含「充能」→ 自动挂能量
-    const cdMatch = ab.match(/倒计时\s*[:：]?\s*(\d+)/);
-    const autoCD = cdMatch ? (parseInt(cdMatch[1], 10) || 0) : 0;
-    const autoEN = /充能/.test(ab);
+    // 倒计时/能量来源：①DIY 里勾了「倒计时/能量」→ 按勾选自动挂；②旧数据（无勾选字段）按描述兜底：含「倒计时x」→ 自动挂倒计时（基础 x）、含「充能」→ 自动挂能量
+    let autoCD = 0, autoEN = false;
+    if (s.hasCountdown !== undefined || s.hasEnergy !== undefined) {
+      if (s.hasCountdown) autoCD = parseInt(s.baseCountdown, 10) || 2;
+      autoEN = !!s.hasEnergy;
+    } else {
+      const cdMatch = ab.match(/倒计时\s*[:：]?\s*(\d+)/);
+      autoCD = cdMatch ? (parseInt(cdMatch[1], 10) || 0) : 0;
+      autoEN = /充能/.test(ab);
+    }
     const authorName = (typeof window !== 'undefined' && window._gameNickname) ? window._gameNickname : '我的卡库';
     return {
       id: 'mine_' + s.name,

@@ -965,6 +965,41 @@
 .diy-field .diy-field__head > .diy-char-count { display: inline; margin: 0; white-space: nowrap; }
 .diy-check { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; }
 .diy-check input[type="checkbox"] { width: 18px; height: 18px; accent-color: #7C83FF; }
+/* ── DIY 勾选芯片（与弹窗输入框同一套视觉：深底 + 紫蓝选中） ── */
+.diy-chips { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-bottom: 12px; }
+.diy-chip {
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 8px 12px; cursor: pointer; user-select: none;
+  background: rgba(124,131,255,0.10);
+  border: 1px solid rgba(124,131,255,0.28);
+  border-radius: 10px;
+  font-size: 1.05rem; color: #c3c9e8;
+  transition: border-color .15s, background .15s, color .15s;
+  -webkit-tap-highlight-color: transparent;
+}
+.diy-chip:hover { border-color: rgba(124,131,255,0.62); background: rgba(124,131,255,0.17); }
+.diy-chip input[type="checkbox"] { position: absolute; opacity: 0; width: 0; height: 0; pointer-events: none; }
+.diy-chip__box {
+  width: 18px; height: 18px; border-radius: 6px; flex-shrink: 0;
+  border: 1.5px solid #3a4a6e; background: #0d1424;
+  display: inline-flex; align-items: center; justify-content: center;
+  transition: background .15s, border-color .15s;
+}
+.diy-chip__box::after {
+  content: ''; width: 9px; height: 5px; margin-top: -2px;
+  border-left: 2px solid #fff; border-bottom: 2px solid #fff;
+  transform: rotate(-45deg) scale(0); transition: transform .15s;
+}
+.diy-chip input:checked ~ .diy-chip__box { background: linear-gradient(135deg, #5B5FEF, #7C83FF); border-color: #7C83FF; }
+.diy-chip input:checked ~ .diy-chip__box::after { transform: rotate(-45deg) scale(1); }
+.diy-chip:has(input:checked) { border-color: rgba(124,131,255,0.85); background: rgba(124,131,255,0.22); color: #eef0ff; }
+/* 芯片内嵌数值输入（倒计时基础值） */
+.diy-chip__num {
+  width: 54px; padding: 4px 6px; text-align: center;
+  background: #0d1424; border: 1px solid #2a3f66; border-radius: 6px;
+  color: #E8EBF0; font-size: 1rem; font-family: inherit; outline: none;
+}
+.diy-chip__num:focus { border-color: #7C83FF; }
 .diy-tag--summon { background: rgba(82,196,172,0.15); color: #7ad8c4; }
 .diy-tag--transform { background: rgba(160,120,235,0.18); color: #c4a6ff; }
 .diy-tag--awakened { background: rgba(220,180,60,0.15); color: #dcc04c; }

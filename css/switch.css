@@ -162,9 +162,28 @@
   background: rgba(190, 150, 240, 0.08);
   border: 1px dashed rgba(190, 150, 240, 0.35);
 }
-.switch-opt-item { display: block; font-size: 16px; cursor: pointer; }
-.switch-opt-item input { transform: scale(1.15); margin-right: 6px; vertical-align: -1px; }
-.switch-opt-hint { display: block; font-size: 16px; color: #b0a0c8; margin: 2px 0 0 26px; line-height: 1.4; }
+.switch-opt-item { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; font-size: 16px; }
+.switch-opt-label { display: flex; align-items: center; cursor: pointer; }
+.switch-opt-label input { transform: scale(1.15); margin-right: 6px; vertical-align: -1px; }
+/* 问号：点击弹出该选项说明 */
+.switch-opt-q {
+  width: 20px; height: 20px; padding: 0; flex-shrink: 0;
+  display: inline-flex; align-items: center; justify-content: center;
+  border-radius: 50%; cursor: pointer;
+  border: 1.5px solid rgba(190, 150, 240, 0.5);
+  background: transparent; color: #b0a0c8;
+  font-size: 13px; font-weight: 700; line-height: 1; font-family: inherit;
+  transition: all .15s;
+}
+.switch-opt-q:hover { border-color: #c9a6ff; color: #e0d0ff; background: rgba(190, 150, 240, 0.15); }
+.switch-opt-tip {
+  flex-basis: 100%; margin: 2px 0 2px 2px; padding: 8px 12px;
+  font-size: 15px; line-height: 1.55; color: #cbbfe0;
+  background: rgba(190, 150, 240, 0.10);
+  border: 1px solid rgba(190, 150, 240, 0.28);
+  border-radius: 8px;
+}
+.switch-opt-tip[hidden] { display: none; }
 
 /* 创建 */
 .switch-create { margin-bottom: 12px; }

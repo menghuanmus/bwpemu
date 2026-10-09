@@ -22,7 +22,7 @@ const SwitchMgr = (() => {
   function isSpectatorNow() { return (typeof isSpectator !== 'undefined') && !!isSpectator; }
   function myPid() { return (typeof localPlayerId !== 'undefined' && localPlayerId) ? String(localPlayerId) : '1'; }
   function isMySlot(slot) { return !!slot && String(slot.dataset.slotPlayer || '') === myPid(); }
-  function _defaultOpts() { return { koSwitchBack: false, permaKo: false, bodyKoSwitch: false }; }
+  function _defaultOpts() { return { koSwitchBack: false, permaKo: false, bodyKoSwitch: false, sharePerm: false }; }
   /** 快捷创建时默认勾选全部三个选项的名字（武魂形态 / 茨木童子·鬼蚀 是气绝联动型变身） */
   const QUICK_ALL_OPTS = ['武魂形态', '茨木童子·鬼蚀'];
   function _quickDefaultOpts(name) {
@@ -106,7 +106,7 @@ const SwitchMgr = (() => {
     return { set: false, v: 0 };
   }
 
-  /** 生成「重置版」快照：清全部过程数据（只留 名字/卡图/等级/基础面板/选项）；勾了初始气绝 → 回气绝 */
+  /** 生成「重置版」快照：清过程数据（保留 名字/卡图/等级/基础面板/永久属性+觉醒/普通倒计时+能量/选项）；勾了「永久处于气绝」→ 回气绝 */
   function _buildResetSnapshot(slot, oldSnap) {
     const opts = (oldSnap && oldSnap._opts) ? _deepCopy(oldSnap._opts) : _defaultOpts();
     const st = (typeof getSlotState === 'function') ? getSlotState(slot) : {};
@@ -114,25 +114,21 @@ const SwitchMgr = (() => {
     delete snap._switch;
     // —— 清过程数据 ——
     snap.ko = '';
-    // 倒计时/能量：有徽章的回到基础值，没有的保持没有
-    snap.countdown = (st.countdown !== '' && st.countdown != null) ? String(snap.baseCountdown || '') : '';
-    snap.energy = (st.energy !== '' && st.energy != null) ? String(snap.baseEnergy || 0) : '';
+    // 【保留】普通倒计时 / 能量：不重置，保持当前值
     snap.curses = [];
-    snap.awakened = false;
-    snap.awakenName = '';
-    snap.permAtkMods = [];
-    snap.permHpMods = [];
-    snap.permAbility = '';
+    // 【保留】永久类数据不因重置消失：永久属性加成（_permAtkMods/_permHpMods）+ 觉醒（awakened/awakenName）+ 永久能力（permAbility）
     snap.permEffects = [];
     snap.formName = ''; snap.formAtk = 0; snap.formHp = 0; snap.formAbility = '';
     snap.tempAtkMods = []; snap.tempHpMods = [];
     snap.armor = 0; snap.power = 0;
     snap.chargedCards = [];
-    // 攻/命回基础值（未记录过基础时保留当前值兜底）
+    // 攻/命 = 有效基础 + 永久加成（保留永久属性；未记录过基础时保留当前值兜底）
     const ba = _baseStat(slot, 'atk');
     const bh = _baseStat(slot, 'hp');
-    snap.attack = ba.set ? String(ba.v) : (st.attack || '');
-    snap.hp = bh.set ? String(bh.v) : (st.hp || '');
+    const permA = (typeof calcPermAtk === 'function') ? calcPermAtk(slot) : ba.v;
+    const permH = (typeof calcPermHp === 'function') ? calcPermHp(slot) : bh.v;
+    snap.attack = ba.set ? String(permA) : (st.attack || '');
+    snap.hp = bh.set ? String(permH) : (st.hp || '');
     // 选项保留；初始气绝 → 回到气绝态
     snap._opts = opts;
     if (_optVal(opts, 'permaKo')) snap.ko = String(slot._baseKoCountdown || 3);
@@ -165,6 +161,14 @@ const SwitchMgr = (() => {
     if (card) {
       snap.attack = (card.attack != null) ? String(card.attack) : '';
       snap.hp = (card.hp != null) ? String(card.hp) : '';
+      // DIY 卡勾了倒计时/能量：快捷创建自动带机制
+      if (card.hasCountdown) {
+        const cdv = parseInt(card.baseCountdown, 10);
+        const cdVal = (Number.isNaN(cdv) || cdv < 1) ? 2 : cdv;
+        snap.countdown = String(cdVal);
+        snap.baseCountdown = cdVal;
+      }
+      if (card.hasEnergy) { snap.energy = '0'; snap.baseEnergy = 0; }
     }
     if (_optVal(opts, 'permaKo')) snap.ko = String(slot._baseKoCountdown || 3);
     return snap;
@@ -394,6 +398,37 @@ const SwitchMgr = (() => {
     return true;
   }
 
+  /** 共享非觉醒永久属性加成：把当前显示目标的永久属性（来源不含「觉醒」的）镜像给共享组（本体 + 所有勾选「共享」的变身）；各目标自己的觉醒类加成各自保留 */
+  function syncSharedPerm(slot) {
+    const sw = getSw(slot);
+    if (!sw || !Array.isArray(sw.list) || sw.list.length < 2) return false;
+    const sharers = sw.list.slice(1).filter(t => t && t._opts && t._opts.sharePerm);
+    if (!sharers.length) return false;
+    const curIdx = sw.idx | 0;
+    const cur = sw.list[curIdx];
+    if (!cur) return false;
+    // 只处理组员的变化：本体（idx 0）或勾选了共享的变身
+    if (curIdx !== 0 && !(cur._opts && cur._opts.sharePerm)) return false;
+    _saveCurrent(slot);
+    const latest = sw.list[curIdx];
+    if (!latest) return false;
+    // 只共享非觉醒来源（source 含「觉醒」二字的不参与共享）
+    const isAwakenSrc = m => !!(m && String(m.source || '').indexOf('觉醒') !== -1);
+    const atk = _deepCopy((latest.permAtkMods || []).filter(m => !isAwakenSrc(m)));
+    const hp = _deepCopy((latest.permHpMods || []).filter(m => !isAwakenSrc(m)));
+    const members = [sw.list[0]].concat(sharers);
+    members.forEach(t => {
+      if (!t || t === latest) return;
+      // 目标自己的觉醒类加成保留（不共享、不被覆盖）
+      const ownAtkAw = (t.permAtkMods || []).filter(isAwakenSrc);
+      const ownHpAw = (t.permHpMods || []).filter(isAwakenSrc);
+      t.permAtkMods = _deepCopy(atk).concat(_deepCopy(ownAtkAw));
+      t.permHpMods = _deepCopy(hp).concat(_deepCopy(ownHpAw));
+    });
+    _sync(slot);
+    return true;
+  }
+
   function setOpt(slot, idx, key, val) {
     const sw = getSw(slot);
     if (!sw || !sw.list[idx]) return;
@@ -401,6 +436,8 @@ const SwitchMgr = (() => {
     sw.list[idx]._opts[key] = !!val;
     // 「永久处于气绝」：勾选时若是当前显示的目标且未气绝 → 立即进入气绝
     if (key === 'permaKo' && val && (sw.idx | 0) === idx) _applyPermaKoOnEnter(slot);
+    // 「共享永久属性」：勾/取消时立即把当前显示目标的永久属性对齐给共享组
+    if (key === 'sharePerm') syncSharedPerm(slot);
     _sync(slot);
   }
 
@@ -539,14 +576,19 @@ const SwitchMgr = (() => {
     const back = !!o.koSwitchBack;
     const perma = _optVal(o, 'permaKo');
     const body = !!o.bodyKoSwitch;
-    return `<div class="switch-opt-row" data-idx="${i}">
-        <label class="switch-opt-item"><input type="checkbox" class="switch-opt-back" data-idx="${i}" ${back ? 'checked' : ''}> 气绝/复活时改为切回本体
-          <span class="switch-opt-hint">（自身气绝或复活时：不进入气绝/复活，而是自动切回本体并重置自己；手动切换不触发）</span></label>
-        <label class="switch-opt-item"><input type="checkbox" class="switch-opt-perma" data-idx="${i}" ${perma ? 'checked' : ''}> 此变身永久处于气绝状态
-          <span class="switch-opt-hint">（切入时自动处于气绝；气绝倒计时结束或复活时会重置气绝倒计时）</span></label>
-        <label class="switch-opt-item"><input type="checkbox" class="switch-opt-body" data-idx="${i}" ${body ? 'checked' : ''}> 本体气绝时改为切换此变身
-          <span class="switch-opt-hint">（本体气绝时不进入气绝倒计时（仍执行气绝的清除效果），自动切换到此变身；多个变身都勾选时只生效列表里第一个）</span></label>
-      </div>`;
+    const share = !!o.sharePerm;
+    const item = (cls, checked, text, tip, key) =>
+      '<div class="switch-opt-item">' +
+        '<label class="switch-opt-label"><input type="checkbox" class="' + cls + '" data-idx="' + i + '"' + (checked ? ' checked' : '') + '><span>' + text + '</span></label>' +
+        '<button type="button" class="switch-opt-q" data-tip="tip-' + i + '-' + key + '" title="查看说明">?</button>' +
+        '<div class="switch-opt-tip" data-tipbody="tip-' + i + '-' + key + '" hidden>' + tip + '</div>' +
+      '</div>';
+    return '<div class="switch-opt-row" data-idx="' + i + '">' +
+      item('switch-opt-back', back, '气绝/复活时改为切回本体', '此变身气绝/复活时，不进入气绝/复活，而是自动切回本体并执行气绝的清除效果；手动点按钮切换不会执行清除。', 'back') +
+      item('switch-opt-perma', perma, '此变身永久处于气绝状态', '此变身初始处于气绝，且气绝倒计时结束或复活时会重置气绝倒计时。', 'perma') +
+      item('switch-opt-body', body, '本体气绝时改为切换此变身', '本体气绝时不进入气绝倒计时（仍执行气绝的清除效果），自动切换到此变身；多个变身都勾选时只生效列表里第一个。', 'body') +
+      item('switch-opt-share', share, '共享非觉醒永久属性加成', '本体和该变身任意方添加/修改/移除非觉醒来源的永久属性加成时，另一方也会同步；多个变身勾选时均共享。*请注意：非觉醒是以来源不包含“觉醒”二字进行判定。', 'share') +
+      '</div>';
   }
 
   function _msg(text, isErr) {
@@ -597,6 +639,17 @@ const SwitchMgr = (() => {
       _renderDialog();
       return;
     }
+    // 问号：切换该选项说明的显隐
+    if (t.classList && t.classList.contains('switch-opt-q')) {
+      const tipId = t.dataset.tip;
+      const tip = overlay.querySelector('[data-tipbody="' + tipId + '"]');
+      if (tip) {
+        const willShow = tip.hidden;
+        overlay.querySelectorAll('.switch-opt-tip').forEach(el => { el.hidden = true; });
+        tip.hidden = !willShow;
+      }
+      return;
+    }
     // 创建按钮
     if (t.classList && t.classList.contains('switch-btn--add')) { _doCreate(); return; }
     // ⚙ / ✕
@@ -644,6 +697,10 @@ const SwitchMgr = (() => {
       setOpt(dlgSlot, parseInt(t.dataset.idx, 10), 'bodyKoSwitch', t.checked);
       return;
     }
+    if (t.classList.contains('switch-opt-share')) {
+      setOpt(dlgSlot, parseInt(t.dataset.idx, 10), 'sharePerm', t.checked);
+      return;
+    }
   }
 
   // ── 初始化：页面就绪后给所有槽刷一遍徽章 ────────────────────
@@ -659,7 +716,7 @@ const SwitchMgr = (() => {
   const api = {
     exportData, importData, refreshBadge, onBadgeClick, openManager,
     switchTo, switchBackAndReset, checkKoSwitchBack, checkReviveSwitchBack, checkBodyKoSwitch,
-    appendTarget, removeTarget, setOpt, hasTargets,
+    appendTarget, removeTarget, setOpt, hasTargets, syncSharedPerm,
     _deepCopy,   // 供外部（测试/游戏核心）复用
   };
   window.SwitchMgr = api;
