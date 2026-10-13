@@ -388,7 +388,12 @@
       const folder = (isSummon && dbCard && dbCard.owner) ? dbCard.owner : baseName;
 
       const paths = [];
-      if (slot._formName) paths.push(baseUrl + 'images/' + folder + '/' + slot._formName + '.png');
+      if (slot._formName) {
+        // 形态卡来自卡库且有上传图：优先用上传图（失败再退回按名字找图）
+        const fCard = (typeof CardDB !== 'undefined' && CardDB.lookup) ? CardDB.lookup(slot._formName) : null;
+        if (fCard && fCard.imageSrc) paths.push(fCard.imageSrc);
+        paths.push(baseUrl + 'images/' + folder + '/' + slot._formName + '.png');
+      }
       // 觉醒图：优先用式神管理里填写的觉醒牌名，其次查数据库，均不依赖属性
       if (slot.classList.contains('awakened')) {
         const customAwaken = slot._awakenCardName || '';
@@ -409,7 +414,11 @@
           break;
         }
       }
+      // 本人 DIY 卡库里有上传图：优先（失败再退回按名字找图）
+      if (dbCard && dbCard.imageSrc) paths.push(dbCard.imageSrc);
       paths.push(baseUrl + 'images/' + folder + '/' + baseName + '.png');
+      // 对局中上传的服务器图：以上都没加载成功时，维持原图不变
+      if (curSrc && curSrc.indexOf('/uploads') !== -1) paths.push(curSrc);
 
       // 依次尝试加载，第一个成功的就用它，都不成功则不动
       _trySetImage(slot, paths, 0);
@@ -624,25 +633,43 @@
           c.width = w; c.height = h;
           c.getContext('2d').drawImage(img, 0, 0, w, h);
           var dataUrl = c.toDataURL('image/jpeg', 0.8);
+          // 先本地即时预览（不发同步）；联机时上传到服务器换短 URL（同步只传 URL），未连接/失败退回本地 base64（老办法）
           setSlotImage(slot, dataUrl);
-          // 初次上传卡图且未设派系：默认归入无相
-          if (!slot.dataset.slotFaction) slot.dataset.slotFaction = '无相';
-          // 新式神（还没填名字）：攻/命保持空，等级默认 0；首次修改攻/命时自动记为“基础值”
-          const nameInp0 = slot.querySelector('.card-name');
-          if (!nameInp0 || !nameInp0.value.trim()) {
-            const aInp0 = slot.querySelector('.card-attack');
-            const hInp0 = slot.querySelector('.card-hp');
-            const lInp0 = slot.querySelector('.card-level');
-            if (aInp0) aInp0.value = '';
-            if (hInp0) hInp0.value = '';
-            if (lInp0) lInp0.value = '0';
+          var sock = window._gameSocket;
+          if (sock && sock.connected) {
+            sock.emit('upload-image', { img: dataUrl, scope: 'game' }, function (res) {
+              var okUrl = (res && res.ok && res.url) ? res.url : '';
+              // 本机留一份副本（之后“保存预设”用它，防止对局目录被清理后图失效）
+              if (okUrl && typeof LocalImg !== 'undefined' && LocalImg.put) LocalImg.put(dataUrl, okUrl);
+              applySlotCardImage(slot, okUrl || dataUrl);
+            });
+          } else {
+            applySlotCardImage(slot, dataUrl);
           }
-          syncSlotToPeer(slot);
         };
         img.src = ev.target.result;
       };
       reader.readAsDataURL(file);
     });
+
+    /** 应用"对局中上传"的卡图：设图 + 无派系默认无相 + 新式神默认等级 0 + 同步 */
+    function applySlotCardImage(slot, src) {
+      if (!slot || !document.body.contains(slot)) return;
+      setSlotImage(slot, src);
+      // 初次上传卡图且未设派系：默认归入无相
+      if (!slot.dataset.slotFaction) slot.dataset.slotFaction = '无相';
+      // 新式神（还没填名字）：攻/命保持空，等级默认 0；首次修改攻/命时自动记为“基础值”
+      const nameInp0 = slot.querySelector('.card-name');
+      if (!nameInp0 || !nameInp0.value.trim()) {
+        const aInp0 = slot.querySelector('.card-attack');
+        const hInp0 = slot.querySelector('.card-hp');
+        const lInp0 = slot.querySelector('.card-level');
+        if (aInp0) aInp0.value = '';
+        if (hInp0) hInp0.value = '';
+        if (lInp0) lInp0.value = '0';
+      }
+      syncSlotToPeer(slot);
+    }
 
     /* 头像系统 */
     avatarInput.addEventListener('change', (e) => {
@@ -685,6 +712,23 @@
 
     /* 交换卡牌槽内容 */
     let _slotSwapSuppress = false;      // 应用远端交换时防止回环广播
+
+    /** 槽位的中文位置名：准备区N号位 / 战斗区（N 按准备区从左到右、从上到下数；用 DOM 结构判断，属性 slotType 已被式神类型占用） */
+    function _slotLocLabel(slot) {
+      if (!slot) return '空位';
+      if (slot.closest('.battle-block')) return '战斗区';
+      const zone = slot.closest('.player-zone');
+      let n = 1;
+      if (zone) {
+        const preps = Array.prototype.filter.call(zone.querySelectorAll('.card-slot'), function (s) {
+          return !s.closest('.battle-block');
+        });
+        const i = preps.indexOf(slot);
+        if (i >= 0) n = i + 1;
+      }
+      return '准备区' + n + '号位';
+    }
+
     function swapSlotContents(a, b) {
       const stateA = getSlotState(a);
       const stateB = getSlotState(b);
@@ -717,10 +761,11 @@
       // 撤销标记：移动式神 = 一步，撤销提示只说“移动”，不再刷一串属性变化
       if (!_slotSwapSuppress && typeof broadcastSystemMsg === 'function') {
         const who = (typeof localPlayerId !== 'undefined' && localPlayerId && typeof getPlayerName === 'function') ? getPlayerName(localPlayerId) : '玩家';
+        const locA = _slotLocLabel(a), locB = _slotLocLabel(b);
         let label;
-        if (nameA && nameB) label = '移动了式神：「' + nameA + '」与「' + nameB + '」互换位置';
-        else if (nameA) label = '将「' + nameA + '」移动到了空位';
-        else if (nameB) label = '将「' + nameB + '」移动到了空位';
+        if (nameA && nameB) label = '将「' + nameA + '」与「' + nameB + '」互换位置（' + locA + ' ↔ ' + locB + '）';
+        else if (nameA) label = '将「' + nameA + '」移动到' + locB;
+        else if (nameB) label = '将「' + nameB + '」移动到' + locA;
         else label = '调整了空位';
         broadcastSystemMsg('【系统】' + who + ' ' + label);
       }

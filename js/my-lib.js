@@ -31,6 +31,156 @@ var MyLib = (function () {
     return (window._gameSocket && window._gameSocket.connected) ? window._gameSocket : null;
   }
 
+  // ── 卡图上传 ──
+  function _kbText(bytes) { return Math.max(1, Math.round(bytes / 1024)) + ' KB'; }
+
+  /** 压缩图片：一次解码，输出主图（宽≤400 / q0.8）与缩略图（宽≤160 / q0.7）的 dataURL */
+  function compressToTwo(file, cb) {
+    var objUrl = URL.createObjectURL(file);
+    var img = new Image();
+    img.onload = function () {
+      function draw(maxW, quality) {
+        var w = img.naturalWidth || img.width, h = img.naturalHeight || img.height;
+        if (!w || !h) return null;
+        if (w > maxW) { h = Math.max(1, Math.round(h * maxW / w)); w = maxW; }
+        var c = document.createElement('canvas');
+        c.width = w; c.height = h;
+        var ctx = c.getContext('2d');
+        ctx.fillStyle = '#fff';   // 透明底转白底（JPEG 不支持透明）
+        ctx.fillRect(0, 0, w, h);
+        ctx.drawImage(img, 0, 0, w, h);
+        return c.toDataURL('image/jpeg', quality);
+      }
+      var main = draw(400, 0.8);
+      var thumb = main ? draw(160, 0.7) : null;
+      try { URL.revokeObjectURL(objUrl); } catch (e) { /* 忽略 */ }
+      cb(main, thumb);
+    };
+    img.onerror = function () {
+      try { URL.revokeObjectURL(objUrl); } catch (e) { /* 忽略 */ }
+      cb(null, null);
+    };
+    img.src = objUrl;
+  }
+
+  /** 删除服务器上自己上传的图（静默：可能已不存在或不是本人上传） */
+  function deleteImageByUrl(url) {
+    var s = socket();
+    if (!s || !url) return;
+    s.emit('delete-image', { url: url }, function () {});
+  }
+
+  /** 卡图上传区（式神/形态编辑弹窗共用）。返回句柄：
+   *  result() → { url, thumb, size } | null（null = 最终无图）
+   *  afterSaveCleanup(keepUrl) → 保存成功后：删掉被替换/移除的旧图与本次多余临时图
+   *  cancel() → 取消弹窗或保存失败：只删本次上传、未被保存的图 */
+  function bindImageField(m, unit) {
+    var previewBox = $('diy-f-img-preview');
+    var sizeEl = $('diy-f-img-size');
+    var input = $('diy-f-img-file');
+    var upBtn = $('diy-f-img-upload');
+    var delBtn = $('diy-f-img-remove');
+    if (!previewBox || !input || !upBtn || !delBtn) {
+      return { result: function () { return null; }, afterSaveCleanup: function () {}, cancel: function () {} };
+    }
+    var st = {
+      url: (unit && unit.imageSrc) || '',
+      thumb: (unit && unit.imageThumb) || '',
+      size: (unit && unit.imageSize) || 0,
+      origUrl: (unit && unit.imageSrc) || '',
+      uploaded: [],   // 本次弹窗上传过的 URL（保存/取消时统一清理）
+      preview: '',
+      uploading: false
+    };
+    function render() {
+      if (st.url) {
+        previewBox.innerHTML = '<img src="' + esc(st.preview || st.url) + '" alt="">';
+        previewBox.classList.add('has-img');
+        var im = previewBox.querySelector('img');
+        if (im) im.onerror = function () { previewBox.innerHTML = '<span class="diy-img-empty">图片失效</span>'; };
+        delBtn.style.display = '';
+        upBtn.textContent = '更换图片';
+        sizeEl.textContent = st.size ? ('已上传 · ' + _kbText(st.size)) : '';
+      } else {
+        previewBox.innerHTML = '<span class="diy-img-empty">无图</span>';
+        previewBox.classList.remove('has-img');
+        delBtn.style.display = 'none';
+        upBtn.textContent = '上传图片';
+        sizeEl.textContent = '';
+      }
+      upBtn.disabled = st.uploading;
+    }
+    render();
+    upBtn.addEventListener('click', function () { if (!st.uploading) input.click(); });
+    input.addEventListener('change', function () {
+      var f = input.files && input.files[0];
+      input.value = '';   // 清掉选择，允许下次再选同一张
+      if (!f || st.uploading) return;
+      if (f.type.indexOf('image/') !== 0) { m.err.textContent = '请选择图片文件（JPG/PNG）'; return; }
+      if (f.size > 20 * 1024 * 1024) { m.err.textContent = '图片文件太大（超过 20MB），请先裁剪再传'; return; }
+      var s = socket();
+      if (!s) { m.err.textContent = '未连接服务器，无法上传图片'; return; }
+      st.uploading = true;
+      upBtn.textContent = '压缩中…';
+      upBtn.disabled = true;
+      compressToTwo(f, function (main, thumb) {
+        if (!main) {
+          st.uploading = false;
+          m.err.textContent = '图片读取失败，请换一张试试';
+          render();
+          return;
+        }
+        upBtn.textContent = '上传中…';
+        s.emit('upload-image', { img: main, thumb: thumb || '' }, function (res) {
+          st.uploading = false;
+          if (!res || res.error) {
+            m.err.textContent = (res && res.error) || '上传失败，请稍后重试';
+            render();
+            return;
+          }
+          // 弹窗已关闭（取消 / 已保存）→ 刚传完的图直接删掉，避免孤儿文件
+          if (!document.body.contains(m.ov)) { deleteImageByUrl(res.url); return; }
+          st.uploaded.push(res.url);
+          st.url = res.url;
+          st.thumb = res.thumbUrl || '';
+          st.size = res.size || 0;
+          st.preview = main;
+          m.err.textContent = '';
+          render();
+        });
+      });
+    });
+    delBtn.addEventListener('click', function () {
+      st.url = ''; st.thumb = ''; st.size = 0; st.preview = '';
+      render();
+    });
+    return {
+      result: function () { return st.url ? { url: st.url, thumb: st.thumb, size: st.size } : null; },
+      afterSaveCleanup: function (keepUrl) {
+        var keep = keepUrl || '';
+        st.uploaded.forEach(function (u) { if (u !== keep) deleteImageByUrl(u); });
+        if (st.origUrl && st.origUrl !== keep) deleteImageByUrl(st.origUrl);
+      },
+      cancel: function () { st.uploaded.forEach(function (u) { deleteImageByUrl(u); }); }
+    };
+  }
+
+  /** 卡图字段（式神 / 形态编辑弹窗共用） */
+  function imageFieldHTML() {
+    return '<div class="diy-field diy-imgfield" id="diy-f-imgfield">' +
+      '<span class="diy-field__head">卡图（选填）<span class="diy-char-count" id="diy-f-img-size"></span></span>' +
+      '<div class="diy-img-box">' +
+      '<div class="diy-img-preview" id="diy-f-img-preview"><span class="diy-img-empty">无图</span></div>' +
+      '<div class="diy-img-actions">' +
+      '<button type="button" class="diy-btn diy-img-btn" id="diy-f-img-upload">上传图片</button>' +
+      '<button type="button" class="diy-btn diy-img-btn diy-img-btn--del" id="diy-f-img-remove" style="display:none">移除图片</button>' +
+      '<div class="diy-img-hint">选图后自动压缩上传，<br>保存后生效（限 JPG/PNG）</div>' +
+      '</div>' +
+      '</div>' +
+      '<input type="file" id="diy-f-img-file" accept="image/*" style="display:none">' +
+      '</div>';
+  }
+
   // ── 校验 ──
   function validateName(kind, name) {
     if (!name || !String(name).trim()) return kind + '缺少名称';
@@ -90,7 +240,7 @@ var MyLib = (function () {
   }
 
   // ── 弹窗基座 ──
-  function openModal(titleHTML, bodyHTML) {
+  function openModal(titleHTML, bodyHTML, onCancel) {
     var ov = document.createElement('div');
     ov.className = 'diy-modal-overlay';
     ov.innerHTML = '<div class="diy-modal">' +
@@ -102,8 +252,11 @@ var MyLib = (function () {
       '<button type="button" class="diy-btn diy-btn-cancel" id="diy-modal-cancel">取消</button>' +
       '</div></div>';
     document.body.appendChild(ov);
-    // 只能点「取消」关闭（点弹窗外面不关闭）
-    $('diy-modal-cancel').addEventListener('click', function () { ov.remove(); });
+    // 只能点「取消」关闭（点弹窗外面不关闭）；可传 onCancel 做资源清理（如删除未保存的上传图）
+    $('diy-modal-cancel').addEventListener('click', function () {
+      if (typeof onCancel === 'function') { try { onCancel(); } catch (e) { /* 忽略 */ } }
+      ov.remove();
+    });
     return {
       ov: ov,
       err: $('diy-modal-err'),
@@ -130,6 +283,7 @@ var MyLib = (function () {
     var unit = cache.shikigami[idx];
     var isSummon = !!(unit && unit.type === 'summon');
     var isTransform = !!(unit && unit.type === 'transform');
+    var imgField = null;
     var m = openModal('式神' + (idx >= 0 ? '编辑' : '新增'), [
       fieldHTML('名称', 'diy-f-name', inputHTML('diy-f-name', '必填，不能与官方卡牌同名', 'text', 'maxlength="40"'), true),
       '<div class="diy-row">' +
@@ -144,8 +298,9 @@ var MyLib = (function () {
       '<label class="diy-chip"><input type="checkbox" id="diy-f-energy"><span class="diy-chip__box"></span><span>能量</span></label>' +
       '</div>',
       '<div id="diy-f-owner-wrap" style="display:none">' + fieldHTML('所属式神', 'diy-f-owner', inputHTML('diy-f-owner', '选填，召唤物所属的式神', 'text', 'maxlength="40"')) + '</div>',
+      imageFieldHTML(),
       '<label class="diy-field"><span class="diy-field__head">能力描述（≤300字）<span class="diy-char-count" id="diy-f-count">(0/300)</span></span><textarea id="diy-f-text" maxlength="300" rows="3" placeholder="能力/效果描述"></textarea></label>',
-    ].join(''));
+    ].join(''), function () { if (imgField) imgField.cancel(); });
     $('diy-f-name').value = unit ? (unit.name || '') : '';
     $('diy-f-faction').value = (unit && unit.faction) || '苍叶';
     $('diy-f-atk').value = (unit && unit.attack != null) ? unit.attack : '';
@@ -182,6 +337,7 @@ var MyLib = (function () {
     $('diy-f-summon').addEventListener('change', syncOwner);
     $('diy-f-transform').addEventListener('change', syncOwner);
     bindCharCount($('diy-f-text'), $('diy-f-count'), MAX_TEXT);
+    imgField = bindImageField(m, unit);
 
     m.onOk(function () {
       var name = $('diy-f-name').value.trim();
@@ -212,10 +368,20 @@ var MyLib = (function () {
         saved.type = 'summon';
         if (ownerVal) saved.owner = ownerVal; // 选填：留空则归入「无归属」
       }
+      // 卡图：存 URL（上传时已压缩好）；保存成功后清理被替换/移除的旧图
+      var imgRes = imgField.result();
+      if (imgRes) {
+        saved.imageSrc = imgRes.url;
+        if (imgRes.thumb) saved.imageThumb = imgRes.thumb;
+        if (imgRes.size) saved.imageSize = imgRes.size;
+      }
       if (idx >= 0) cache.shikigami[idx] = keepAuthor('shikigami', idx, saved); else cache.shikigami.push(saved);
       m.ov.remove();
       render();
-      saveToServer();
+      saveToServer(function (ok) {
+        if (ok) imgField.afterSaveCleanup(saved.imageSrc || '');
+        else imgField.cancel();
+      });
     });
   }
 
@@ -224,6 +390,7 @@ var MyLib = (function () {
 
   function openCardEdit(idx) {
     var unit = cache.cards[idx];
+    var imgField = null;
     var m = openModal('卡牌' + (idx >= 0 ? '编辑' : '新增'), [
       fieldHTML('名称', 'diy-f-name', inputHTML('diy-f-name', '必填，不能与官方卡牌同名', 'text', 'maxlength="40"'), true),
       '<div id="diy-f-owner-wrap">' + fieldHTML('所属式神', 'diy-f-owner', inputHTML('diy-f-owner', '选填', 'text', 'maxlength="40"')) + '</div>',
@@ -238,9 +405,10 @@ var MyLib = (function () {
       '<span id="diy-f-stack-wrap" style="display:inline-block;"><label class="diy-chip"><input type="checkbox" id="diy-f-stack"><span class="diy-chip__box"></span><span>堆叠</span><input type="number" id="diy-f-maxstack" class="diy-chip__num" min="1" max="999" placeholder="3" hidden></label></span>' +
       '</div>',
       '<div id="diy-f-dynamic"></div>',
+      imageFieldHTML(),
       '<label class="diy-field"><span class="diy-field__head">描述（≤300字）<span class="diy-char-count" id="diy-f-count">(0/300)</span></span><textarea id="diy-f-text" maxlength="300" rows="3" placeholder="卡牌效果描述，保存时自动检测关键词"></textarea></label>',
       fieldHTML('标签', 'diy-f-tags', inputHTML('diy-f-tags', '多个标签用顿号「、」隔开，例如：符咒、其他', 'text', 'maxlength="100"')),
-    ].join(''));
+    ].join(''), function () { if (imgField) imgField.cancel(); });
 
     // 协战牌：描述按官方排版自动填（第一行「选择一项使用：」，之后每张分化牌一行）；玩家改过就不再覆盖
     var autoDesc = '';
@@ -335,6 +503,9 @@ var MyLib = (function () {
 
       // 堆叠上限：内嵌在「堆叠」芯片里（勾选才显示）
       syncStackNum();
+      // 卡图：仅形态牌可设置（其它类型时隐藏；数据在保存时按类型决定是否携带）
+      var _iw = $('diy-f-imgfield');
+      if (_iw) _iw.style.display = (type === 'form') ? '' : 'none';
       $('diy-f-dynamic').innerHTML = html;
       if (type === 'bond') {
         ['diy-f-bond-a', 'diy-f-bond-b', 'diy-f-bond-v1', 'diy-f-bond-v2'].forEach(function (id) {
@@ -380,6 +551,7 @@ var MyLib = (function () {
     // 数值框点击不触发所在芯片的勾选切换
     if ($('diy-f-maxstack')) $('diy-f-maxstack').addEventListener('click', function (e) { e.stopPropagation(); });
     bindCharCount($('diy-f-text'), $('diy-f-count'), MAX_TEXT);
+    imgField = bindImageField(m, unit);
 
     m.onOk(function () {
       var name = $('diy-f-name').value.trim();
@@ -469,10 +641,22 @@ var MyLib = (function () {
         }
       }
       if (err) { m.err.textContent = err; return; }
+      // 卡图：仅形态牌保存（其它类型不带图）
+      if (type === 'form') {
+        var imgRes = imgField.result();
+        if (imgRes) {
+          saved.imageSrc = imgRes.url;
+          if (imgRes.thumb) saved.imageThumb = imgRes.thumb;
+          if (imgRes.size) saved.imageSize = imgRes.size;
+        }
+      }
       if (idx >= 0) cache.cards[idx] = keepAuthor('card', idx, saved); else cache.cards.push(saved);
       m.ov.remove();
       render();
-      saveToServer();
+      saveToServer(function (ok) {
+        if (ok) imgField.afterSaveCleanup(saved.imageSrc || '');
+        else imgField.cancel();
+      });
     });
   }
 
@@ -558,10 +742,14 @@ var MyLib = (function () {
     var toggleHTML = opts.toggle
       ? '<span class="diy-toggle" data-toggle="' + esc(unit.name) + '" title="展开 / 收起">' + (opts.collapsed ? '▸' : '▾') + '</span>'
       : '';
+    var thumbHTML = unit.imageSrc
+      ? '<span class="diy-item-thumb"><img src="' + esc(unit.imageThumb || unit.imageSrc) + '" loading="lazy" alt=""></span>'
+      : '';
     return '<div class="diy-item' + (indent ? ' diy-item--indent' : '') + '" data-kind="' + kind + '" data-idx="' + idx + '">' +
       '<div class="diy-item-top">' +
       checkHTML +
       toggleHTML +
+      thumbHTML +
       '<div class="diy-item-name">' + esc(unit.name) + '</div>' +
       '<div class="diy-item-actions">' +
       '<button type="button" class="diy-btn diy-btn-edit" data-kind="' + kind + '" data-idx="' + idx + '">✏️</button>' +
@@ -758,7 +946,11 @@ var MyLib = (function () {
       if (unit.owner) meta.push(pill('所属：' + unit.owner));
       effect = unit.effect || '';
     }
-    var html = '<div class="diy-preview__name">' + esc(unit.name) + '</div>' +
+    var imgHtml = '';
+    if (unit.imageSrc) {
+      imgHtml = '<div class="diy-preview__img"><img src="' + esc(unit.imageSrc) + '" loading="lazy" alt=""></div>';
+    }
+    var html = imgHtml + '<div class="diy-preview__name">' + esc(unit.name) + '</div>' +
       '<div class="diy-preview__meta">' + meta.join('') + '</div>';
     if (unit.author) html += '<div class="diy-preview__kws">作者：' + esc(unit.author) + '</div>';
     if (effect) html += '<div class="diy-preview__effect">' + esc(effect) + '</div>';
@@ -825,11 +1017,11 @@ var MyLib = (function () {
   }
 
   // ═══════════════ 保存 / 删除 ═══════════════
-  function saveToServer() {
+  function saveToServer(afterSave) {
     var s = socket();
-    if (!s) { showError('未连接服务器，无法保存'); return; }
+    if (!s) { showError('未连接服务器，无法保存'); if (typeof afterSave === 'function') afterSave(false); return; }
     var total = cache.shikigami.length + cache.cards.length + cache.others.length;
-    if (total > MAX_UNITS) { showError('超过容量上限：合计最多 ' + MAX_UNITS + ' 个单位'); return; }
+    if (total > MAX_UNITS) { showError('超过容量上限：合计最多 ' + MAX_UNITS + ' 个单位'); if (typeof afterSave === 'function') afterSave(false); return; }
     s.emit('save-my-cardlib', cache, function (res) {
       if (res && res.error) {
         showError(res.error);
@@ -837,9 +1029,13 @@ var MyLib = (function () {
         s.emit('get-my-cardlib', {}, function (g) {
           if (g && g.ok) { cache = g.cardLib || { shikigami: [], cards: [], others: [] }; render(); }
         });
+        if (typeof afterSave === 'function') afterSave(false);
       }
-      else if (res && res.ok) { showError('已保存', true); }
-      else { showError('保存失败：服务端无响应'); }
+      else if (res && res.ok) {
+        showError('已保存', true);
+        if (typeof afterSave === 'function') afterSave(true);
+      }
+      else { showError('保存失败：服务端无响应'); if (typeof afterSave === 'function') afterSave(false); }
     });
   }
 

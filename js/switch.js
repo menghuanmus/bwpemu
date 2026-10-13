@@ -106,7 +106,7 @@ const SwitchMgr = (() => {
     return { set: false, v: 0 };
   }
 
-  /** 生成「重置版」快照：清过程数据（保留 名字/卡图/等级/基础面板/永久属性+觉醒/普通倒计时+能量/选项）；勾了「永久处于气绝」→ 回气绝 */
+  /** 生成「重置版」快照：清过程数据（保留 名字/卡图/等级/基础面板/永久属性+觉醒/能量/灵咒/蓄力/选项；倒计时回基础值）；勾了「永久处于气绝」→ 回气绝 */
   function _buildResetSnapshot(slot, oldSnap) {
     const opts = (oldSnap && oldSnap._opts) ? _deepCopy(oldSnap._opts) : _defaultOpts();
     const st = (typeof getSlotState === 'function') ? getSlotState(slot) : {};
@@ -114,14 +114,20 @@ const SwitchMgr = (() => {
     delete snap._switch;
     // —— 清过程数据 ——
     snap.ko = '';
-    // 【保留】普通倒计时 / 能量：不重置，保持当前值
-    snap.curses = [];
+    // 普通倒计时：有徽章的回到基础值（与普通气绝一致）；能量保持当前值（普通气绝也不动能量）
+    snap.countdown = (st.countdown !== '' && st.countdown != null) ? String(snap.baseCountdown || 2) : '';
+    // 灵咒：保留（与普通气绝一致，不清空）
     // 【保留】永久类数据不因重置消失：永久属性加成（_permAtkMods/_permHpMods）+ 觉醒（awakened/awakenName）+ 永久能力（permAbility）
-    snap.permEffects = [];
+    // 效果记录：与普通气绝一致——只清「卡面特效类」来源（眩晕/帷幕/不屈/屏障/昂扬/迅捷/庇佑），其余保留；
+    //           ⚠ 来源列表与 stun-fx.js 的 FX_DEFS 保持同步
+    const FX_SOURCES = ['眩晕', '帷幕', '不屈', '屏障', '昂扬', '迅捷', '庇佑'];
+    snap.permEffects = (Array.isArray(snap.permEffects) ? snap.permEffects : []).filter(function (e) {
+      return FX_SOURCES.indexOf(String((e && e.source) == null ? '' : e.source).trim()) === -1;
+    });
     snap.formName = ''; snap.formAtk = 0; snap.formHp = 0; snap.formAbility = '';
     snap.tempAtkMods = []; snap.tempHpMods = [];
     snap.armor = 0; snap.power = 0;
-    snap.chargedCards = [];
+    // 蓄力：保留（与普通气绝一致，不清空）
     // 攻/命 = 有效基础 + 永久加成（保留永久属性；未记录过基础时保留当前值兜底）
     const ba = _baseStat(slot, 'atk');
     const bh = _baseStat(slot, 'hp');
@@ -139,7 +145,7 @@ const SwitchMgr = (() => {
   function _blankSnapshot(slot, name, card, opts) {
     opts = opts || _defaultOpts();
     const snap = {
-      imageSrc: null, level: '', attack: '', hp: '', name: String(name || ''),
+      imageSrc: (card && card.imageSrc) || null, level: '', attack: '', hp: '', name: String(name || ''),
       countdown: '', energy: '',
       baseCountdown: 0, baseEnergy: 0,
       koCountdown: slot._baseKoCountdown || 3,

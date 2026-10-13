@@ -23,6 +23,10 @@ const Presets = (() => {
   function init() {
     _load();
     _buildPanel();
+    // 本地图库读盘完成后，若面板已打开则刷新（把先前占位的本地图显示出来）
+    if (typeof LocalImg !== 'undefined' && LocalImg.onReady) {
+      LocalImg.onReady(function () { if (_panelVisible) _render(); });
+    }
   }
 
   function _load() {
@@ -35,6 +39,24 @@ const Presets = (() => {
       if (raw) diy = JSON.parse(raw);
     } catch (e) { /* ignore */ }
     _presets = [...defaults, ...diy];
+    _migrateLocalImages();
+  }
+
+  /** 旧数据懒迁移：本地预设里的 base64 图搬进设备本地图库（无感，只做一次） */
+  function _migrateLocalImages() {
+    if (typeof LocalImg === 'undefined' || !LocalImg.onReady) return;
+    LocalImg.onReady(function () {
+      // 只有能持久化（IndexedDB 可用）才搬；否则保留 base64 不动（防刷新后图丢失）
+      if (LocalImg.isPersistent && !LocalImg.isPersistent()) return;
+      let changed = false;
+      _presets.forEach(function (p) {
+        if (p && p.source === 'battlefield' && p.imageSrc && p.imageSrc.indexOf('data:') === 0) {
+          const ref = LocalImg.put(p.imageSrc);
+          if (ref) { p.imageSrc = ref; changed = true; }
+        }
+      });
+      if (changed) _saveDIY();
+    });
   }
 
   function _buildDefaults() {
@@ -73,6 +95,16 @@ const Presets = (() => {
   function _saveDIY() {
     const diy = _presets.filter(p => p.source === 'battlefield');
     localStorage.setItem(STORAGE_KEY, JSON.stringify(diy));
+    // 顺手清理：本地图库里不再被任何预设引用的图（有对局 URL 映射的保留 24 小时）
+    if (typeof LocalImg !== 'undefined' && LocalImg.gc) {
+      const usedRefs = [];
+      diy.forEach(function (p) {
+        [p.imageSrc, p.imageThumb].forEach(function (s) {
+          if (s && LocalImg.isRef(s)) usedRefs.push(s);
+        });
+      });
+      LocalImg.gc(usedRefs);
+    }
   }
 
   // ================================================================
@@ -95,7 +127,7 @@ const Presets = (() => {
       hp: parseInt(state.hp, 10) || 0,
       ability: state.permAbility || (typeof CardDB !== 'undefined' ? (CardDB.lookup(state.name) || {}).ability || '' : ''),
       owner: slot.dataset.slotOwner || '',
-      imageSrc: state.imageSrc || '',
+      imageSrc: _localizeImageSrc(state.imageSrc || ''),
       level: state.level || '',
       countdown: state.countdown || '',
       energy: state.energy || '',
@@ -171,9 +203,18 @@ const Presets = (() => {
       }
     }
 
+    // 图：local 引用 → 先用本机 dataURL 上阵（马上后台上传到当前对局目录换 URL）
+    let deployImg = p.imageSrc || '';
+    let pendingUpload = '';
+    if (deployImg && typeof LocalImg !== 'undefined' && LocalImg.isRef(deployImg)) {
+      const localDataUrl = LocalImg.srcOf(deployImg);
+      pendingUpload = localDataUrl || '';
+      deployImg = localDataUrl || '';
+    }
+
     if (typeof setSlotState === 'function') {
       setSlotState(slot, {
-        imageSrc: p.imageSrc,
+        imageSrc: deployImg,
         level: p.level,
         attack: String(p.attack),
         hp: String(p.hp),
@@ -231,6 +272,27 @@ const Presets = (() => {
     const replaceMsg = oldName && oldName !== p.name ? `（替换了「${oldName}」）` : '';
     if (typeof broadcastSystemMsg === 'function') {
       broadcastSystemMsg(`【系统】从预设部署了「${p.name}」${replaceMsg}`);
+    }
+
+    // 本地图后台上传：成功后把槽位换成短 URL（联机同步更轻），并记录映射
+    if (pendingUpload) {
+      const sock = window._gameSocket;
+      if (sock && sock.connected) {
+        const imgRef = p.imageSrc;
+        sock.emit('upload-image', { img: pendingUpload, scope: 'game' }, function (res) {
+          if (!res || !res.ok || !res.url) {
+            // 上传失败：已用本机图片显示，不影响使用（提示一次）
+            if (typeof showActionToast === 'function') showActionToast('图片未能上传到对局目录', '已改用本机图片显示，本次不受影响');
+            return;
+          }
+          if (typeof LocalImg !== 'undefined' && LocalImg.mapUrl) LocalImg.mapUrl(res.url, imgRef);
+          // 槽位还显示着本次部署的式神才替换
+          const nameEl = slot.querySelector('.card-name');
+          if (!nameEl || nameEl.value.trim() !== p.name) return;
+          if (typeof setSlotImage === 'function') setSlotImage(slot, res.url);
+          if (typeof syncSlotToPeer === 'function') syncSlotToPeer(slot);
+        });
+      }
     }
   }
 
@@ -453,7 +515,8 @@ const Presets = (() => {
       hp: s.hp || 0,
       ability: ab,
       owner: s.owner || '',
-      imageSrc: (isSummon && s.owner) ? `images/${s.owner}/${s.name}.png` : `images/${s.name}/${s.name}.png`,
+      imageSrc: s.imageSrc || ((isSummon && s.owner) ? `images/${s.owner}/${s.name}.png` : `images/${s.name}/${s.name}.png`),
+      imageThumb: s.imageThumb || '',
       level: isSummon ? '' : '0',
       countdown: autoCD ? String(autoCD) : '',
       energy: autoEN ? '0' : '',
@@ -557,6 +620,30 @@ const Presets = (() => {
     return (f && valid.includes(f)) ? f : '无相';
   }
 
+  // ── 设备本地图库（IndexedDB）：临时预设的图本机留一份 ──
+  /** 显示用图地址：local 引用 → dataURL；其它原样 */
+  function _dispImgSrc(src) {
+    if (!src) return '';
+    if (typeof LocalImg !== 'undefined' && LocalImg.isRef(src)) return LocalImg.srcOf(src) || '';
+    return src;
+  }
+
+  /** 保存时把图落成“本地引用”：base64 直接入库；对局图 URL 本机有副本就换本地引用 */
+  function _localizeImageSrc(src) {
+    if (!src || typeof LocalImg === 'undefined') return src || '';
+    // 只有能持久化（IndexedDB 可用）才换成本地引用；否则保持原样（base64/URL）
+    if (LocalImg.isPersistent && !LocalImg.isPersistent()) return src;
+    if (src.indexOf('data:') === 0) {
+      const ref = LocalImg.put(src);
+      return ref || src;
+    }
+    if (src.indexOf('/uploads') !== -1) {
+      const ref2 = LocalImg.refForUrl(src);
+      if (ref2) return ref2;
+    }
+    return src;
+  }
+
   function _renderItems(presets) {
     let h = '<div class="preset-items">';
     for (const p of presets) {
@@ -568,11 +655,12 @@ const Presets = (() => {
       const isCardsJS = p.source === 'cards.js';
       const badge = p.type === 'summon' ? '召' : '';
       const isDIY = p.author && p.author !== '官方';
+      const dispImg = _dispImgSrc(p.imageThumb || p.imageSrc || '');
 
       h += `<div class="preset-item${p.type === 'summon' ? ' preset-item--summon' : ''}" draggable="true" data-preset-id="${p.id}">
-        <div class="preset-item__img" style="${p.imageSrc ? `background-image:url(${_escapeHTML(p.imageSrc)})` : ''}">
-          ${p.imageSrc ? `<img src="${_escapeHTML(p.imageSrc)}" style="display:none;" onerror="this.parentElement.style.backgroundImage='url('+(window._IMAGE_BASE||'')+'/images/无图.png)'">` : ''}
-          ${!p.imageSrc ? '<span class="preset-item__placeholder">🃏</span>' : ''}
+        <div class="preset-item__img" style="${dispImg ? `background-image:url(${_escapeHTML(dispImg)})` : ''}">
+          ${dispImg ? `<img src="${_escapeHTML(dispImg)}" style="display:none;" onerror="this.parentElement.style.backgroundImage='url('+(window._IMAGE_BASE||'')+'/images/无图.png)'">` : ''}
+          ${!dispImg ? '<span class="preset-item__placeholder">🃏</span>' : ''}
           ${badge ? `<span class="preset-item__badge">${badge}</span>` : ''}
         </div>
         <div class="preset-item__info">

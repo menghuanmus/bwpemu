@@ -312,8 +312,8 @@
         const profile = document.createElement('div');
         profile.className = 'shikigami-book__profile';
 
-        // 卡图
-        const imgPath = `images/${shikigami.name}/${shikigami.name}.png`;
+        // 卡图（我的卡库有上传图则优先）
+        const imgPath = shikigami.imageSrc || `images/${shikigami.name}/${shikigami.name}.png`;
         const img = document.createElement('img');
         img.className = 'shikigami-book__profile-img';
         img.src = imgPath;
