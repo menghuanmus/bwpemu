@@ -1136,6 +1136,8 @@
       font-size: 18px;
       color: #98a0b8;
       line-height: 1.5;
+      white-space: pre-wrap;
+      word-break: break-word;
     }
 
     /* 等级筛选标签 */
@@ -1244,6 +1246,8 @@
       font-size: 18px;
       color: #98a0b8;
       line-height: 1.5;
+      white-space: pre-wrap;
+      word-break: break-word;
     }
 
     .shikigami-book__card-tags {

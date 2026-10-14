@@ -1978,38 +1978,104 @@
       }
     });
 
-    function importDeck(playerId, text) {
-      const rawNames = parseCardLines(text);
-      if (!rawNames.length) return;
-      // 支持【式神名】区段：区段内未命中的牌优先在玩家库中匹配该式神
-      // 支持重复写法：卡名x2 / 卡名X9（x 与 X 均可）＝导入多张
-      const myPid = (typeof localPlayerId !== 'undefined' && localPlayerId) ? String(localPlayerId) : '1';
+    /** 数量修正：非数字或小于 1 → 1；超过 99 → 99 */
+    function _clampCardQty(v) {
+      let q = parseInt(v, 10);
+      if (Number.isNaN(q) || q < 1) q = 1;
+      if (q > 99) q = 99;
+      return q;
+    }
+
+    /**
+     * 解析卡组文本 → { items:[{name,qty,owner}], official, owners:[式神名] }
+     * 支持写法：
+     *   ① 每行/空格分隔的裸牌名        ② 卡名xN（x 与 X 均可）
+     *   ③ 【式神名】区段                ④ 官方导出文本：卡名 (N)（全/半角括号、空格可有可无）
+     * 官方导出文本下：带 (N) 的算「牌 + 张数」；裸名识别为「式神名」（之后的牌都归它），
+     * 不导入成卡；例外：裸名是已知牌名且不是已知式神名 → 按 1 张的牌处理（防手滑漏写张数）
+     */
+    function parseDeckText(text, playerId) {
+      // 预处理：「卡名  (2)」合并为「卡名(2)」；全角数字转半角
+      const pre = String(text || '')
+        .replace(/([^\s【】（）()]+)[ \t]*[（(]\s*([0-9０-９]{1,3})\s*[)）]/g, function (_, nm, num) {
+          return nm + '(' + String(num).replace(/[０-９]/g, function (d) { return String.fromCharCode(d.charCodeAt(0) - 0xFEE0); }) + ')';
+        })
+        // 「卡名 x2」带空格也合并为「卡名x2」（旧写法习惯带空格；x 后数字到空白/结尾为止）
+        .replace(/([^\s【】xX（）()]+)[ \t]+[xX](\d{1,2})(?=\s|$)/g, '$1x$2');
+      const rawNames = parseCardLines(pre);
+      const out = { items: [], official: false, owners: [] };
+      if (!rawNames.length) return out;
+      // 出现「卡名(N)」token → 按官方导出文本样式解析
+      out.official = rawNames.some(function (t) { return /[（(]\d{1,3}[)）]$/.test(t); });
+      const pid = (playerId && String(playerId)) || ((typeof localPlayerId !== 'undefined' && localPlayerId) ? String(localPlayerId) : '1');
+      // 已知名判断（官方库 + 玩家库），仅官方样式下的裸名分支用到
+      let _libShiSet = null;
+      function _isKnownShikigami(name) {
+        if (typeof CardDB !== 'undefined' && CardDB.isOfficialShikigami && CardDB.isOfficialShikigami(name)) return true;
+        if (_libShiSet === null) {
+          _libShiSet = new Set();
+          if (typeof CardDB !== 'undefined' && CardDB.getPlayerShikigami) {
+            try { CardDB.getPlayerShikigami(pid).forEach(function (s) { if (s && s.name) _libShiSet.add(String(s.name).trim()); }); } catch (e) { /* ignore */ }
+          }
+        }
+        return _libShiSet.has(String(name || '').trim());
+      }
+      function _isKnownCard(name) {
+        if (typeof CardDB === 'undefined') return false;
+        if (CardDB.isOfficialName && CardDB.isOfficialName(name)) return true;
+        return !!(CardDB.findInPlayerLib && CardDB.findInPlayerLib(pid, name, ''));
+      }
       let sectionOwner = '';
-      let unresolvedOwned = 0;    // 未找到，但有【式神】归属
+      rawNames.forEach(function (tok) {
+        const sec = tok.match(/^【(.+)】$/);
+        if (sec) { sectionOwner = sec[1].trim(); if (sectionOwner) out.owners.push(sectionOwner); return; }
+        if (out.official) {
+          // 卡名(N)：官方导出的「牌 + 张数」
+          const mn = tok.match(/^(.+?)[（(](\d{1,3})[)）]$/);
+          if (mn) { out.items.push({ name: mn[1].trim(), qty: _clampCardQty(mn[2]), owner: sectionOwner }); return; }
+        }
+        // 卡名xN / XN（两种样式通用）
+        const mx = tok.match(/^(.+?)[xX](\d{1,2})$/);
+        if (mx) { out.items.push({ name: mx[1].trim(), qty: _clampCardQty(mx[2]), owner: sectionOwner }); return; }
+        const name = tok.trim();
+        if (!name) return;
+        if (out.official) {
+          // 官方样式下的裸名：默认当「式神名」（开启新段落，不算牌）；
+          // 例外：明显是牌（已知牌名、且不是已知式神名）→ 按 1 张处理
+          if (!_isKnownShikigami(name) && _isKnownCard(name)) {
+            out.items.push({ name: name, qty: 1, owner: sectionOwner });
+            return;
+          }
+          sectionOwner = name;
+          out.owners.push(name);
+          return;
+        }
+        // 普通样式：裸名 = 1 张牌
+        out.items.push({ name: name, qty: 1, owner: sectionOwner });
+      });
+      return out;
+    }
+
+    function importDeck(playerId, text) {
+      const parsed = parseDeckText(text, playerId);
+      if (!parsed.items.length) return;
+      // 支持【式神名】区段：区段内未命中的牌优先在玩家库中匹配该式神
+      // 支持重复写法：卡名x2 / 卡名X9（x 与 X 均可）＝导入多张；官方导出「卡名 (N)」同样支持
+      const myPid = (typeof localPlayerId !== 'undefined' && localPlayerId) ? String(localPlayerId) : '1';
+      let unresolvedOwned = 0;    // 未找到，但有式神归属
       let unresolvedLoose = 0;    // 未找到，且无归属
       const missingOwners = new Set();
       const items = [];
-      rawNames.forEach(function(tok) {
-        const sec = tok.match(/^【(.+)】$/);
-        if (sec) { sectionOwner = sec[1].trim(); return; }
-        // 解析「卡名xN」：无 x/X 后缀时就是 1 张
-        const m = tok.match(/^(.+?)[xX](\d{1,2})$/);
-        const cardName = m ? m[1].trim() : tok;
-        let qty = 1;
-        if (m) {
-          qty = parseInt(m[2], 10);
-          if (Number.isNaN(qty) || qty < 1) qty = 1;
-          if (qty > 99) qty = 99;
-        }
-        let resolved = (typeof CardDB !== 'undefined' && CardDB.isOfficialName) ? CardDB.isOfficialName(cardName) : false;
+      parsed.items.forEach(function(it) {
+        let resolved = (typeof CardDB !== 'undefined' && CardDB.isOfficialName) ? CardDB.isOfficialName(it.name) : false;
         if (!resolved && typeof CardDB !== 'undefined' && CardDB.findInPlayerLib) {
-          resolved = !!CardDB.findInPlayerLib(myPid, cardName, sectionOwner);
+          resolved = !!CardDB.findInPlayerLib(myPid, it.name, it.owner);
         }
         if (!resolved) {
-          if (sectionOwner) { unresolvedOwned += qty; missingOwners.add(sectionOwner); }
-          else unresolvedLoose += qty;
+          if (it.owner) { unresolvedOwned += it.qty; missingOwners.add(it.owner); }
+          else unresolvedLoose += it.qty;
         }
-        for (let i = 0; i < qty; i++) items.push({ name: cardName, owner: sectionOwner });
+        for (let i = 0; i < it.qty; i++) items.push({ name: it.name, owner: it.owner });
       });
       let bondIgnoredOwners = [];
       const cards = shuffleCards(items.map(function(it) {
@@ -2019,7 +2085,7 @@
           // 协战牌归属固定为两名所属式神：【式神名】对它不生效（不写入 owner）
           if (it.owner) bondIgnoredOwners.push(it.name + '（忽略【' + it.owner + '】）');
         } else if (it.owner) {
-          c.owner = it.owner;   // 写入【式神】归属，牌库/悬浮窗可显示
+          c.owner = it.owner;   // 写入式神归属，牌库/悬浮窗可显示
         }
         return c;
       }));
@@ -2031,6 +2097,10 @@
       refreshOpenListDialog(playerId);
       syncDeckState(playerId);
       let msg = `【系统】${getPlayerName(playerId)}导入了卡组（${cards.length}张）`;
+      if (parsed.official && parsed.owners.length) {
+        const uniqOwners = [...new Set(parsed.owners)];
+        msg += `；按官方导出格式识别到式神：${uniqOwners.slice(0, 4).join('、')}${uniqOwners.length > 4 ? ' 等' : ''}（式神名未作为卡牌导入）`;
+      }
       if (unresolvedOwned > 0) {
         msg += `；其中 ${unresolvedOwned} 张未在官方库与你的卡库中找到（已按【${[...missingOwners].join('、')}】归属导入）`;
       }

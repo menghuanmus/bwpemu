@@ -17,6 +17,7 @@
       const _playerLibs = { '1': null, '2': null };
       const _playerKeywords = new Map();  // 双方自定义关键词（官方重名已在服务器拦截）
       const _officialNames = new Set();
+      const _officialShikigami = new Set();   // 官方式神/召唤物/变身本体名 + 所有牌的 owner（导入卡组识别裸式神名用）
 
       async function init() {
         // 加载 data/cards.js 中的全局数据（<script> 已同步加载，直接可用）
@@ -24,6 +25,12 @@
           for (const card of CARD_DB_DATA) {
             _cards.set(card.name, card);
             if (card.name) _officialNames.add(String(card.name));
+            // 式神/召唤物/变身本体名 + 全部牌的 owner → 官方式神名单（导入卡组识别裸式神名用）
+            if (card.name && (card.type === 'shikigami' || card.type === 'summon' || card.type === 'transform')) {
+              _officialShikigami.add(String(card.name).trim());
+            }
+            if (card.owner) _officialShikigami.add(String(card.owner).trim());
+            if (Array.isArray(card.bondOwners)) card.bondOwners.forEach(function (o) { if (o) _officialShikigami.add(String(o).trim()); });
           }
           console.log(`[CardDB] ✅ data/cards.js 加载完成，共 ${CARD_DB_DATA.length} 张卡牌`);
         } else {
@@ -271,6 +278,9 @@
       /** 是否为官方卡牌名（DIY 保存时拦截同名用） */
       function isOfficialName(name) { return _officialNames.has(String(name || '').trim()); }
 
+      /** 是否为官方式神名（含召唤物/变身本体与所有牌的归属式神；导入卡组识别裸式神名用） */
+      function isOfficialShikigami(name) { return _officialShikigami.has(String(name || '').trim()); }
+
       /** 玩家自定义关键词列表（双方合并，带 _playerKw 标记） */
       function getPlayerKeywords() { return [..._playerKeywords.values()]; }
 
@@ -374,6 +384,6 @@
         return _keywords.get(name) || null;
       }
 
-      return { init, lookup, lookupExact, addCustom, removeCustom, exportCustom, importCustom, isReady, size, getAll, lookupKeyword, loadPlayerCardLib, findInPlayerLib, getPlayerShikigami, getPlayerLibCards, getPlayerLibCurses, getPlayerLibKeywords, isOfficialName, getPlayerKeywords, getAllKeywords, getAllCurses };
+      return { init, lookup, lookupExact, addCustom, removeCustom, exportCustom, importCustom, isReady, size, getAll, lookupKeyword, loadPlayerCardLib, findInPlayerLib, getPlayerShikigami, getPlayerLibCards, getPlayerLibCurses, getPlayerLibKeywords, isOfficialName, isOfficialShikigami, getPlayerKeywords, getAllKeywords, getAllCurses };
     })();
 
