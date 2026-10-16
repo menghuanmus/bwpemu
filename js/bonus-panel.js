@@ -550,7 +550,8 @@ const BonusPanel = (() => {
     if (!name) return;
     // 文件夹：召唤物用所属式神文件夹，其余用自己的名字
     let folder = ctx.cardName;
-    const dbCard = (typeof CardDB !== 'undefined' && CardDB.lookup) ? CardDB.lookup(ctx.cardName) : null;
+    // 严格同名匹配（防止「妖刀姬·赤影」被前缀模糊匹配成「妖刀姬」）
+    const dbCard = (typeof _lookupSlotCard === 'function') ? _lookupSlotCard(ctx.cardName) : null;
     if (ctx.slot.dataset.slotType === 'summon' && dbCard && dbCard.owner) folder = dbCard.owner;
     const url = (window._IMAGE_BASE || '') + '/images/' + folder + '/' + name + '.png';
     const testImg = new Image();
@@ -599,7 +600,8 @@ const BonusPanel = (() => {
     const playerId = slot.dataset.slotPlayer;
     const cardName = slot.querySelector('.card-name').value || '(未命名)';
     const playerName = typeof getPlayerName === 'function' ? getPlayerName(playerId) : '玩家' + playerId;
-    const dbCard = CardDB.lookup(cardName);
+    // 严格同名匹配：库里没有该式神时不套用其它式神的能力/派系（防止「妖刀姬·赤影」被前缀模糊成「妖刀姬」）
+    const dbCard = (typeof _lookupSlotCard === 'function') ? _lookupSlotCard(cardName) : CardDB.lookup(cardName);
     if (typeof recordPermBase === 'function') recordPermBase(slot);
     // 基础能力：还没填过时，把数据库能力直接写进输入框（作为可编辑内容，而非占位提示）
     if (slot._baseAbility === undefined) slot._baseAbility = (dbCard && dbCard.ability) ? dbCard.ability : '';

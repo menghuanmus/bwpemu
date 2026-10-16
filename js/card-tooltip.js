@@ -286,7 +286,7 @@
         return info;
       }
 
-      /** 描述文本高亮（金黄）：关键词/灵咒 + 特殊标记「内容」（保留符号）与 [[内容]]（隐藏符号），长词优先 */
+      /** 描述文本高亮（金黄）：关键词/灵咒 + 特殊标记「内容」（保留符号）、[[内容]] 与 [内容]（隐藏方括号），长词优先 */
       function _highlightKeywords(html) {
         if (!html) return html;
         if (typeof CardDB === 'undefined' || !CardDB.getAllKeywords) return html;
@@ -300,8 +300,8 @@
         // 灵咒名同样高亮（官方灵咒 + 玩家 DIY 灵咒，对局中随玩家库加载后即可匹配）
         if (CardDB.getAllCurses) CardDB.getAllCurses().forEach(function (c) { addKw(c && c.name); });
         uniq.sort(function (a, b) { return b.length - a.length; });   // 长词优先，避免被短词截断
-        // 匹配优先级：[[内容]]（隐藏符号） > 「内容」（保留符号） > 关键词/灵咒
-        const parts = ['\\[\\[[^\\]]+?\\]\\]', '「[^」]+?」'];
+        // 匹配优先级：[[内容]]（隐藏符号） > [内容]（与 [[内容]] 等效） > 「内容」（保留符号） > 关键词/灵咒
+        const parts = ['\\[\\[[^\\]]+?\\]\\]', '\\[[^\\[\\]]+?\\]', '「[^」]+?」'];
         if (uniq.length) {
           parts.push(uniq.map(function (n) {
             return escapeHTML(n).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -311,6 +311,9 @@
         return html.replace(re, function (m) {
           if (m.slice(0, 2) === '[[' && m.slice(-2) === ']]') {
             return '<span class="kw-hl">' + m.slice(2, -2) + '</span>';   // 高亮内容并隐藏 [[]]
+          }
+          if (m.charAt(0) === '[' && m.charAt(m.length - 1) === ']') {
+            return '<span class="kw-hl">' + m.slice(1, -1) + '</span>';   // [内容] 与 [[内容]] 等效：高亮内容并隐藏 []
           }
           if (m.charAt(0) === '「' && m.charAt(m.length - 1) === '」') {
             return '「<span class="kw-hl">' + m.slice(1, -1) + '</span>」';   // 高亮内容、保留「」

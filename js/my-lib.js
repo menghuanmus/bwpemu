@@ -182,12 +182,13 @@ var MyLib = (function () {
   }
 
   // ── 校验 ──
-  function validateName(kind, name) {
+  function validateName(kind, name, originalName) {
     if (!name || !String(name).trim()) return kind + '缺少名称';
     var s = String(name).trim();
     if (s.length > 40) return '名称过长（最多 40 字）';
     if (typeof CardDB !== 'undefined' && CardDB.isOfficialName && CardDB.isOfficialName(s)) {
-      return '「' + s + '」与官方卡牌同名，请换个名字';
+      // 历史遗留豁免：官方后来才收录该名字时，玩家库里早已存在且未改名的旧条目不算「新造同名」
+      if (String(originalName || '').trim() !== s) return '「' + s + '」与官方卡牌同名，请换个名字';
     }
     return null;
   }
@@ -341,7 +342,7 @@ var MyLib = (function () {
 
     m.onOk(function () {
       var name = $('diy-f-name').value.trim();
-      var err = validateName('式神', name);
+      var err = validateName('式神', name, unit && unit.name);
       if (!err) err = validateText('式神', name, $('diy-f-text').value);
       if (!err && $('diy-f-atk').value === '') err = '请填写攻击力';
       if (!err && !$('diy-f-hp').value) err = '请填写生命值';
@@ -557,7 +558,7 @@ var MyLib = (function () {
       var name = $('diy-f-name').value.trim();
       var type = $('diy-f-type').value;
       var level = parseInt($('diy-f-level').value, 10) || 1;
-      var err = validateName('卡牌', name);
+      var err = validateName('卡牌', name, unit && unit.name);
       if (!err) err = validateText('卡牌', name, $('diy-f-text').value);
       if (err) { m.err.textContent = err; return; }
       var saved = {
@@ -626,8 +627,9 @@ var MyLib = (function () {
         else if (boB === boA) err = '两名所属式神不能相同';
         else if (bv2 === bv1) err = '两张分化牌不能同名';
         else {
-          var e1 = validateName('分化牌', bv1); if (e1) err = e1;
-          if (!err) { var e2 = validateName('分化牌', bv2); if (e2) err = e2; }
+          var obv = (unit && Array.isArray(unit.bondVersions)) ? unit.bondVersions : [];
+          var e1 = validateName('分化牌', bv1, obv[0] && obv[0].name); if (e1) err = e1;
+          if (!err) { var e2 = validateName('分化牌', bv2, obv[1] && obv[1].name); if (e2) err = e2; }
         }
         if (!err) {
           saved.type = 'bond';
@@ -679,9 +681,9 @@ var MyLib = (function () {
       var type = $('diy-f-otype').value;
       var kind = type === 'keyword' ? '关键词' : '灵咒';
       var name = $('diy-f-name').value.trim();
-      var err = validateName(kind, name);
+      var err = validateName(kind, name, unit && unit.name);
       if (!err) err = validateText(kind, name, $('diy-f-text').value);
-      if (!err && type === 'keyword' && typeof CardDB !== 'undefined' && CardDB.lookupKeyword && CardDB.lookupKeyword(name)) {
+      if (!err && type === 'keyword' && name !== ((unit && unit.name) || '') && typeof CardDB !== 'undefined' && CardDB.lookupKeyword && CardDB.lookupKeyword(name)) {
         err = '关键词「' + name + '」与官方关键词同名，请换个名字';
       }
       if (err) { m.err.textContent = err; return; }

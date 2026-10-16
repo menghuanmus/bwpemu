@@ -116,16 +116,19 @@ const Presets = (() => {
     const state = typeof getSlotState === 'function' ? getSlotState(slot) : null;
     if (!state || !state.name) return;
 
+    // 库数据严格同名匹配（防止「妖刀姬·赤影」被前缀模糊匹配成「妖刀姬」）
+    const libCard = (typeof _lookupSlotCard === 'function') ? _lookupSlotCard(state.name) : null;
+
     const preset = {
       id: 'preset_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6),
       source: 'battlefield',
       category: 'temp',
       name: state.name,
       type: slot.dataset.slotType === 'summon' ? 'summon' : 'shikigami',
-      faction: _normalizeFaction(slot.dataset.slotFaction || (typeof CardDB !== 'undefined' && CardDB.lookup(state.name) && CardDB.lookup(state.name).faction) || ''),
+      faction: _normalizeFaction(slot.dataset.slotFaction || (libCard && libCard.faction) || ''),
       attack: parseInt(state.attack, 10) || 0,
       hp: parseInt(state.hp, 10) || 0,
-      ability: state.permAbility || (typeof CardDB !== 'undefined' ? (CardDB.lookup(state.name) || {}).ability || '' : ''),
+      ability: state.permAbility || (libCard && libCard.ability) || '',
       owner: slot.dataset.slotOwner || '',
       imageSrc: _localizeImageSrc(state.imageSrc || ''),
       level: state.level || '',
@@ -135,7 +138,7 @@ const Presets = (() => {
       baseEnergy: state.baseEnergy || 0,
       koCountdown: state.koCountdown || 3,
       rarity: slot.dataset.slotRarity || '',
-      author: (typeof CardDB !== 'undefined' && CardDB.lookup(state.name) && CardDB.lookup(state.name).author) || '官方',
+      author: (libCard && libCard.author) || '官方',
       // 完整加成快照
       permAtkMods: state.permAtkMods || [],
       permHpMods: state.permHpMods || [],

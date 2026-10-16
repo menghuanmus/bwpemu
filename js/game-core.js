@@ -373,6 +373,12 @@
       return img ? img.src : null;
     }
 
+    /** 槽位名字/形态名查数据库：严格同名匹配（防止「妖刀姬·赤影」被前缀模糊匹配成「妖刀姬」） */
+    function _lookupSlotCard(name) {
+      if (!name || typeof CardDB === 'undefined') return null;
+      return CardDB.lookupExact ? CardDB.lookupExact(name) : CardDB.lookup(name);
+    }
+
     /** 自动切换卡图：形态优先 → 觉醒 → 默认（仅当图片存在时切换，否则保持原图） */
     function autoUpdateSlotImage(slot) {
       // 手动上传的卡图（base64 data URL）不参与自动切换，全程保留
@@ -383,14 +389,14 @@
       const baseUrl = (window._IMAGE_BASE || '') + '/';
 
       // 召唤物的卡图放在所属式神文件夹下（images/式神名/召唤物名.png）
-      const dbCard = (typeof CardDB !== 'undefined' && CardDB.lookup) ? CardDB.lookup(baseName) : null;
+      const dbCard = _lookupSlotCard(baseName);
       const isSummon = slot.dataset.slotType === 'summon' || (dbCard && dbCard.type === 'summon');
       const folder = (isSummon && dbCard && dbCard.owner) ? dbCard.owner : baseName;
 
       const paths = [];
       if (slot._formName) {
         // 形态卡来自卡库且有上传图：优先用上传图（失败再退回按名字找图）
-        const fCard = (typeof CardDB !== 'undefined' && CardDB.lookup) ? CardDB.lookup(slot._formName) : null;
+        const fCard = _lookupSlotCard(slot._formName);
         if (fCard && fCard.imageSrc) paths.push(fCard.imageSrc);
         paths.push(baseUrl + 'images/' + folder + '/' + slot._formName + '.png');
       }
@@ -1412,7 +1418,8 @@
     function recordPermBase(slot) {
       if (slot._permBaseAtk !== undefined) return;
       const cardName = slot.querySelector('.card-name').value.trim();
-      const dbCard = cardName ? CardDB.lookup(cardName) : null;
+      // 严格同名匹配：数据库没有该式神（如「妖刀姬·赤影」）→ 按自定义卡用当前值，不模糊套用别的式神数据
+      const dbCard = _lookupSlotCard(cardName);
       if (dbCard && dbCard.attack !== undefined) {
         slot._permBaseAtk = dbCard.attack || 0;
         slot._permBaseHp = dbCard.hp || 0;
