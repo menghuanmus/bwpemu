@@ -55,7 +55,7 @@ const Charge = (() => {
   /** 获取卡牌所属式神名 */
   function getCardOwnerName(card) {
     if (!card || !card.name) return null;
-    const db = CardDB.lookup(card.name);
+    const db = CardDB.lookupExact(card.name);
     if (!db) return null;
     if (db.type === 'shikigami') return db.name;
     if (db.owner) return db.owner;

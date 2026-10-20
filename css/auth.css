@@ -922,7 +922,9 @@
 .diy-item-top { display: flex; align-items: center; justify-content: space-between; gap: 10px; min-width: 0; }
 .diy-item-name { flex: 1; min-width: 0; font-size: 1.1rem; font-weight: 600; color: #E8EBF0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .diy-item-tags { display: flex; gap: 4px; flex-wrap: wrap; }
-.diy-tag { font-size: 0.95rem; padding: 2px 8px; border-radius: 6px; background: rgba(124,131,255,0.12); color: #aab3ff; white-space: nowrap; }
+.diy-tag { display: inline-flex; align-items: center; gap: 4px; font-size: 0.95rem; padding: 2px 8px; border-radius: 6px; background: rgba(124,131,255,0.12); color: #aab3ff; white-space: nowrap; }
+.diy-tag-icon { width: 1.05em; height: 1.05em; object-fit: contain; flex: none; }
+.diy-tag-emoji { font-size: 0.95em; }
 .diy-item-actions { display: flex; gap: 6px; flex-shrink: 0; }
 .diy-btn {
   border: 1px solid rgba(255,255,255,0.1); border-radius: 8px;
@@ -1054,7 +1056,34 @@
 .diy-selbar__info { font-size: 1.05rem; font-weight: 600; color: #cfd3ff; }
 .diy-selbar__opt { display: inline-flex; align-items: center; gap: 6px; font-size: 1rem; color: #aab3ff; cursor: pointer; }
 .diy-item-check { width: 18px; height: 18px; flex-shrink: 0; cursor: pointer; accent-color: #7C83FF; }
-.diy-toggle { flex-shrink: 0; width: 20px; text-align: center; font-size: 1.05rem; line-height: 1; color: #aab3ff; cursor: pointer; user-select: none; }
+/* 展开/收起：足够大的点击区域（手机端也好按） */
+.diy-toggle {
+  flex-shrink: 0;
+  width: 34px;
+  min-height: 34px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.25rem;
+  line-height: 1;
+  color: #aab3ff;
+  cursor: pointer;
+  user-select: none;
+  border-radius: 8px;
+  -webkit-tap-highlight-color: transparent;
+}
+.diy-toggle:active { background: rgba(124,131,255,0.2); }
+@media (max-width: 768px) {
+  .diy-toggle { width: 44px; min-height: 44px; font-size: 1.5rem; border-radius: 10px; }
+  /* 页签：固定一排，四个按钮均分宽度 */
+  .diy-tabs { flex-wrap: nowrap; gap: 6px; }
+  .diy-tabs .diy-tab { flex: 1 1 0; min-width: 0; padding: 10px 4px; text-align: center; }
+  /* 容量行：提示单独占一排、显示在容量上方（可换行完整显示） */
+  .diy-capacity-row { flex-wrap: wrap; }
+  .diy-msg { order: -1; flex: 1 1 100%; text-align: left; white-space: normal; overflow: visible; text-overflow: clip; }
+  .diy-msg:empty { min-height: 0; padding: 0; }
+  .diy-capacity-row .diy-capacity-bar { flex: 1 1 100%; }
+}
 .diy-tag--author { background: rgba(255,200,100,0.14); color: #ffd98a; }
 
 /* ── DIY 导入：预览弹窗 ── */

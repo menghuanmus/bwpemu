@@ -24,7 +24,7 @@
       const prev = stocks[name];
       if (prev == null) {
         stocks[name] = 1;
-        const db = (typeof CardDB !== 'undefined' && CardDB.isReady()) ? CardDB.lookup(name) : null;
+        const db = (typeof CardDB !== 'undefined' && CardDB.isReady()) ? CardDB.lookupExact(name) : null;
         const lvl = (db && db.level) ? db.level : 1;
         if (!customShopDefs[playerId]) customShopDefs[playerId] = {};
         if (!customShopDefs[playerId][name]) customShopDefs[playerId][name] = { level: lvl, price: getCardPrice(name) };
@@ -145,7 +145,7 @@
     }
     function getCardDefaultStock(cardName) {
       // 1/2级商店牌统一库存 2（含生命精华），3级统一库存 1
-      const db = (typeof CardDB !== 'undefined' && CardDB.isReady()) ? CardDB.lookup(cardName) : null;
+      const db = (typeof CardDB !== 'undefined' && CardDB.isReady()) ? CardDB.lookupExact(cardName) : null;
       const lvl = (db && db.level) ? db.level : 1;
       return lvl >= 3 ? 1 : 2;
     }
@@ -349,7 +349,7 @@
             available.push(cur.cardDef);
           } else {
             // 重建卡牌定义：优先查卡牌库（带真实效果），等级用玩家添加时填的
-            const db2 = (typeof CardDB !== 'undefined' && CardDB.isReady()) ? CardDB.lookup(sName) : null;
+            const db2 = (typeof CardDB !== 'undefined' && CardDB.isReady()) ? CardDB.lookupExact(sName) : null;
             const cdef = (customShopDefs[playerId] && customShopDefs[playerId][sName]) || {};
             const lvl = (cdef.level === 1 || cdef.level === 2 || cdef.level === 3) ? cdef.level : (db2 ? (db2.level || 1) : 1);
             if (db2) {
@@ -467,7 +467,7 @@
         // 效果：数值括号 + 文字效果（战斗牌拼攻防、形态牌拼攻击生命、幻境牌拼耐久）
         const effectEl = document.createElement('div');
         effectEl.className = 'shop-product__effect';
-        const db2 = (typeof CardDB !== 'undefined' && CardDB.isReady()) ? CardDB.lookup(prod.cardDef.name) : null;
+        const db2 = (typeof CardDB !== 'undefined' && CardDB.isReady()) ? CardDB.lookupExact(prod.cardDef.name) : null;
         let statPrefix = '';
         if (db2) {
           if (db2.type === 'battle') {
@@ -624,7 +624,7 @@
       if (typeof pushCardToHand === 'function') {
         // 生命精华在商店中初始为2层
         card._stack = prod.cardDef.name === '生命精华' ? 2 : 1;
-        const db = (typeof CardDB !== 'undefined') ? CardDB.lookup(prod.cardDef.name) : null;
+        const db = (typeof CardDB !== 'undefined') ? CardDB.lookupExact(prod.cardDef.name) : null;
         if (db && db.maxStack) { card._maxStack = db.maxStack; }
         pushCardToHand(playerId, card);
       } else {

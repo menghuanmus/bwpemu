@@ -52,7 +52,7 @@ const ShowHand = (() => {
   /** 手牌所属式神名 */
   function cardOwnerName(card) {
     if (!card || !card.name) return null;
-    const db = CardDB.lookup(card.name);
+    const db = CardDB.lookupExact(card.name);
     if (!db) return null;
     return db.owner || null;
   }

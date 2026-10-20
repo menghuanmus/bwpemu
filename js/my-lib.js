@@ -712,14 +712,29 @@ var MyLib = (function () {
     return name.indexOf(q) !== -1 || owner.indexOf(q) !== -1;
   }
 
+  /** 派系标签图标：无相用 🌐，其余用派系图（images/派系/xx.png，constants 会自动补服务器前缀） */
+  function factionTagIcon(faction) {
+    if (!faction) return '';
+    return (faction === '无相')
+      ? '<span class="diy-tag-emoji">🌐</span>'
+      : '<img class="diy-tag-icon" src="images/派系/' + esc(faction) + '.png" alt="">';
+  }
+
+  /** 攻击/生命标签：图标+数值（如：攻图1 命图2） */
+  function statsTagHTML(atk, hp) {
+    return '<span class="diy-tag">' +
+      '<img class="diy-tag-icon" src="images/属性/攻击.png" alt="攻">' + esc(atk) +
+      '<img class="diy-tag-icon" src="images/属性/生命.png" alt="命">' + esc(hp) + '</span>';
+  }
+
   function itemHTMLFor(kind, unit, idx, indent, opts) {
     opts = opts || {};
     var tags = '';
     if (kind === 'shikigami') {
       if (unit.type === 'summon') tags += '<span class="diy-tag diy-tag--summon">召唤物</span>';
       if (unit.type === 'transform') tags += '<span class="diy-tag diy-tag--transform">变身</span>';
-      if (unit.faction) tags += '<span class="diy-tag">' + esc(unit.faction) + '</span>';
-      if (unit.attack != null && unit.hp != null) tags += '<span class="diy-tag">' + esc(unit.attack) + '/' + esc(unit.hp) + '</span>';
+      if (unit.faction) tags += '<span class="diy-tag">' + factionTagIcon(unit.faction) + esc(unit.faction) + '</span>';
+      if (unit.attack != null && unit.hp != null) tags += statsTagHTML(unit.attack, unit.hp);
     } else if (kind === 'card') {
       var typeNames = { spell: '法术', battle: '战斗', form: '形态', realm: '幻境', bond: '协战' };
       var typeLabel = (typeNames[unit.type] || unit.type) + (unit.level ? '·Lv' + unit.level : '');
@@ -799,7 +814,7 @@ var MyLib = (function () {
         if (o.owner === s.name && o.type === 'curse' && matchesSearch(o)) children.push(itemHTMLFor('other', o, oi, 1));
       });
       var shiMatches = matchesSearch(s);
-      var collapsed = !_search && !!_collapsed[s.name];
+      var collapsed = !_search && _collapsed[s.name] !== false;   // 默认收起（只有玩家主动展开过的才显示子项）
       if (shiMatches || children.length) {
         if (shiMatches) html += itemHTMLFor('shikigami', s, si, 0, { toggle: children.length > 0, collapsed: collapsed });
         if (!collapsed) html += children.join('');
@@ -890,7 +905,8 @@ var MyLib = (function () {
   /** 全部页签：点一下展开/收起一个式神的全部内容 */
   function toggleGroup(shiName) {
     if (!shiName) return;
-    if (_collapsed[shiName]) delete _collapsed[shiName]; else _collapsed[shiName] = 1;
+    // false = 已展开（默认收起）；再点一下收回去
+    if (_collapsed[shiName] === false) _collapsed[shiName] = 1; else _collapsed[shiName] = false;
     render();
   }
 
@@ -915,8 +931,8 @@ var MyLib = (function () {
       if (unit.type === 'summon') meta.push(pill('召唤物', 'diy-tag--summon'));
       else if (unit.type === 'transform') meta.push(pill('变身', 'diy-tag--transform'));
       else meta.push(pill('式神'));
-      if (unit.faction) meta.push(pill(unit.faction));
-      if (unit.attack != null && unit.hp != null) meta.push(pill(unit.attack + '/' + unit.hp));
+      if (unit.faction) meta.push('<span class="diy-tag">' + factionTagIcon(unit.faction) + esc(unit.faction) + '</span>');
+      if (unit.attack != null && unit.hp != null) meta.push(statsTagHTML(unit.attack, unit.hp));
       if ((unit.type === 'summon' || unit.type === 'transform') && unit.owner) meta.push(pill('所属：' + unit.owner));
       if (unit.hasCountdown) meta.push(pill('倒计时' + (unit.baseCountdown || 2)));
       if (unit.hasEnergy) meta.push(pill('能量'));
@@ -1083,7 +1099,7 @@ var MyLib = (function () {
   var _selMode = false;
   var _sel = {};            // { '种类|名字': 1 } —— 用名字做键，条目增删/改名都不会错位
   var _autoGroup = true;    // 勾选时连带「一整套」（式神 + 它的卡牌/召唤物/关键词）
-  var _collapsed = {};      // 「全部」页签里被收起的式神
+  var _collapsed = {};      // 「全部」页签里各分组的展开状态：默认收起；false = 已展开
 
   function authorName() { return window._gameNickname || '匿名玩家'; }
   function selKey(kind, name) { return kind + '|' + String(name == null ? '' : name); }
@@ -1097,7 +1113,7 @@ var MyLib = (function () {
     _selMode = true; _sel = {};
     var bar = $('diy-selbar'); if (bar) bar.hidden = false;
     render();
-    showError('☑️ 勾选要分享的条目，再点「导出选中」', true);
+    showError('勾选要分享的条目，再点「导出选中」', true);
   }
   function exitSelMode() {
     _selMode = false; _sel = {};

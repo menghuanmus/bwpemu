@@ -27,7 +27,7 @@ const Bond = (() => {
     const raw = (typeof nameOrCard === 'string') ? nameOrCard : ((nameOrCard && nameOrCard.name) || '');
     const name = stripPrefix(raw).trim();
     if (!name) return null;
-    return (typeof CardDB !== 'undefined' && CardDB.lookup) ? CardDB.lookup(name) : null;
+    return (typeof CardDB !== 'undefined' && CardDB.lookupExact) ? CardDB.lookupExact(name) : null;
   }
 
   function isBondCard(card) { const db = dbOf(card); return !!(db && db.type === 'bond'); }

@@ -63,6 +63,48 @@
 .card-slot:not(.has-image) .stun-fx { display: none; }
 
 /* ================================================================
+   激怒：卡槽右上角（与眩晕的左上角对称）的 💢 愤怒符号
+   入场渐显，常态不断放大缩小（愤怒在“呼吸”）
+   ================================================================ */
+.fx-anger {
+  position: absolute;
+  top: 5px;
+  right: 14px;
+  width: 44px;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 8;                    /* 与眩晕同级，且两者分居左右两角不重叠 */
+  pointer-events: none;
+  font-size: 34px;
+  line-height: 1;
+  user-select: none;
+}
+
+.fx-anger__glyph {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  /* 偏红偏亮，亮色卡图上也能看清 */
+  filter: saturate(1.5) drop-shadow(0 0 3px rgba(255, 80, 50, 0.9)) drop-shadow(0 0 9px rgba(255, 40, 20, 0.6));
+  animation: fx-anger-pulse 1.15s ease-in-out infinite;
+}
+
+@keyframes fx-anger-pulse {
+  0%, 100% { transform: scale(0.84); opacity: 0.82; }
+  45%      { transform: scale(1.14); opacity: 1; }
+}
+
+.fx-anger--enter { animation: fx-fade-in 360ms ease-out both; }
+.fx-anger--exit  { animation: fx-fade-out 300ms ease-in both; }
+
+/* 空槽不显示 */
+.card-slot:not(.has-image) .fx-anger { display: none; }
+
+/* ================================================================
    状态特效：不屈（冒金光） / 屏障（金色椭圆护罩） / 帷幕（七彩流光）
    判定同样看「效果记录」里的来源，样式在这里
    ================================================================ */
@@ -362,7 +404,7 @@
   height: 40px;
   transform: translateX(-50%);
   pointer-events: none;
-  z-index: 6;                    /* 层级最高（在流光之上），但仍低于其它信息元素 */
+  z-index: 6;                    /* 特效里层级最高（在流光之上），但低于派系图标(7)与其它信息元素 */
   animation: fx-lotus-breathe 2.8s ease-in-out infinite;
 }
 .fx-lotus__petal {               /* 花瓣：窄长水滴形（顶部收尖、底部圆润），底部为旋转中心，向两侧扇开 */
@@ -462,6 +504,14 @@
     width: 22px;
     height: 22px;
     font-size: 18px;
+  }
+  /* 激怒：跟眩晕一起缩小，位置镜像到右上角 */
+  .fx-anger {
+    top: 6px;
+    right: 11px;
+    width: 24px;
+    height: 24px;
+    font-size: 19px;
   }
   /* 卡更小 → 三种特效的尺寸/模糊也等比收一点，别糊成一团 */
   .fx-aura { inset: -1px; border-radius: 10px; border-width: 1.5px; }

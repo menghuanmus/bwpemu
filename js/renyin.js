@@ -935,8 +935,13 @@ const Renyin = (() => {
             slot.classList.add('awakened');
             if (!slot._permAtkMods) slot._permAtkMods = [];
             if (!slot._permHpMods) slot._permHpMods = [];
-            slot._permAtkMods.push({ source: dbCard.name, value: dbCard.atkBonus || 0, layers: 1 });
-            slot._permHpMods.push({ source: dbCard.name, value: dbCard.hpBonus || 0, layers: 1 });
+            if (typeof addPermStatMod === 'function') {
+              // 同来源 + 同攻击 + 同生命 → 叠层 ×N；数值不同则新增一条
+              addPermStatMod(slot, dbCard.name, dbCard.atkBonus || 0, dbCard.hpBonus || 0);
+            } else {
+              slot._permAtkMods.push({ source: dbCard.name, value: dbCard.atkBonus || 0, layers: 1 });
+              slot._permHpMods.push({ source: dbCard.name, value: dbCard.hpBonus || 0, layers: 1 });
+            }
             if (typeof syncSlotToPeer === 'function') syncSlotToPeer(slot);
             if (typeof SwitchMgr !== 'undefined' && typeof SwitchMgr.syncSharedPerm === 'function') SwitchMgr.syncSharedPerm(slot);
             if (typeof autoUpdateSlotImage === 'function') autoUpdateSlotImage(slot);

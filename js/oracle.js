@@ -376,7 +376,7 @@
       // 上限统一走「本叠手动 > 本局条目(0=禁用) > 数据库」
       const maxStack = (typeof window.getCardMaxStack === 'function')
         ? window.getCardMaxStack(playerId, card)
-        : (() => { const db = (typeof CardDB !== 'undefined') ? CardDB.lookup(card.name) : null; return (db && db.maxStack) ? db.maxStack : 0; })();
+        : (() => { const db = (typeof CardDB !== 'undefined') ? CardDB.lookupExact(card.name) : null; return (db && db.maxStack) ? db.maxStack : 0; })();
 
       if (maxStack > 0) {
         const incomingStack = card._stack || 1;

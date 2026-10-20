@@ -802,7 +802,7 @@
 
     /** 单张牌的匹配元信息（与检索/连引同一口径：先查数据库，再回退卡牌自身字段） */
     function _deckMoveMeta(card) {
-      const db = (typeof CardDB !== 'undefined' && CardDB.lookup) ? CardDB.lookup(card.name) : null;
+      const db = (typeof CardDB !== 'undefined' && CardDB.lookupExact) ? CardDB.lookupExact(card.name) : null;
       const lvRaw = (db && db.level != null) ? db.level : card.level;
       const lv = Number(lvRaw);
       const typeRaw = String((db && db.type) || card.type || '');
@@ -1197,7 +1197,7 @@
           broadcastSystemMsg(mainMsg);
         }
 
-        const dbCard = CardDB.lookup(card.name, playerId);
+        const dbCard = CardDB.lookupExact(card.name, playerId);
         let animTarget = null;
 
         // 1) 形态牌：自动结附到所属式神
@@ -1258,8 +1258,13 @@
                 if (!slot._permAtkMods) slot._permAtkMods = [];
                 if (!slot._permHpMods) slot._permHpMods = [];
                 const awakenSource = dbCard.name.includes('觉醒') ? dbCard.name : `${dbCard.name}（觉醒）`;
-                slot._permAtkMods.push({ source: awakenSource, value: dbCard.atkBonus || 0, layers: 1 });
-                slot._permHpMods.push({ source: awakenSource, value: dbCard.hpBonus || 0, layers: 1 });
+                if (typeof addPermStatMod === 'function') {
+                  // 同来源 + 同攻击 + 同生命 → 叠层 ×N；数值不同则新增一条
+                  addPermStatMod(slot, awakenSource, dbCard.atkBonus || 0, dbCard.hpBonus || 0);
+                } else {
+                  slot._permAtkMods.push({ source: awakenSource, value: dbCard.atkBonus || 0, layers: 1 });
+                  slot._permHpMods.push({ source: awakenSource, value: dbCard.hpBonus || 0, layers: 1 });
+                }
                 if (typeof applyPermStats === 'function') applyPermStats(slot, oldAtk, oldHp);
                 // 提取觉醒后的能力描述（"觉醒："之后的全部文本）
                 const rawEffect = dbCard.effect || '';
@@ -2080,7 +2085,7 @@
       let bondIgnoredOwners = [];
       const cards = shuffleCards(items.map(function(it) {
         const c = createCard(it.name);
-        const dbc = (typeof CardDB !== 'undefined' && CardDB.lookup) ? CardDB.lookup(it.name) : null;
+        const dbc = (typeof CardDB !== 'undefined' && CardDB.lookupExact) ? CardDB.lookupExact(it.name) : null;
         if (dbc && dbc.type === 'bond') {
           // 协战牌归属固定为两名所属式神：【式神名】对它不生效（不写入 owner）
           if (it.owner) bondIgnoredOwners.push(it.name + '（忽略【' + it.owner + '】）');
@@ -2188,7 +2193,7 @@
       let added = 0;
       (names || []).forEach(function (n) {
         if (!n || Object.prototype.hasOwnProperty.call(t, n)) return;
-        const db = (typeof CardDB !== 'undefined' && CardDB.lookup) ? CardDB.lookup(n) : null;
+        const db = (typeof CardDB !== 'undefined' && CardDB.lookupExact) ? CardDB.lookupExact(n) : null;
         const max = (db && db.maxStack) ? db.maxStack : 0;
         if (max > 0) { t[n] = Math.min(MAX_STACK_LIMIT, max); added++; }
       });
@@ -2234,7 +2239,7 @@
         const stamp = card._maxStack || 0;
         if (stamp > 0) { t[n] = Math.min(MAX_STACK_LIMIT, stamp); seen[n] = 1; added++; return; }
         if (!dbReady) return;                                             // 卡库没好，分辨不出「本局禁用」
-        const db = CardDB.lookup(n);
+        const db = CardDB.lookupExact(n);
         if (db && db.maxStack > 0) { t[n] = 0; seen[n] = 1; added++; }     // 本来能堆叠现在标记是 0 → 墓碑
       };
       const st = getPlayerCardState(pid);
@@ -2326,7 +2331,7 @@
       const rule = getStackRule(playerId, card.name);
       if (rule !== null) return (rule > 0) ? rule : 0;
       // 3) 数据库默认
-      const db = (typeof CardDB !== 'undefined' && CardDB.lookup) ? CardDB.lookup(card.name) : null;
+      const db = (typeof CardDB !== 'undefined' && CardDB.lookupExact) ? CardDB.lookupExact(card.name) : null;
       return (db && db.maxStack) ? Math.min(MAX_STACK_LIMIT, db.maxStack) : 0;
     }
 
@@ -2707,7 +2712,7 @@
     function _cardBelongsToOwner(card, ownerName) {
       if (!card || !ownerName) return false;
       let db = null;
-      try { db = (typeof CardDB !== 'undefined' && CardDB.lookup) ? CardDB.lookup(card.name) : null; } catch (e) { db = null; }
+      try { db = (typeof CardDB !== 'undefined' && CardDB.lookupExact) ? CardDB.lookupExact(card.name) : null; } catch (e) { db = null; }
       const owner = String(card.owner || (db && db.owner) || '');
       if (ownerName === '__neutral__') return !owner || owner === '中立';
       if (db && db.type === 'bond' && Array.isArray(db.bondOwners) && db.bondOwners.indexOf(ownerName) !== -1) return true;
@@ -3112,7 +3117,7 @@
       // 按所属式神分组：{ owner: { cards: [{name, count, cardRef}] } }
       const ownerMap = new Map();
       deck.forEach(card => {
-        const db = CardDB.lookup(card.name);
+        const db = CardDB.lookupExact(card.name);
         let owner;
         if (db && db.type === 'bond') {
           // 协战牌：固定归到「A×B」一组（不受导入区段头影响）
@@ -3680,7 +3685,7 @@
         slotEl.innerHTML = `<div class="fate-card-title">${title}</div><div class="fate-card-name" style="color:#888">未知</div>`;
         return;
       }
-      const db = (typeof CardDB !== 'undefined') ? CardDB.lookup(card.name) : null;
+      const db = (typeof CardDB !== 'undefined') ? CardDB.lookupExact(card.name) : null;
       const typeNames = { shikigami:'式神', summon:'召唤物', spell:'法术', battle:'战斗', form:'形态', realm:'幻境', curse:'灵咒', bond:'协战' };
 
       let html = `<div class="fate-card-title">${title}</div>`;
@@ -4974,7 +4979,7 @@
       const out = [];
       deck.forEach(function(card) {
         if (!card || typeof card !== 'object') return;
-        const db = (typeof CardDB !== 'undefined' && CardDB.lookup) ? CardDB.lookup(card.name) : null;
+        const db = (typeof CardDB !== 'undefined' && CardDB.lookupExact) ? CardDB.lookupExact(card.name) : null;
         const typeRaw = (db && db.type) || card.type || '';
         const levelRaw = (db && db.level) || card.level || null;
         const isBond = !!(db && db.type === 'bond');
@@ -5071,7 +5076,7 @@
     /** 检索结果：取卡牌的等级/类型/稀有度/结附灵咒标签（查库优先，牌面兜底；没有的不显示） */
     function _searchCardMeta(card) {
       if (!card || typeof card !== 'object') return '';
-      const db = (typeof CardDB !== 'undefined' && CardDB.lookup) ? CardDB.lookup(card.name) : null;
+      const db = (typeof CardDB !== 'undefined' && CardDB.lookupExact) ? CardDB.lookupExact(card.name) : null;
       const lv = (db && db.level != null) ? db.level : card.level;
       const tp = (db && db.type) ? db.type : card.type;
       const rr = (db && db.rarity) ? db.rarity : card.rarity;

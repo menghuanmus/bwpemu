@@ -1450,6 +1450,37 @@
       return effectiveBaseHp(slot) + (slot._permHpMods || []).reduce((s, m) => s + (m.value || 0) * (m.layers || 1), 0);
     }
 
+    /**
+     * 添加一条永久属性加成（觉醒牌自动加成、式神管理手动添加统一走这里）
+     * 规则：来源 + 攻击值 + 生命值【三者完全相同】→ 叠加层数（显示 ×N）；
+     *       任一不同（哪怕来源相同，如「觉醒·星 +1/+0」与「觉醒·星 +1/+1」）→ 新增一条，不合并
+     * @returns {'stack'|'new'|null} stack=叠了层数，new=新增了一条
+     */
+    function addPermStatMod(slot, source, atkVal, hpVal) {
+      if (!slot) return null;
+      if (!slot._permAtkMods) slot._permAtkMods = [];
+      if (!slot._permHpMods) slot._permHpMods = [];
+      const src = source == null ? '' : String(source);
+      const a = atkVal || 0;
+      const h = hpVal || 0;
+      const len = Math.max(slot._permAtkMods.length, slot._permHpMods.length);
+      for (let i = 0; i < len; i++) {
+        const am = slot._permAtkMods[i] || null;
+        const hm = slot._permHpMods[i] || null;
+        const s = (am && am.source) || (hm && hm.source) || '';
+        if (s !== src) continue;
+        if (((am && am.value) || 0) !== a) continue;
+        if (((hm && hm.value) || 0) !== h) continue;
+        const layers = ((am && am.layers) || (hm && hm.layers) || 1) + 1;
+        slot._permAtkMods[i] = { source: src, value: a, layers: layers };
+        slot._permHpMods[i] = { source: src, value: h, layers: layers };
+        return 'stack';
+      }
+      slot._permAtkMods.push({ source: src, value: a, layers: 1 });
+      slot._permHpMods.push({ source: src, value: h, layers: 1 });
+      return 'new';
+    }
+
     /** 计算临时属性总值 */
     function calcTempAtk(slot) { return (slot._tempAtkMods || []).reduce((s, m) => s + (m.value || 0) * (m.layers || 1), 0); }
     function calcTempHp(slot) { return (slot._tempHpMods || []).reduce((s, m) => s + (m.value || 0) * (m.layers || 1), 0); }

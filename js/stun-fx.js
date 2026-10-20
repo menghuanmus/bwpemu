@@ -2,6 +2,7 @@
 //  js/stun-fx.js — 卡面状态特效
 //  统一由一个「来源 → 特效」表驱动（判定依据：效果记录里的「来源」）：
 //    · 眩晕：卡槽左上角不停旋转（逆时针）的 🌀 ；牌手则挂头像左上角
+//    · 激怒：卡槽右上角（与眩晕对称）的 💢 愤怒符号，不断放大缩小
 //    · 不屈：整张卡持续冒金光（呼吸式金光 + 向上飘的光）
 //    · 屏障：金色椭圆护罩（缓慢呼吸）
 //    · 帷幕：七彩流光旋转扫过卡面 + 紫色发光
@@ -54,11 +55,12 @@ const StunFx = (() => {
   }
   /**
    * 效果记录里的「来源」→ 卡面特效。眩晕额外支持牌手（挂头像行）；其余只作用于式神卡槽。
-   * 排列顺序 = 层级从低到高（卡图 < 帷幕 < 不屈 < 屏障 < 昂扬 < 迅捷 < 庇佑 < 其它元素），
+   * 排列顺序 = 层级从低到高（卡图 < 帷幕 < 不屈 < 屏障 < 昂扬 < 迅捷 < 庇佑 < 派系图标(7) < 其它元素），
    * 与 css 里的 z-index 双保险；眩晕在最上（8）。
    */
   const FX_DEFS = [
     { source: '眩晕', cls: 'stun-fx',   title: '眩晕', glyph: '🌀', zone: true,  avatarCls: 'stun-fx--avatar', enterMs: ENTER_MS, exitMs: EXIT_MS },
+    { source: '激怒', cls: 'fx-anger',  title: '激怒', glyph: '💢', zone: false, enterMs: 360, exitMs: 300 },
     { source: '帷幕', cls: 'fx-veil',   title: '帷幕', zone: false, enterMs: 520, exitMs: 360 },
     { source: '不屈', cls: 'fx-aura',   title: '不屈', zone: false, arcs: 2, enterMs: 440, exitMs: 320 },
     { source: '屏障', cls: 'fx-shield', title: '屏障', zone: false, enterMs: 400, exitMs: 300 },

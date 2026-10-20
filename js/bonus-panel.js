@@ -319,24 +319,16 @@ const BonusPanel = (() => {
     if (!src) return;
     const oldAtk = typeof calcPermAtk === 'function' ? calcPermAtk(ctx.slot) : 0;
     const oldHp = typeof calcPermHp === 'function' ? calcPermHp(ctx.slot) : 0;
-    let idx = ctx.permAtkMods.findIndex(m => m.source === src);
-    if (idx < 0) idx = ctx.permHpMods.findIndex(m => m.source === src);
-    if (idx >= 0) {
-      const atkVal = (ctx.permAtkMods[idx] || {}).value || 0;
-      const hpVal = (ctx.permHpMods[idx] || {}).value || 0;
-      if (atkVal === atk && hpVal === hp) {
-        // 来源和数值都相同 → 叠加层数
-        ctx.permAtkMods[idx].layers = (ctx.permAtkMods[idx].layers || 1) + 1;
-        ctx.permHpMods[idx].layers = ctx.permAtkMods[idx].layers;
-      } else {
-        // 来源相同但数值不同 → 新增一项
-        ctx.permAtkMods.push({ source: src, value: atk, layers: 1 });
-        ctx.permHpMods.push({ source: src, value: hp, layers: 1 });
-      }
+    if (typeof addPermStatMod === 'function') {
+      // 同来源 + 同攻击 + 同生命 → 叠层 ×N；任一不同（含同源不同数值）→ 新增一条
+      addPermStatMod(ctx.slot, src, atk, hp);
     } else {
       ctx.permAtkMods.push({ source: src, value: atk, layers: 1 });
       ctx.permHpMods.push({ source: src, value: hp, layers: 1 });
     }
+    // 统一引用：弹窗里的数组跟卡槽是同一份
+    ctx.permAtkMods = ctx.slot._permAtkMods || ctx.permAtkMods;
+    ctx.permHpMods = ctx.slot._permHpMods || ctx.permHpMods;
     ctx.slot._permAtkMods = ctx.permAtkMods;
     ctx.slot._permHpMods = ctx.permHpMods;
     document.getElementById('bonus-mod-source').value = '';
@@ -519,7 +511,10 @@ const BonusPanel = (() => {
         const hm = ctx.permHpMods[stackIdx] || {};
         if ((hm.value || 0) !== hpVal) stackIdx = -1;
       }
-      if (stackIdx >= 0) {
+      if (typeof addPermStatMod === 'function') {
+        // 同来源 + 同攻击 + 同生命 → 叠层 ×N；数值不同则新增一条
+        addPermStatMod(ctx.slot, awakenSource, atkVal, hpVal);
+      } else if (stackIdx >= 0) {
         // 已有相同来源相同数值的条目 → 层数 +1
         ctx.permAtkMods[stackIdx].layers = (ctx.permAtkMods[stackIdx].layers || 1) + 1;
         ctx.permHpMods[stackIdx].layers = ctx.permAtkMods[stackIdx].layers;
@@ -527,6 +522,8 @@ const BonusPanel = (() => {
         ctx.permAtkMods.push({ source: awakenSource, value: atkVal, layers: 1 });
         ctx.permHpMods.push({ source: awakenSource, value: hpVal, layers: 1 });
       }
+      ctx.permAtkMods = ctx.slot._permAtkMods || ctx.permAtkMods;
+      ctx.permHpMods = ctx.slot._permHpMods || ctx.permHpMods;
       ctx.slot._permAtkMods = ctx.permAtkMods;
       ctx.slot._permHpMods = ctx.permHpMods;
       if (typeof applyPermStats === 'function') applyPermStats(ctx.slot, oldAtk, oldHp);
@@ -603,6 +600,9 @@ const BonusPanel = (() => {
     // 严格同名匹配：库里没有该式神时不套用其它式神的能力/派系（防止「妖刀姬·赤影」被前缀模糊成「妖刀姬」）
     const dbCard = (typeof _lookupSlotCard === 'function') ? _lookupSlotCard(cardName) : CardDB.lookup(cardName);
     if (typeof recordPermBase === 'function') recordPermBase(slot);
+    // 永久属性阵列必须是同一个引用（弹窗里增删要能同步回卡槽）
+    if (!slot._permAtkMods) slot._permAtkMods = [];
+    if (!slot._permHpMods) slot._permHpMods = [];
     // 基础能力：还没填过时，把数据库能力直接写进输入框（作为可编辑内容，而非占位提示）
     if (slot._baseAbility === undefined) slot._baseAbility = (dbCard && dbCard.ability) ? dbCard.ability : '';
 

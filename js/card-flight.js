@@ -306,7 +306,7 @@ const CardFlight = (() => {
   function playUseCardAnim(playerId, handCard, opts = {}) {
     if (typeof gsap === 'undefined') return;
     const cardName = handCard.name;
-    const db = (typeof CardDB !== 'undefined') ? CardDB.lookup(cardName) : null;
+    const db = (typeof CardDB !== 'undefined') ? CardDB.lookupExact(cardName) : null;
     const targetEl = opts.targetEl || null;
 
     const handBtn = getPlayerBtn(playerId, 'hand');
@@ -570,7 +570,7 @@ const CardFlight = (() => {
         break;
       case 'play-card': {
         const cardName = data.cardName || '?';
-        const db = (typeof CardDB !== 'undefined') ? CardDB.lookup(cardName) : null;
+        const db = (typeof CardDB !== 'undefined') ? CardDB.lookupExact(cardName) : null;
         const handCard = { name: cardName, _stack: data.stack, _maxStack: data.maxStack };
         const overlay = document.getElementById('card-preview-overlay');
         const preview = document.getElementById('card-preview');
