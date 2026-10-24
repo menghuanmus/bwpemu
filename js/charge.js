@@ -79,6 +79,7 @@ const Charge = (() => {
     const cards = slot._chargedCards || [];
     if (cards.length === 0) {
       slot.classList.remove('charging');
+      if (typeof syncSlotInfoRows === 'function') syncSlotInfoRows(slot);
       return;
     }
 
@@ -105,6 +106,7 @@ const Charge = (() => {
     });
 
     slot.appendChild(indicator);
+    if (typeof syncSlotInfoRows === 'function') syncSlotInfoRows(slot);
   }
 
   /** 广播蓄力消息 */

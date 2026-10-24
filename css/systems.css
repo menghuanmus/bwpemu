@@ -101,6 +101,11 @@
       width: 14px; height: 14px; vertical-align: middle; object-fit: contain;
       image-rendering: auto;
     }
+    /* 属性条目里「力量」「生命」两段之间的间隔 */
+    .card-tooltip__stat-gap {
+      display: inline-block;
+      width: 0.7em;
+    }
 
     .card-tooltip__effect {
       font-size: 18px;

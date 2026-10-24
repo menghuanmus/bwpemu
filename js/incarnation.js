@@ -231,9 +231,10 @@ const Incarnation = (() => {
     syncInfoHeight(slot);
   }
 
-  /** 手机端信息栏高度：有化身行时由 JS 动态计算（无化身则交回原 CSS 规则） */
+  /** 手机端信息栏高度：统一交给 game-core 的 syncSlotInfoRows（按行标记计算，不依赖 :has()） */
   function syncInfoHeight(slot) {
     if (!slot) return;
+    if (typeof syncSlotInfoRows === 'function') { syncSlotInfoRows(slot); return; }
     if (!MOBILE_MQ.matches || !slot.querySelector('.incarn-row')) {
       slot.style.removeProperty('--info-h');
       return;

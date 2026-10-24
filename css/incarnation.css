@@ -328,15 +328,15 @@
   .incarn-row.is-blocked { opacity: 0.55; }
 
   /* 有化身行时，其它行整体上移一行（步长 14px），化身行占最底 */
-  .card-slot:has(.incarn-row) .charge-indicator { bottom: 14px; }
+  .card-slot.info-has-incarn .charge-indicator { bottom: 14px; }
 
-  .card-slot:has(.incarn-row) .card-curses { bottom: 28px; }
-  .card-slot:has(.incarn-row):not(:has(.charge-indicator)) .card-curses { bottom: 14px; }
+  .card-slot.info-has-incarn .card-curses { bottom: 28px; }
+  .card-slot.info-has-incarn:not(.info-has-charge) .card-curses { bottom: 14px; }
 
-  .card-slot:has(.incarn-row) .card-form-badge { bottom: 42px; }
-  .card-slot:has(.incarn-row):not(:has(.charge-indicator)) .card-form-badge { bottom: 28px; }
-  .card-slot:has(.incarn-row):not(:has(.card-curses)) .card-form-badge { bottom: 28px; }
-  .card-slot:has(.incarn-row):not(:has(.charge-indicator)):not(:has(.card-curses)) .card-form-badge { bottom: 14px; }
+  .card-slot.info-has-incarn .card-form-badge { bottom: 42px; }
+  .card-slot.info-has-incarn:not(.info-has-charge) .card-form-badge { bottom: 28px; }
+  .card-slot.info-has-incarn:not(.info-has-curses) .card-form-badge { bottom: 28px; }
+  .card-slot.info-has-incarn:not(.info-has-charge):not(.info-has-curses) .card-form-badge { bottom: 14px; }
 }
 
 /* ---------------- 式神悬浮窗里的化身区 ---------------- */

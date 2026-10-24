@@ -472,13 +472,13 @@
         if (db2) {
           if (db2.type === 'battle') {
             const parts = [];
-            if (db2.atkBonus) parts.push('攻击+' + db2.atkBonus);
-            if (db2.atkPenalty) parts.push('攻击-' + db2.atkPenalty);
+            if (db2.atkBonus) parts.push('力量+' + db2.atkBonus);
+            if (db2.atkPenalty) parts.push('力量-' + db2.atkPenalty);
             if (db2.shieldBonus) parts.push('护盾+' + db2.shieldBonus);
             if (db2.shieldPenalty) parts.push('护盾-' + db2.shieldPenalty);
             if (parts.length) statPrefix = '（' + parts.join('，') + '）';
           } else if (db2.type === 'form') {
-            statPrefix = '（攻击' + (db2.attack || 0) + '，生命' + (db2.hp || 0) + '）';
+            statPrefix = '（力量' + (db2.attack || 0) + '，生命' + (db2.hp || 0) + '）';
           } else if (db2.type === 'realm') {
             statPrefix = '（耐久' + (db2.durability || 0) + '）';
           }

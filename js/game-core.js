@@ -29,8 +29,8 @@
       <label class="card-badge card-status-badge card-status-badge--armor" title="护甲/破甲" hidden>
         <input type="text" class="card-armor" placeholder="甲" aria-label="护甲/破甲">
       </label>
-      <label class="card-badge card-badge--attack" title="攻击">
-        <input type="text" class="card-attack" placeholder="攻" aria-label="攻击">
+      <label class="card-badge card-badge--attack" title="力量">
+        <input type="text" class="card-attack" placeholder="攻" aria-label="力量">
       </label>
       <label class="card-badge card-badge--hp" title="生命">
         <input type="text" class="card-hp" placeholder="命" aria-label="生命">
@@ -43,6 +43,7 @@
 
     document.querySelectorAll('.card-slot').forEach(slot => {
       slot.innerHTML = CARD_INNER_HTML;
+      watchSlotInfoRows(slot);
     });
 
     /* 为每个卡牌槽分配索引（0-4），方便联机同步定位 */
@@ -607,7 +608,7 @@
 
     // 渲染形态标签（卡牌名下方）
     function renderFormBadge(slot) {
-      var formName = slot._formName || '';
+      var formName = String(slot._formName || '').trim();
       var existing = slot.querySelector('.card-form-badge');
       if (formName) {
         if (!existing) {
@@ -619,6 +620,41 @@
       } else {
         if (existing) existing.remove();
       }
+      syncSlotInfoRows(slot);
+    }
+
+    /**
+     * 刷新卡槽信息栏的「行标记 + 信息栏高度」（手机端用）
+     * 行序（自下而上）：蓄力 / 化身 / 灵咒 / 形态 / 名字（名字恒有），每行 14px
+     * 只统计真正有内容的行：形态标签空文本、灵咒容器里没有灵咒都不算
+     * ⚠ 不用 CSS :has()：部分手机浏览器/WebView 不支持 :has，
+     *   会导致「没有形态却空占一栏」（灵咒与名字之间多一条空白）
+     */
+    function syncSlotInfoRows(slot) {
+      if (!slot || !slot.classList) return;
+      const form = slot.querySelector('.card-form-badge');
+      const curses = slot.querySelector('.card-curses');
+      const charge = slot.querySelector('.charge-indicator');
+      const incarn = slot.querySelector('.incarn-row');
+      const hasForm = !!(form && String(form.textContent || '').trim());
+      const hasCurses = !!(curses && curses.querySelector('.curse-badge'));
+      const hasCharge = !!charge;
+      const hasIncarn = !!incarn;
+      slot.classList.toggle('info-has-form', hasForm);
+      slot.classList.toggle('info-has-curses', hasCurses);
+      slot.classList.toggle('info-has-charge', hasCharge);
+      slot.classList.toggle('info-has-incarn', hasIncarn);
+      const rows = 1 + (hasForm ? 1 : 0) + (hasCurses ? 1 : 0) + (hasCharge ? 1 : 0) + (hasIncarn ? 1 : 0);
+      slot.style.setProperty('--info-h', (rows * 14) + 'px');
+    }
+
+    /** 监听卡槽子元素增删（形态/灵咒/蓄力/化身），自动刷新行标记 */
+    function watchSlotInfoRows(slot) {
+      if (!slot) return;
+      syncSlotInfoRows(slot);
+      if (slot._infoRowsMO || typeof MutationObserver !== 'function') return;
+      slot._infoRowsMO = new MutationObserver(function() { syncSlotInfoRows(slot); });
+      slot._infoRowsMO.observe(slot, { childList: true });
     }
 
     imageInput.addEventListener('change', (e) => {
@@ -980,7 +1016,7 @@
     function setSlotCurses(slot, curses) {
       const existing = slot.querySelector('.card-curses');
       if (existing) existing.remove();
-      if (!curses || !curses.length) return;
+      if (!curses || !curses.length) { syncSlotInfoRows(slot); return; }
       const container = document.createElement('div');
       container.className = 'card-curses';
       curses.forEach(c => {
@@ -1003,6 +1039,7 @@
         container.appendChild(more);
       }
       slot.appendChild(container);
+      syncSlotInfoRows(slot);
     }
 
     // ---- 灵咒管理面板（通用：卡牌槽 / 手牌 / 牌库） ----
@@ -1481,6 +1518,35 @@
       return 'new';
     }
 
+    /**
+     * 添加一条临时属性加成（规则与永久属性一致）
+     * 来源 + 攻击值 + 生命值【三者完全相同】→ 叠层 ×N；任一不同 → 新增一条
+     */
+    function addTempStatMod(slot, source, atkVal, hpVal) {
+      if (!slot) return null;
+      if (!slot._tempAtkMods) slot._tempAtkMods = [];
+      if (!slot._tempHpMods) slot._tempHpMods = [];
+      const src = source == null ? '' : String(source);
+      const a = atkVal || 0;
+      const h = hpVal || 0;
+      const len = Math.max(slot._tempAtkMods.length, slot._tempHpMods.length);
+      for (let i = 0; i < len; i++) {
+        const am = slot._tempAtkMods[i] || null;
+        const hm = slot._tempHpMods[i] || null;
+        const s = (am && am.source) || (hm && hm.source) || '';
+        if (s !== src) continue;
+        if (((am && am.value) || 0) !== a) continue;
+        if (((hm && hm.value) || 0) !== h) continue;
+        const layers = ((am && am.layers) || (hm && hm.layers) || 1) + 1;
+        slot._tempAtkMods[i] = { source: src, value: a, layers: layers };
+        slot._tempHpMods[i] = { source: src, value: h, layers: layers };
+        return 'stack';
+      }
+      slot._tempAtkMods.push({ source: src, value: a, layers: 1 });
+      slot._tempHpMods.push({ source: src, value: h, layers: 1 });
+      return 'new';
+    }
+
     /** 计算临时属性总值 */
     function calcTempAtk(slot) { return (slot._tempAtkMods || []).reduce((s, m) => s + (m.value || 0) * (m.layers || 1), 0); }
     function calcTempHp(slot) { return (slot._tempHpMods || []).reduce((s, m) => s + (m.value || 0) * (m.layers || 1), 0); }
@@ -1588,6 +1654,7 @@
         slot.classList.remove('has-image', 'charging', 'awakened');
         delete slot.dataset.slotFaction;
         delete slot.dataset.slotType;
+        syncSlotInfoRows(slot);
       });
 
       // 2) 牌库/手牌/坟场

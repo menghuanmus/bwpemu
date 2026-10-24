@@ -289,7 +289,7 @@ var MyLib = (function () {
       fieldHTML('名称', 'diy-f-name', inputHTML('diy-f-name', '必填，不能与官方卡牌同名', 'text', 'maxlength="40"'), true),
       '<div class="diy-row">' +
       fieldHTML('派系', 'diy-f-faction', '<select id="diy-f-faction">' + ['苍叶', '红莲', '青岚', '紫岩', '无相'].map(function (f) { return '<option>' + f + '</option>'; }).join('') + '</select>') +
-      fieldHTML('攻击', 'diy-f-atk', inputHTML('diy-f-atk', '', 'number', 'min="0" max="99"'), true) +
+      fieldHTML('力量', 'diy-f-atk', inputHTML('diy-f-atk', '', 'number', 'min="0" max="99"'), true) +
       fieldHTML('生命', 'diy-f-hp', inputHTML('diy-f-hp', '', 'number', 'min="0" max="99"'), true) +
       '</div>',
       '<div class="diy-chips">' +
@@ -344,7 +344,7 @@ var MyLib = (function () {
       var name = $('diy-f-name').value.trim();
       var err = validateName('式神', name, unit && unit.name);
       if (!err) err = validateText('式神', name, $('diy-f-text').value);
-      if (!err && $('diy-f-atk').value === '') err = '请填写攻击力';
+      if (!err && $('diy-f-atk').value === '') err = '请填写力量';
       if (!err && !$('diy-f-hp').value) err = '请填写生命值';
       if (err) { m.err.textContent = err; return; }
       var saved = {

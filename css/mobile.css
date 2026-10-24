@@ -899,20 +899,22 @@
     border: none;
     background: transparent;
     touch-action: none;      /* 手机上让 pointer 事件正常派发（拖动/点击） */
-    /* 信息栏高度：名字恒有，形态/灵咒/蓄力各占一行（步长 14px） */
+    /* 信息栏高度：名字恒有，形态/灵咒/蓄力各占一行（步长 14px）
+       ⚠ 行标记由 JS（game-core.js syncSlotInfoRows）打在卡槽上，不用 :has()，
+          因为部分手机浏览器/WebView 不支持 :has，会导致没形态也空占一栏 */
     --info-h: 56px;   /* 4 行全有 */
   }
-  .card-slot:not(:has(.charge-indicator)),
-  .card-slot:not(:has(.card-curses)),
-  .card-slot:not(:has(.card-form-badge)) {
+  .card-slot:not(.info-has-charge),
+  .card-slot:not(.info-has-curses),
+  .card-slot:not(.info-has-form) {
     --info-h: 42px;   /* 缺一行 */
   }
-  .card-slot:not(:has(.charge-indicator)):not(:has(.card-curses)),
-  .card-slot:not(:has(.charge-indicator)):not(:has(.card-form-badge)),
-  .card-slot:not(:has(.card-curses)):not(:has(.card-form-badge)) {
+  .card-slot:not(.info-has-charge):not(.info-has-curses),
+  .card-slot:not(.info-has-charge):not(.info-has-form),
+  .card-slot:not(.info-has-curses):not(.info-has-form) {
     --info-h: 28px;   /* 缺两行 */
   }
-  .card-slot:not(:has(.charge-indicator)):not(:has(.card-curses)):not(:has(.card-form-badge)) {
+  .card-slot:not(.info-has-charge):not(.info-has-curses):not(.info-has-form) {
     --info-h: 14px;   /* 只有名字 */
   }
   /* 手机触摸"悬停"会粘住，去掉 hover 金色光晕残留 */
@@ -1031,11 +1033,11 @@
     box-sizing: border-box;
   }
   /* 形态下方少一行就上提一行，不留空白 */
-  .card-slot:not(:has(.charge-indicator)) .card-form-badge,
-  .card-slot:not(:has(.card-curses)) .card-form-badge {
+  .card-slot:not(.info-has-charge) .card-form-badge,
+  .card-slot:not(.info-has-curses) .card-form-badge {
     bottom: 14px;
   }
-  .card-slot:not(:has(.charge-indicator)):not(:has(.card-curses)) .card-form-badge {
+  .card-slot:not(.info-has-charge):not(.info-has-curses) .card-form-badge {
     bottom: 0;
   }
 
@@ -1064,7 +1066,7 @@
     flex-shrink: 0;
   }
   /* 无蓄力时：灵咒贴到最底行 */
-  .card-slot:not(:has(.charge-indicator)) .card-curses {
+  .card-slot:not(.info-has-charge) .card-curses {
     bottom: 0;
   }
 
@@ -1411,7 +1413,14 @@
   }
   .bonus-add-row input[type="text"] { flex: 1 1 40% !important; padding: 9px 8px; }
   .bonus-add-row input[type="number"] { width: 60px; padding: 9px 4px; }
+  /* 永久/临时属性添加行：来源 + 攻击 + 生命 + 添加 强制一行（不用文字标签，靠占位提示） */
+  .bonus-add-row--stats { flex-wrap: nowrap; gap: 5px; }
+  .bonus-add-row--stats input[type="text"] { flex: 1 1 auto !important; min-width: 0; padding: 9px 6px; }
+  .bonus-add-row--stats input[type="number"] { flex: 0 0 46px; width: 46px; padding: 9px 2px; }
+  .bonus-add-row--stats input::placeholder { font-size: 12px; }
+  .bonus-add-row--stats .bonus-btn--add { flex: 0 0 auto; padding: 9px 8px; font-size: 14px; }
   .bonus-list-item { padding: 8px 10px; }
+  .bonus-list-item__stat-icon { width: 16px; height: 16px; vertical-align: -3px; }
   .bonus-summon-label { font-size: 15px; }
 }
 

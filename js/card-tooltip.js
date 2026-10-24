@@ -448,6 +448,16 @@
         _positionTerms();   // 解释小窗跟随悬浮窗
       }
 
+      /** 永久/临时属性条目的「图标 + 数值」：0 不显示，正数带 +，负数原样 */
+      function _statSegsHTML(am, hm) {
+        const aV = (am && am.value) || 0;
+        const hV = (hm && hm.value) || 0;
+        const segs = [];
+        if (aV !== 0) segs.push(`<span style="color:#48c0e0;"><img src="images/属性/攻击.png" class="tip-stat-icon" alt="力量">${aV > 0 ? '+' : ''}${aV}</span>`);
+        if (hV !== 0) segs.push(`<span style="color:#e04848;"><img src="images/属性/生命.png" class="tip-stat-icon" alt="生命">${hV > 0 ? '+' : ''}${hV}</span>`);
+        return segs.length ? segs.join('<span class="card-tooltip__stat-gap"></span>') : '<span style="color:#8a8a8a;">—</span>';
+      }
+
       function _render(card) {
         // 解释小窗：每次渲染先全部清理（食物/切卡/无命中等路径都不会残留）
         currentTerms = [];
@@ -661,9 +671,7 @@
               const layers = (am && am.layers) || (hm && hm.layers) || 1;
               const layersText = layers > 1 ? ` ×${layers}` : '';
               s += `<div class="card-tooltip__perm-item"><span>${escapeHTML(src)}${layersText}：</span>`;
-              if (am) s += `<span style="color:#48c0e0;">攻击${(am.value || 0) >= 0 ? '+' : ''}${am.value || 0}</span>`;
-              if (am && hm) s += '、';
-              if (hm) s += `<span style="color:#e04848;">生命${(hm.value || 0) >= 0 ? '+' : ''}${hm.value || 0}</span>`;
+              s += _statSegsHTML(am, hm);
               s += '</div>';
             }
             parts.push(s);
@@ -682,9 +690,7 @@
               const layers = (am && am.layers) || (hm && hm.layers) || 1;
               const layersText = layers > 1 ? ` ×${layers}` : '';
               s += `<div class="card-tooltip__perm-item"><span>${escapeHTML(src)}${layersText}：</span>`;
-              if (am) s += `<span style="color:#48c0e0;">攻击${(am.value || 0) >= 0 ? '+' : ''}${am.value || 0}</span>`;
-              if (am && hm) s += '、';
-              if (hm) s += `<span style="color:#e04848;">生命${(hm.value || 0) >= 0 ? '+' : ''}${hm.value || 0}</span>`;
+              s += _statSegsHTML(am, hm);
               s += '</div>';
             }
             parts.push(s);

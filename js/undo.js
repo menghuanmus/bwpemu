@@ -349,7 +349,7 @@
         var cn = (sb.name || sa.name || ('第' + (i + 1) + '格'));
         var hit = 0;
         if (String(sa.name || '') !== String(sb.name || '')) { out.push('「' + cn + '」→ 「' + val(sb.name) + '」'); hit++; }
-        if (String(sa.attack) !== String(sb.attack)) { out.push('「' + cn + '」攻击 ' + val(sa.attack) + ' → ' + val(sb.attack)); hit++; }
+        if (String(sa.attack) !== String(sb.attack)) { out.push('「' + cn + '」力量 ' + val(sa.attack) + ' → ' + val(sb.attack)); hit++; }
         if (String(sa.hp) !== String(sb.hp)) { out.push('「' + cn + '」生命 ' + val(sa.hp) + ' → ' + val(sb.hp)); hit++; }
         if (String(sa.level) !== String(sb.level)) { out.push('「' + cn + '」等级 ' + val(sa.level) + ' → ' + val(sb.level)); hit++; }
         if (String(sa.countdown) !== String(sb.countdown)) { out.push('「' + cn + '」倒计时 ' + val(sa.countdown) + ' → ' + val(sb.countdown)); hit++; }

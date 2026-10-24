@@ -234,7 +234,7 @@ const BonusPanel = (() => {
       syncSlotToPeer(ctx.slot);
       if (typeof autoUpdateSlotImage === 'function') autoUpdateSlotImage(ctx.slot);
       if (typeof renderFormBadge === 'function') renderFormBadge(ctx.slot);
-      broadcastBonusMsg('修改了形态属性', `${ctx.formName}（攻击${newAtk}，生命${newHp}）`);
+      broadcastBonusMsg('修改了形态属性', `${ctx.formName}（力量${newAtk}，生命${newHp}）`);
     }
   }
 
@@ -313,10 +313,14 @@ const BonusPanel = (() => {
   }
 
   function handleAddMod() {
-    const src = document.getElementById('bonus-mod-source').value.trim();
+    let src = document.getElementById('bonus-mod-source').value.trim();
     const atk = parseInt(document.getElementById('bonus-mod-atk').value, 10) || 0;
     const hp = parseInt(document.getElementById('bonus-mod-hp').value, 10) || 0;
-    if (!src) return;
+    // 来源可不填：只要攻击/生命有任意一个非 0 就能添加，来源默认「未定义来源」
+    if (!src) {
+      if (atk === 0 && hp === 0) return;
+      src = '未定义来源';
+    }
     const oldAtk = typeof calcPermAtk === 'function' ? calcPermAtk(ctx.slot) : 0;
     const oldHp = typeof calcPermHp === 'function' ? calcPermHp(ctx.slot) : 0;
     if (typeof addPermStatMod === 'function') {
@@ -332,12 +336,12 @@ const BonusPanel = (() => {
     ctx.slot._permAtkMods = ctx.permAtkMods;
     ctx.slot._permHpMods = ctx.permHpMods;
     document.getElementById('bonus-mod-source').value = '';
-    document.getElementById('bonus-mod-atk').value = '0';
-    document.getElementById('bonus-mod-hp').value = '0';
+    document.getElementById('bonus-mod-atk').value = '';
+    document.getElementById('bonus-mod-hp').value = '';
     applyPermStats(ctx.slot, oldAtk, oldHp);
     syncSlotToPeer(ctx.slot);
     if (typeof SwitchMgr !== 'undefined' && typeof SwitchMgr.syncSharedPerm === 'function') SwitchMgr.syncSharedPerm(ctx.slot);
-    const atkStr = atk !== 0 ? `攻击${atk >= 0 ? '+' : ''}${atk}` : '';
+    const atkStr = atk !== 0 ? `力量${atk >= 0 ? '+' : ''}${atk}` : '';
     const hpStr = hp !== 0 ? `生命${hp >= 0 ? '+' : ''}${hp}` : '';
     const detail = [atkStr, hpStr].filter(Boolean).join('，');
     broadcastBonusMsg('添加了永久属性', `${src}（${detail}）`);
@@ -478,7 +482,7 @@ const BonusPanel = (() => {
         return;
       }
       picker.innerHTML = cards.map(function(a) {
-        const bonus = (a.atkBonus || a.hpBonus) ? `（攻击${a.atkBonus > 0 ? '+' : ''}${a.atkBonus || 0}，生命${a.hpBonus > 0 ? '+' : ''}${a.hpBonus || 0}）` : '';
+        const bonus = (a.atkBonus || a.hpBonus) ? `（力量${a.atkBonus > 0 ? '+' : ''}${a.atkBonus || 0}，生命${a.hpBonus > 0 ? '+' : ''}${a.hpBonus || 0}）` : '';
         return '<button type="button" class="bonus-keyword-btn bonus-awaken-btn" data-awaken-name="' + escapeHTML(a.name) + '" title="' + escapeHTML(a.name + bonus) + '">' + escapeHTML(a.name) + '</button>';
       }).join('');
       picker.style.display = 'grid';
@@ -660,7 +664,7 @@ const BonusPanel = (() => {
     const power = ctx.slot._power || 0;
     return `<div class="bonus-base-stats">
       <div class="bonus-base-row">
-        <span class="bonus-base-label">基础攻击：</span>
+        <span class="bonus-base-label">基础力量：</span>
         <input type="number" id="bonus-base-atk" class="bonus-form-stat-input" value="${baseAtk}" min="0" max="99" placeholder="未设置">
         <span class="bonus-base-label">基础生命：</span>
         <input type="number" id="bonus-base-hp" class="bonus-form-stat-input" value="${baseHp}" min="0" max="99" placeholder="未设置">
@@ -679,6 +683,18 @@ const BonusPanel = (() => {
         <button type="button" class="bonus-stepper-btn" id="bonus-armor-plus" title="护甲+1">＋</button>
         <span class="bonus-base-note">（负数则为破甲）</span>
       </div>
+    </div>`;
+  }
+
+  /** 永久/临时属性「添加」行：来源 + 攻击 + 生命 + 添加（手机端强制一行；输入框默认空白，空=0） */
+  function _addStatsRowHTML(kind) {
+    const p = kind === 'mod' ? 'bonus-mod' : 'bonus-temp';
+    const btnId = kind === 'mod' ? 'bonus-add-mod' : 'bonus-add-temp';
+    return `<div class="bonus-add-row bonus-add-row--stats">
+      <input type="text" id="${p}-source" placeholder="来源" maxlength="30">
+      <input type="number" id="${p}-atk" placeholder="力量" min="-99" max="99" inputmode="numeric">
+      <input type="number" id="${p}-hp" placeholder="生命" min="-99" max="99" inputmode="numeric">
+      <button type="button" class="bonus-btn bonus-btn--add" id="${btnId}">添加</button>
     </div>`;
   }
 
@@ -722,24 +738,10 @@ const BonusPanel = (() => {
       <label class="bonus-summon-label"><input type="checkbox" id="bonus-has-energy" ${hasEnergy ? 'checked' : ''}> 能量</label>
     </div>`;
 
-    const permHTML = `<div class="bonus-add-row">
-      <input type="text" id="bonus-mod-source" placeholder="来源" maxlength="30" style="flex:3;">
-      <label class="bonus-inline-label">攻击</label>
-      <input type="number" id="bonus-mod-atk" value="0" min="-99" max="99">
-      <label class="bonus-inline-label">生命</label>
-      <input type="number" id="bonus-mod-hp" value="0" min="-99" max="99">
-      <button type="button" class="bonus-btn bonus-btn--add" id="bonus-add-mod">添加</button>
-    </div>
+    const permHTML = `${_addStatsRowHTML('mod')}
     <div class="bonus-list" id="bonus-mod-list">${renderModList()}</div>`;
 
-    const tempHTML = `<div class="bonus-add-row">
-      <input type="text" id="bonus-temp-source" placeholder="来源" maxlength="30" style="flex:3;">
-      <label class="bonus-inline-label">攻击</label>
-      <input type="number" id="bonus-temp-atk" value="0" min="-99" max="99">
-      <label class="bonus-inline-label">生命</label>
-      <input type="number" id="bonus-temp-hp" value="0" min="-99" max="99">
-      <button type="button" class="bonus-btn bonus-btn--add" id="bonus-add-temp">添加</button>
-    </div>
+    const tempHTML = `${_addStatsRowHTML('temp')}
     <div class="bonus-list" id="bonus-temp-list">${renderTempList()}</div>`;
 
     const formHTML = `<button type="button" id="bonus-quick-form" class="bonus-btn--keyword">+快捷结附形态</button>
@@ -890,27 +892,13 @@ const BonusPanel = (() => {
           <!-- 永久属性 -->
           <div class="bonus-section">
             <div class="bonus-section__label">⚔️ 永久属性</div>
-            <div class="bonus-add-row">
-              <input type="text" id="bonus-mod-source" placeholder="来源" maxlength="30" style="flex:3;">
-              <label class="bonus-inline-label">攻击</label>
-              <input type="number" id="bonus-mod-atk" value="0" min="-99" max="99">
-              <label class="bonus-inline-label">生命</label>
-              <input type="number" id="bonus-mod-hp" value="0" min="-99" max="99">
-              <button type="button" class="bonus-btn bonus-btn--add" id="bonus-add-mod">添加</button>
-            </div>
+            ${_addStatsRowHTML('mod')}
             <div class="bonus-list" id="bonus-mod-list">${renderModList()}</div>
           </div>
           <!-- 临时属性 -->
           <div class="bonus-section">
             <div class="bonus-section__label">⏳ 临时属性</div>
-            <div class="bonus-add-row">
-              <input type="text" id="bonus-temp-source" placeholder="来源" maxlength="30" style="flex:3;">
-              <label class="bonus-inline-label">攻击</label>
-              <input type="number" id="bonus-temp-atk" value="0" min="-99" max="99">
-              <label class="bonus-inline-label">生命</label>
-              <input type="number" id="bonus-temp-hp" value="0" min="-99" max="99">
-              <button type="button" class="bonus-btn bonus-btn--add" id="bonus-add-temp">添加</button>
-            </div>
+            ${_addStatsRowHTML('temp')}
             <div class="bonus-list" id="bonus-temp-list">${renderTempList()}</div>
           </div>
           <!-- 效果记录 -->
@@ -946,7 +934,7 @@ const BonusPanel = (() => {
     return `<div class="bonus-form-empty">
       <div class="bonus-add-row">
         <input type="text" id="bonus-form-name" placeholder="形态名称" maxlength="30" style="flex:2;">
-        <label class="bonus-inline-label">攻击</label>
+        <label class="bonus-inline-label">力量</label>
         <input type="number" id="bonus-form-atk" value="0" min="0" max="99">
         <label class="bonus-inline-label">生命</label>
         <input type="number" id="bonus-form-hp" value="0" min="0" max="99">
@@ -954,6 +942,17 @@ const BonusPanel = (() => {
       <textarea id="bonus-form-ability" class="bonus-ability-input" placeholder="形态效果" rows="2" style="margin:4px 0;"></textarea>
       <button type="button" class="bonus-btn bonus-btn--add" id="bonus-equip-form">结附形态</button>
     </div>`;
+  }
+
+  /** 属性条目里的小图标 + 数值：0 不显示；正数带 +，负数原样 */
+  function _statValHTML(kind, val) {
+    const v = val || 0;
+    if (v === 0) return '';
+    const icon = kind === 'hp'
+      ? '<img src="' + IMG + '/属性/生命.png" class="bonus-list-item__stat-icon" alt="生命">'
+      : '<img src="' + IMG + '/属性/攻击.png" class="bonus-list-item__stat-icon" alt="力量">';
+    const cls = 'bonus-list-item__val' + (kind === 'hp' ? ' bonus-list-item__val--hp' : ' bonus-list-item__val--atk');
+    return `<span class="${cls}">${icon}${v > 0 ? '+' : ''}${v}</span>`;
   }
 
   function renderTempList() {
@@ -967,8 +966,8 @@ const BonusPanel = (() => {
       const layersText = layers > 1 ? ` ×${layers}` : '';
       mods.push(`<div class="bonus-list-item">
         <span class="bonus-list-item__source">${escapeHTML(src)}${layersText}</span>
-        <span class="bonus-list-item__val">攻击${am.value >= 0 ? '+' : ''}${am.value}</span>
-        <span class="bonus-list-item__val">生命${hm.value >= 0 ? '+' : ''}${hm.value}</span>
+        ${_statValHTML('atk', am.value)}
+        ${_statValHTML('hp', hm.value)}
         <span class="bonus-list-item__pm-group">
           <button type="button" class="bonus-list-item__pm bonus-list-item__pm--plus" data-temp-idx="${i}" data-action="plus">+</button>
           <button type="button" class="bonus-list-item__pm bonus-list-item__pm--minus" data-temp-idx="${i}" data-action="minus"${layers <= 1 ? ' disabled' : ''}>−</button>
@@ -993,8 +992,8 @@ const BonusPanel = (() => {
       const hpBase = hm.value || 0;
       mods.push(`<div class="bonus-list-item">
         <span class="bonus-list-item__source">${escapeHTML(src)}${layersText}</span>
-        <span class="bonus-list-item__val">攻击${atkBase >= 0 ? '+' : ''}${atkBase}</span>
-        <span class="bonus-list-item__val">生命${hpBase >= 0 ? '+' : ''}${hpBase}</span>
+        ${_statValHTML('atk', atkBase)}
+        ${_statValHTML('hp', hpBase)}
         <span class="bonus-list-item__pm-group">
           <button type="button" class="bonus-list-item__pm bonus-list-item__pm--plus" data-mod-idx="${i}" data-action="plus">+</button>
           <button type="button" class="bonus-list-item__pm bonus-list-item__pm--minus" data-mod-idx="${i}" data-action="minus"${layers <= 1 ? ' disabled' : ''}>−</button>
@@ -1042,37 +1041,34 @@ const BonusPanel = (() => {
   }
 
   function handleAddTemp() {
-    const src = document.getElementById('bonus-temp-source').value.trim();
+    let src = document.getElementById('bonus-temp-source').value.trim();
     const atk = parseInt(document.getElementById('bonus-temp-atk').value, 10) || 0;
     const hp = parseInt(document.getElementById('bonus-temp-hp').value, 10) || 0;
-    if (!src) return;
+    // 来源可不填：只要攻击/生命有任意一个非 0 就能添加，来源默认「未定义来源」
+    if (!src) {
+      if (atk === 0 && hp === 0) return;
+      src = '未定义来源';
+    }
     const oldFullAtk = typeof calcFullAtk === 'function' ? calcFullAtk(ctx.slot) : 0;
     const oldFullHp = typeof calcFullHp === 'function' ? calcFullHp(ctx.slot) : 0;
-    let idx = ctx.tempAtkMods.findIndex(m => m.source === src);
-    if (idx < 0) idx = ctx.tempHpMods.findIndex(m => m.source === src);
-    if (idx >= 0) {
-      const atkVal = (ctx.tempAtkMods[idx] || {}).value || 0;
-      const hpVal = (ctx.tempHpMods[idx] || {}).value || 0;
-      if (atkVal === atk && hpVal === hp) {
-        // 来源和数值都相同 → 叠加层数
-        ctx.tempAtkMods[idx].layers = (ctx.tempAtkMods[idx].layers || 1) + 1;
-        ctx.tempHpMods[idx].layers = ctx.tempAtkMods[idx].layers;
-      } else {
-        // 来源相同但数值不同 → 新增一项
-        ctx.tempAtkMods.push({ source: src, value: atk, layers: 1 });
-        ctx.tempHpMods.push({ source: src, value: hp, layers: 1 });
-      }
+    if (typeof addTempStatMod === 'function') {
+      // 同来源 + 同攻击 + 同生命 → 叠层 ×N；任一不同 → 新增一条
+      addTempStatMod(ctx.slot, src, atk, hp);
     } else {
+      if (!ctx.tempAtkMods) ctx.tempAtkMods = [];
+      if (!ctx.tempHpMods) ctx.tempHpMods = [];
       ctx.tempAtkMods.push({ source: src, value: atk, layers: 1 });
       ctx.tempHpMods.push({ source: src, value: hp, layers: 1 });
+      ctx.slot._tempAtkMods = ctx.tempAtkMods; ctx.slot._tempHpMods = ctx.tempHpMods;
     }
-    ctx.slot._tempAtkMods = ctx.tempAtkMods; ctx.slot._tempHpMods = ctx.tempHpMods;
+    ctx.tempAtkMods = ctx.slot._tempAtkMods || ctx.tempAtkMods;
+    ctx.tempHpMods = ctx.slot._tempHpMods || ctx.tempHpMods;
     document.getElementById('bonus-temp-source').value = '';
-    document.getElementById('bonus-temp-atk').value = '0';
-    document.getElementById('bonus-temp-hp').value = '0';
+    document.getElementById('bonus-temp-atk').value = '';
+    document.getElementById('bonus-temp-hp').value = '';
     if (typeof applyStatsChange === 'function') applyStatsChange(ctx.slot, oldFullAtk, oldFullHp);
     syncSlotToPeer(ctx.slot);
-    const atkStr = atk !== 0 ? `攻击${atk >= 0 ? '+' : ''}${atk}` : '';
+    const atkStr = atk !== 0 ? `力量${atk >= 0 ? '+' : ''}${atk}` : '';
     const hpStr = hp !== 0 ? `生命${hp >= 0 ? '+' : ''}${hp}` : '';
     broadcastBonusMsg('添加了临时属性', `${src}（${[atkStr, hpStr].filter(Boolean).join('，')}）`);
     refresh();
@@ -1093,7 +1089,7 @@ const BonusPanel = (() => {
       if (typeof autoUpdateSlotImage === 'function') autoUpdateSlotImage(ctx.slot);
       if (typeof renderFormBadge === 'function') renderFormBadge(ctx.slot);
     }
-    broadcastBonusMsg('结附了形态', `${name}（攻击${atk}，生命${hp}）`);
+    broadcastBonusMsg('结附了形态', `${name}（力量${atk}，生命${hp}）`);
     refresh();
   }
 
@@ -1144,6 +1140,7 @@ const BonusPanel = (() => {
     slot._permAbility = ''; slot._permEffects = [];
     if (typeof StunFx !== 'undefined') StunFx.sync(slot);
     slot._formName = ''; slot._formAtk = 0; slot._formHp = 0; slot._formAbility = '';
+    if (typeof renderFormBadge === 'function') renderFormBadge(slot);   // 形态标签一并去掉（否则残留旧形态占一行）
     slot._tempAtkMods = []; slot._tempHpMods = [];
     if (typeof setSlotCurses === 'function') setSlotCurses(slot, []);
     if (typeof updateSlotCountdownBadge === 'function') updateSlotCountdownBadge(slot, '');

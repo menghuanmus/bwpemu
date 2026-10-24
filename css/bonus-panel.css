@@ -205,6 +205,14 @@
 .bonus-add-row input:focus { outline: none; border-color: rgba(240,200,60,0.7); }
 .bonus-inline-label { font-size: 13px; color: #a08040; white-space: nowrap; }
 
+/* 永久/临时属性「添加」行：来源 + 攻击 + 生命 + 添加，固定一行不换行 */
+.bonus-add-row--stats { flex-wrap: nowrap; }
+.bonus-add-row--stats input[type="text"] { flex: 1 1 auto; min-width: 0; }
+.bonus-add-row--stats input[type="number"] { flex: 0 0 58px; width: 58px; }
+.bonus-add-row--stats .bonus-btn--add { flex: 0 0 auto; }
+/* 空白默认值：用淡色占位提示代替「0」 */
+.bonus-add-row input::placeholder { color: #7a6a48; }
+
 /* 列表 */
 .bonus-list { display: flex; flex-direction: column; gap: 5px; }
 .bonus-list-empty { font-size: 13px; color: #706040; padding: 4px 0; }
@@ -219,6 +227,10 @@
 .bonus-list-item--effect .bonus-list-item__source { flex: 0.6; }
 .bonus-list-item--effect .bonus-list-item__desc { flex: 1.4; }
 .bonus-list-item__val { color: #f0d080; white-space: nowrap; }
+.bonus-list-item__stat-icon {
+  width: 14px; height: 14px; vertical-align: -2px; object-fit: contain;
+  margin-right: 2px; image-rendering: auto;
+}
 .bonus-list-item__desc { flex: 1; color: #c0a060; min-width: 0; white-space: pre-wrap; word-break: break-word; }
 .bonus-list-item__del {
   background: none; border: none; color: #a08040; cursor: pointer; font-size: 15px; padding: 2px 4px;
