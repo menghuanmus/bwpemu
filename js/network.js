@@ -20,33 +20,8 @@
     let isSoloMode = false;
     let lastRoomCode = null;
 
-    // ---- 心跳 ----
-    let heartbeatTimer = null;
-    let lastPongTime = 0;
-    let consecutivePingFails = 0;
-    const HEARTBEAT_INTERVAL = 15000;
-    const HEARTBEAT_TIMEOUT = 45000;
-
-    // ---- 重连 ----
-    let reconnectTimer = null;
-    let reconnectAttempts = 0;
-    const MAX_RECONNECT_ATTEMPTS = 10;
-    let joinTimeout = null;
-    let peerLeft = false;
-
     // ---- 观众 ----
     let spectatorNameCounter = 0;
-
-    function generateRoomCode() {
-      const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-      let code = '';
-      for (let i = 0; i < 6; i++) code += chars[Math.floor(Math.random() * chars.length)];
-      return code;
-    }
-
-    function clearJoinTimeout() {
-      if (joinTimeout) { clearTimeout(joinTimeout); joinTimeout = null; }
-    }
 
     function updateSysChatTitle() {
       const el = document.getElementById('sys-chat-title-text');
@@ -91,22 +66,6 @@
       if (typeof sendToServer === 'function') sendToServer({ type: 'game', data: data });
     }
 
-    function broadcastToAll(data) { sendToPeer(data); }
-
-    // ================================================================
-    //  心跳（Socket.IO 自带心跳，这里仅作为后备）
-    // ================================================================
-
-    function startHeartbeat() {
-      stopHeartbeat();
-      heartbeatTimer = setInterval(function() {}, HEARTBEAT_INTERVAL);
-    }
-
-    function stopHeartbeat() {
-      if (heartbeatTimer) { clearInterval(heartbeatTimer); heartbeatTimer = null; }
-      if (reconnectTimer) { clearTimeout(reconnectTimer); reconnectTimer = null; }
-    }
-
     // ================================================================
     //  游戏消息处理（由 auth.js Socket.IO 的 update 事件驱动）
     // ================================================================
@@ -134,6 +93,8 @@
           break;
         case 'deck-update':
           applyRemoteDeckState(data.playerId, data.deckCount, data.handCount, data.deckData, data.handData, data.graveData, data.stackRules);
+          // 手牌变了要重绘已打开的手牌/牌库弹窗，否则看不到刚加的加护/蚀印揭示
+          if (typeof refreshOpenListDialog === 'function') refreshOpenListDialog(data.playerId);
           break;
         case 'revealed-cards':
           if (data.playerId && Array.isArray(data.cardIds) && typeof playerRevealedCards !== 'undefined') {
@@ -185,7 +146,8 @@
           break;
         case 'sysmsg':
           addSystemChatMessage(data.text, data.food);
-          if (window.Undo && Undo.noteMessage && data.text && data.text.indexOf('【系统提示】') !== 0) Undo.noteMessage(data.text);
+          // noUndo：只是过程提示（如「正在进行加护…」），不产生撤销步骤
+          if (!data.noUndo && window.Undo && Undo.noteMessage && data.text && data.text.indexOf('【系统提示】') !== 0) Undo.noteMessage(data.text);
           break;
         case 'sysmsg-group':
           if (data.mainMsg && Array.isArray(data.subMsgs) && typeof _renderGroupedMessage === 'function') {
@@ -489,29 +451,6 @@
       applyPermissionLock();
       setConnStatus(true, '已连接');
       addSystemChatMessage('【系统】连接成功，游戏开始！');
-    }
-
-    function syncFullState() {
-      if (!isConnected()) return;
-      document.querySelectorAll('.player-zone[data-player="' + localPlayerId + '"] .card-slot').forEach(function(slot) { syncSlotToPeer(slot); });
-      syncDeckState(localPlayerId); syncEffectsState(localPlayerId); syncPlayerInfo(localPlayerId); syncFireState(localPlayerId);
-    }
-
-    function syncFullStateForSpec() {
-      if (!isConnected() || !isHost) return;
-      ['1', '2'].forEach(function(pid) {
-        document.querySelectorAll('.player-zone[data-player="' + pid + '"] .card-slot').forEach(function(slot) {
-          var state = getSlotState(slot);
-          sendToPeer({ type: 'slot-update', playerId: pid, slotIndex: parseInt(slot.dataset.slotIndex, 10), state: state });
-        });
-        var cards = getPlayerCardState(pid);
-        // 观众只能看到「张数 + 层数」，看不到牌名：堆叠层数要带过去（否则观众看不到层数）
-        var dummies = function(arr) { return arr.map(function(c) { return { id: c.id, name: '未知', curses: c.curses || [], _stack: c._stack, _maxStack: c._maxStack, _maxStackManual: !!c._maxStackManual }; }); };
-        sendToPeer({ type: 'deck-update', playerId: pid, deckCount: cards.deck.length, handCount: cards.hand.length, deckData: dummies(cards.deck), handData: dummies(cards.hand), graveData: (cards.grave || []).filter(function(c) { return c && typeof c === 'object'; }) });
-        sendToPeer({ type: 'effects-update', playerId: pid, effects: getEffectsState(pid) });
-        var info = getPlayerInfo(pid); sendToPeer({ type: 'player-info', playerId: pid, name: info.name, hp: info.hp });
-        sendToPeer({ type: 'fire-update', playerId: pid, count: playerFire[pid] });
-      });
     }
 
     // ================================================================

@@ -306,15 +306,22 @@
         item.className = 'card-list-item';
         const info = document.createElement('div');
         info.className = 'card-list-item__info';
-        // 展示机制：该手牌是否被展示
+        // 展示机制：该手牌是否被展示（手动展示 ∪ 带蚀印，两者任一即算已展示）
+        const sealReveal = (typeof BlessSeal !== 'undefined' && BlessSeal.hasSeal) ? BlessSeal.hasSeal(card) : false;
         const isShown = !!(playerHandShows[playerId] && playerHandShows[playerId].has(card.id));
+        const shownNow = isShown || sealReveal;   // 渲染可见性用
         // 查看对手手牌：隐藏灵咒数据（观众/被展示的牌可见全部内容）
-        if ((ownCards || specView || isShown) && card.curses && card.curses.length) {
+        if ((ownCards || specView || shownNow) && card.curses && card.curses.length) {
           info.dataset.cardCurses = JSON.stringify(card.curses);
+        }
+        // 加护/蚀印标记：可见时供悬浮窗读取（按效果分组，同效果带 ×N）
+        const cardMarks = (typeof BlessSeal !== 'undefined' && BlessSeal.markGroups) ? BlessSeal.markGroups(card) : [];
+        if (cardMarks.length && (ownCards || specView || shownNow)) {
+          info.dataset.cardMarks = JSON.stringify(cardMarks);
         }
         const name = document.createElement('span');
         name.className = 'card-list-item__name';
-        if (ownCards || specView || isShown) {
+        if (ownCards || specView || shownNow) {
           name.textContent = _displayCardName(card.name || '(未命名)');
           // 食材牌/佳肴：存储数据供浮窗显示
           if (card._food) {
@@ -327,7 +334,7 @@
         info.appendChild(name);
         // 堆叠层数：自己 = 「− 堆叠：n/max +」可调；对手被展示的牌 = 只读文本（§6 #7）
         const handCanEdit = ownCards && !specView;
-        const handCanSee = ownCards || specView || isShown;
+        const handCanSee = ownCards || specView || shownNow;
         if (handCanSee && typeof window.StackManage === 'object'
             && window.StackManage.limitOf(playerId, card, handCanEdit) > 0) {
           stackCtl = window.StackManage.buildInline(playerId, card, handCanEdit, function () {
@@ -341,9 +348,11 @@
           stackSpan.textContent = '堆叠：' + card._stack + '/' + card._maxStack;
           info.appendChild(stackSpan);
         }
-        // 灵咒标签 + 展示徽章（同行共享位置）
-        const showCurses = card.curses && card.curses.length && (ownCards || specView || isShown);
-        if (showCurses || isShown) {
+        // 灵咒标签 + 展示徽章 + 加护/蚀印标记（同行共享位置）
+        const showCurses = card.curses && card.curses.length && (ownCards || specView || shownNow);
+        const markTags = (typeof BlessSeal !== 'undefined' && BlessSeal.markTags) ? BlessSeal.markTags(card) : [];
+        const showMarks = markTags.length && (ownCards || specView || shownNow);
+        if (showCurses || isShown || showMarks) {
           const curseTags = document.createElement('div');
           curseTags.className = 'card-list-item__curses';
           if (showCurses) {
@@ -356,6 +365,17 @@
               if (ownCards) {
                 tag.addEventListener('click', (e) => { e.stopPropagation(); openCursePanel(_curseTargetForCard(playerId, card, '手牌中的')); });
               }
+              curseTags.appendChild(tag);
+            });
+          }
+          if (showMarks) {
+            markTags.forEach(mt => {
+              const tag = document.createElement('span');
+              tag.className = 'card-list-mark-tag card-list-mark-tag--' + mt.kind;
+              const fullText = mt.icon + mt.label + (mt.count > 1 ? '×' + mt.count : '') + '：' + mt.brief;
+              const safe = (typeof escapeHTML === 'function') ? escapeHTML(fullText) : fullText;
+              tag.innerHTML = (typeof BlessSeal !== 'undefined' && BlessSeal.statIcons) ? BlessSeal.statIcons(safe) : safe;
+              tag.title = mt.full;
               curseTags.appendChild(tag);
             });
           }
@@ -1157,6 +1177,9 @@
       const index = state.hand.findIndex(card => card.id === cardId);
       if (index === -1) return;
       const card = state.hand[index];
+      // 加护/蚀印：离手（使用/弃置）前先把效果文本记下来，然后清掉标记
+      const markInfoText = (typeof BlessSeal !== 'undefined' && BlessSeal.markSuffix) ? BlessSeal.markSuffix(card) : '';
+      if (typeof BlessSeal !== 'undefined' && BlessSeal.clearMarks) BlessSeal.clearMarks(card);
       state.hand.splice(index, 1);
 
       // 加入坟场（使用/弃置都进；从坟场再使用时不再重复进坟场）
@@ -1184,7 +1207,7 @@
       if (action === 'use') {
         const stackInfo = (card._maxStack > 0) ? `（${card._stack || 1}/${card._maxStack}）` : '';
         const curseInfo = (card.curses && card.curses.length) ? '（结附灵咒：' + card.curses.map(c => c.name + '×' + c.layers).join('、') + '）' : '';
-        const mainMsg = `【系统】${getPlayerName(playerId)}${verb}「${card.name}」${stackInfo}${curseInfo}`;
+        const mainMsg = `【系统】${getPlayerName(playerId)}${verb}「${card.name}」${stackInfo}${curseInfo}${markInfoText}`;
         if (window._graveUseInProgress) {
           // 从坟场使用：由坟场逻辑统一播报，这里不重复
         } else if (window._searchUseInProgress) {
@@ -1347,11 +1370,14 @@
       const index = state.hand.findIndex(card => card.id === cardId);
       if (index === -1) return;
       const [card] = state.hand.splice(index, 1);
+      // 回牌库：离手即清标记（先把文本取出来放进消息）
+      const markInfoText = (typeof BlessSeal !== 'undefined' && BlessSeal.markSuffix) ? BlessSeal.markSuffix(card) : '';
+      if (typeof BlessSeal !== 'undefined' && BlessSeal.clearMarks) BlessSeal.clearMarks(card);
       insertCardAtRandomPosition(state.deck, card);
       updateDeckButtons(playerId);
       refreshOpenListDialog(playerId);
       syncDeckState(playerId);
-      broadcastSystemMsg(`【系统】${getPlayerName(playerId)}将「${card.name}」从手牌放回了牌库`);
+      broadcastSystemMsg(`【系统】${getPlayerName(playerId)}将「${card.name}」从手牌放回了牌库${markInfoText}`);
       // 飞行动画：手牌 → 牌库
       if (typeof CardFlight !== 'undefined') {
         CardFlight.flyAndBroadcast(playerId, 'hand', 'deck');

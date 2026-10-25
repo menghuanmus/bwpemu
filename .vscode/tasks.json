@@ -384,6 +384,451 @@
 			"type": "shell",
 			"command": "Set-Location \"d:\\DIY\\百闻牌\\百闻牌模拟器\\menghuanmus.github.io\"; node --check server\\data\\cards.js; Write-Output \"OK\"",
 			"problemMatcher": []
+		},
+		{
+			"label": "check-network-js",
+			"type": "shell",
+			"command": "node --check js/network.js; echo \"EXIT=$LASTEXITCODE\"",
+			"problemMatcher": [],
+			"group": "build"
+		},
+		{
+			"label": "check-bless-seal",
+			"type": "shell",
+			"command": "node --check js/bless-seal.js; echo \"bless-seal=$LASTEXITCODE\"; node --check js/card-deck.js; echo \"card-deck=$LASTEXITCODE\"; node --check js/card-tooltip.js; echo \"card-tooltip=$LASTEXITCODE\"; node --check js/network.js; echo \"network=$LASTEXITCODE\"; node --check js/game-core.js; echo \"game-core=$LASTEXITCODE\"; node --check js/undo.js; echo \"undo=$LASTEXITCODE\"; node --check js/renyin.js; echo \"renyin=$LASTEXITCODE\"",
+			"problemMatcher": [],
+			"group": "build"
+		},
+		{
+			"label": "check-bless-seal-2",
+			"type": "shell",
+			"command": "node --check js/bless-seal.js; echo \"bless-seal=$LASTEXITCODE\"",
+			"problemMatcher": [],
+			"group": "build"
+		},
+		{
+			"label": "check-bless-3",
+			"type": "shell",
+			"command": "node --check js/bless-seal.js; echo \"bless=$LASTEXITCODE\"; node --check js/card-tooltip.js; echo \"tip=$LASTEXITCODE\"; node --check js/card-deck.js; echo \"deck=$LASTEXITCODE\"",
+			"problemMatcher": [],
+			"group": "build"
+		},
+		{
+			"label": "check-bless-4",
+			"type": "shell",
+			"command": "node --check js/bless-seal.js; echo \"bless=$LASTEXITCODE\"",
+			"problemMatcher": [],
+			"group": "build"
+		},
+		{
+			"label": "check-bless-5",
+			"type": "shell",
+			"command": "node --check js/bless-seal.js; echo \"bless=$LASTEXITCODE\"; node --check js/card-tooltip.js; echo \"tip=$LASTEXITCODE\"; node --check js/card-deck.js; echo \"deck=$LASTEXITCODE\"",
+			"problemMatcher": [],
+			"group": "build"
+		},
+		{
+			"label": "check-bless-6",
+			"type": "shell",
+			"command": "node --check js/bless-seal.js; echo \"bless=$LASTEXITCODE\"",
+			"problemMatcher": [],
+			"group": "build"
+		},
+		{
+			"label": "check-bless-7",
+			"type": "shell",
+			"command": "node --check js/bless-seal.js; echo \"bless=$LASTEXITCODE\"",
+			"problemMatcher": [],
+			"group": "build"
+		},
+		{
+			"label": "prd-reset",
+			"type": "shell",
+			"command": "Remove-Item -LiteralPath '.scratch\\加护与蚀印\\PRD.md' -Force -ErrorAction SilentlyContinue; if (Test-Path '.scratch\\加护与蚀印\\PRD.md') { echo STILL_EXISTS } else { echo REMOVED }",
+			"problemMatcher": [],
+			"group": "build"
+		},
+		{
+			"label": "check-bless-final",
+			"type": "shell",
+			"command": "node --check js/bless-seal.js; echo \"bless=$LASTEXITCODE\"; node --check js/card-deck.js; echo \"deck=$LASTEXITCODE\"; node --check js/card-tooltip.js; echo \"tip=$LASTEXITCODE\"",
+			"problemMatcher": [],
+			"group": "build"
+		},
+		{
+			"label": "check-bless-8",
+			"type": "shell",
+			"command": "node --check js/bless-seal.js; echo \"bless=$LASTEXITCODE\"",
+			"problemMatcher": [],
+			"group": "build"
+		},
+		{
+			"label": "bless-check",
+			"type": "shell",
+			"command": "node --check js/bless-seal.js; echo \"bless=$LASTEXITCODE\"",
+			"problemMatcher": [],
+			"group": "build"
+		},
+		{
+			"label": "bless-check13",
+			"type": "shell",
+			"command": "node",
+			"args": [
+				"--check",
+				"js/bless-seal.js"
+			]
+		},
+		{
+			"label": "tipcheck13",
+			"type": "shell",
+			"command": "node",
+			"args": [
+				"--check",
+				"js/card-tooltip.js"
+			]
+		},
+		{
+			"label": "tipcheck13b",
+			"type": "shell",
+			"command": "node",
+			"args": [
+				"--check",
+				"js/card-tooltip.js"
+			]
+		},
+		{
+			"label": "gitstatus",
+			"type": "shell",
+			"command": "git",
+			"args": [
+				"status",
+				"--short"
+			]
+		},
+		{
+			"label": "gitdiff-tasks",
+			"type": "shell",
+			"command": "git",
+			"args": [
+				"diff",
+				"--",
+				".vscode/tasks.json"
+			]
+		},
+		{
+			"label": "check-all-13",
+			"type": "shell",
+			"command": "node",
+			"args": [
+				"-e",
+				"const{execSync}=require('child_process');const fs=['js/bless-seal.js','js/card-tooltip.js','js/my-lib.js','js/shop.js','js/card-deck.js','js/network.js','js/undo.js','js/renyin.js','js/game-core.js'];let bad=0;fs.forEach(f=>{try{execSync('node --check '+f);console.log('OK  '+f)}catch(e){bad++;console.log('ERR '+f)}});console.log('errors='+bad)"
+			]
+		},
+		{
+			"label": "check-mylib",
+			"type": "shell",
+			"command": "node",
+			"args": [
+				"--check",
+				"js/my-lib.js"
+			]
+		},
+		{
+			"label": "check-shop",
+			"type": "shell",
+			"command": "node",
+			"args": [
+				"--check",
+				"js/shop.js"
+			]
+		},
+		{
+			"label": "probe-env3",
+			"type": "shell",
+			"command": "node",
+			"args": [
+				"server/_probe.js"
+			]
+		},
+		{
+			"label": "find-chrome",
+			"type": "shell",
+			"command": "node",
+			"args": [
+				"server/_findchrome.js"
+			]
+		},
+		{
+			"label": "cdp-smoke",
+			"type": "shell",
+			"command": "node",
+			"args": [
+				"server/_cdp-run.js",
+				"_tests/smoke.js",
+				"--wait=3000"
+			]
+		},
+		{
+			"label": "cdp-t1",
+			"type": "shell",
+			"command": "node",
+			"args": [
+				"server/_cdp-run.js",
+				"_tests/t1-bless-core.js",
+				"--wait=3000"
+			]
+		},
+		{
+			"label": "cdp-t1b",
+			"type": "shell",
+			"command": "node",
+			"args": [
+				"server/_cdp-run.js",
+				"_tests/t1b-bless.js",
+				"--wait=3000"
+			]
+		},
+		{
+			"label": "cdp-t1c",
+			"type": "shell",
+			"command": "node",
+			"args": [
+				"server/_cdp-run.js",
+				"_tests/t1b-bless.js",
+				"--wait=3000"
+			]
+		},
+		{
+			"label": "cdp-t2",
+			"type": "shell",
+			"command": "node",
+			"args": [
+				"server/_cdp-run.js",
+				"_tests/t2-tooltip.js",
+				"--wait=3000"
+			]
+		},
+		{
+			"label": "cdp-t3",
+			"type": "shell",
+			"command": "node",
+			"args": [
+				"server/_cdp-run.js",
+				"_tests/t3-mobile.js",
+				"--mobile",
+				"--wait=3000"
+			]
+		},
+		{
+			"label": "cdp-t2b",
+			"type": "shell",
+			"command": "node",
+			"args": [
+				"server/_cdp-run.js",
+				"_tests/t2b-tooltip-other.js",
+				"--wait=3000"
+			]
+		},
+		{
+			"label": "cdp-t2c",
+			"type": "shell",
+			"command": "node",
+			"args": [
+				"server/_cdp-run.js",
+				"_tests/t2b-tooltip-other.js",
+				"--wait=3000"
+			]
+		},
+		{
+			"label": "cdp-t3b",
+			"type": "shell",
+			"command": "node",
+			"args": [
+				"server/_cdp-run.js",
+				"_tests/t3-mobile.js",
+				"--mobile",
+				"--wait=3000"
+			]
+		},
+		{
+			"label": "cdp-t4",
+			"type": "shell",
+			"command": "node",
+			"args": [
+				"server/_cdp-run.js",
+				"_tests/t4-pool-armor.js",
+				"--wait=3000"
+			]
+		},
+		{
+			"label": "cdp-t4b",
+			"type": "shell",
+			"command": "node",
+			"args": [
+				"server/_cdp-run.js",
+				"_tests/t4-pool-armor.js",
+				"--wait=3000"
+			]
+		},
+		{
+			"label": "find-port-owner",
+			"type": "shell",
+			"command": "powershell",
+			"args": [
+				"-Command",
+				"Get-NetTCPConnection -LocalPort 8099,9333 -ErrorAction SilentlyContinue | Select-Object LocalPort,OwningProcess | Format-Table -AutoSize | Out-String"
+			]
+		},
+		{
+			"label": "kill-stale",
+			"type": "shell",
+			"command": "powershell",
+			"args": [
+				"-Command",
+				"Stop-Process -Id 3948,43300 -Force -ErrorAction SilentlyContinue; Start-Sleep -Milliseconds 500; 'killed'"
+			]
+		},
+		{
+			"label": "cdp-t4c",
+			"type": "shell",
+			"command": "node",
+			"args": [
+				"server/_cdp-run.js",
+				"_tests/t4-pool-armor.js",
+				"--wait=3000"
+			]
+		},
+		{
+			"label": "all-check",
+			"type": "shell",
+			"command": "powershell",
+			"args": [
+				"-Command",
+				"foreach ($f in @('js/bless-seal.js','js/card-tooltip.js','js/card-deck.js','js/renyin.js','js/network.js','js/game-core.js','js/undo.js','js/my-lib.js','js/shop.js')) { node --check $f; if ($LASTEXITCODE -eq 0) { Write-Host \"OK  $f\" } else { Write-Host \"FAIL $f\" } }"
+			]
+		},
+		{
+			"label": "all-check2",
+			"type": "shell",
+			"command": "node --check js/bless-seal.js; node --check js/card-tooltip.js; node --check js/card-deck.js; node --check js/renyin.js; node --check js/network.js; node --check js/game-core.js; node --check js/undo.js; node --check js/my-lib.js; node --check js/shop.js; Write-Host ALLDONE",
+			"args": []
+		},
+		{
+			"label": "pw-version",
+			"type": "shell",
+			"command": "npx --yes playwright --version",
+			"args": []
+		},
+		{
+			"label": "pw-version2",
+			"type": "shell",
+			"command": "npx.cmd --yes playwright --version",
+			"args": []
+		},
+		{
+			"label": "pw-cache",
+			"type": "shell",
+			"command": "Get-ChildItem \"$env:LOCALAPPDATA\\ms-playwright\" -ErrorAction SilentlyContinue | Select-Object -ExpandProperty Name; Write-Host '---'; npm.cmd ls -g --depth=0",
+			"args": []
+		},
+		{
+			"label": "find-browser",
+			"type": "shell",
+			"command": "@('C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe','C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe','C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe') | ForEach-Object { if (Test-Path $_) { Write-Host \"FOUND $_\" } else { Write-Host \"no    $_\" } }",
+			"args": []
+		},
+		{
+			"label": "pw-install",
+			"type": "shell",
+			"command": "npm.cmd install playwright-core --prefix .scratch/pwtest --no-save --no-audit --no-fund 2>&1 | Select-Object -Last 5",
+			"args": []
+		},
+		{
+			"label": "pw-t1",
+			"type": "shell",
+			"command": "node .scratch/pwtest/t1.js",
+			"args": []
+		},
+		{
+			"label": "pw-t1v2",
+			"type": "shell",
+			"command": "node .scratch/pwtest/t1v2.js",
+			"args": []
+		},
+		{
+			"label": "pw-t2",
+			"type": "shell",
+			"command": "node .scratch/pwtest/t2.js",
+			"args": []
+		},
+		{
+			"label": "pw-t3",
+			"type": "shell",
+			"command": "node .scratch/pwtest/t3.js",
+			"args": []
+		},
+		{
+			"label": "pw-t4",
+			"type": "shell",
+			"command": "node .scratch/pwtest/t4.js",
+			"args": []
+		},
+		{
+			"label": "pw-t5",
+			"type": "shell",
+			"command": "node .scratch/pwtest/t5.js",
+			"args": []
+		},
+		{
+			"label": "pw-t5b",
+			"type": "shell",
+			"command": "node .scratch/pwtest/t5.js",
+			"args": []
+		},
+		{
+			"label": "pw-t1v3",
+			"type": "shell",
+			"command": "node .scratch/pwtest/t1v2.js",
+			"args": []
+		},
+		{
+			"label": "git-state",
+			"type": "shell",
+			"command": "git status --short; Write-Host '--- diff stat ---'; git diff --stat",
+			"args": []
+		},
+		{
+			"label": "armorcheck1",
+			"type": "shell",
+			"command": "node",
+			"args": [
+				"--check",
+				"js/shop.js"
+			]
+		},
+		{
+			"label": "armorcheck2",
+			"type": "shell",
+			"command": "node",
+			"args": [
+				"--check",
+				"js/my-lib.js"
+			]
+		},
+		{
+			"label": "armorcheck3",
+			"type": "shell",
+			"command": "node",
+			"args": [
+				"--check",
+				"js/card-tooltip.js"
+			]
+		},
+		{
+			"label": "final-syntax-check",
+			"type": "shell",
+			"command": "node --check js/bless-seal.js; node --check js/card-tooltip.js; node --check js/my-lib.js; node --check js/shop.js; Write-Host DONE",
+			"args": []
 		}
 	]
 }

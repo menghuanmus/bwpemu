@@ -469,7 +469,7 @@ var MyLib = (function () {
         var sb = (unit && unit.shieldBonus != null) ? unit.shieldBonus : 0;
         html = '<div class="diy-row">' +
           fieldHTML('+力量/乏力', 'diy-f-atkbonus', inputHTML('diy-f-atkbonus', '0', 'number', 'value="' + ab2 + '"'), true) +
-          fieldHTML('+护盾/破甲', 'diy-f-shieldbonus', inputHTML('diy-f-shieldbonus', '0', 'number', 'value="' + sb + '"'), true) +
+          fieldHTML('+护甲/破甲', 'diy-f-shieldbonus', inputHTML('diy-f-shieldbonus', '0', 'number', 'value="' + sb + '"'), true) +
           '</div>';
       } else if (type === 'form') {
         var atk = (unit && unit.attack != null) ? unit.attack : 3;
@@ -599,7 +599,7 @@ var MyLib = (function () {
         }
       } else if (type === 'battle') {
         if ($('diy-f-atkbonus').value.trim() === '') err = '请填写战斗加成的力量';
-        else if ($('diy-f-shieldbonus').value.trim() === '') err = '请填写战斗加成的护盾';
+        else if ($('diy-f-shieldbonus').value.trim() === '') err = '请填写战斗加成的护甲';
         else {
           saved.atkBonus = parseInt($('diy-f-atkbonus').value, 10) || 0;
           saved.shieldBonus = parseInt($('diy-f-shieldbonus').value, 10) || 0;
@@ -954,7 +954,7 @@ var MyLib = (function () {
         else meta.push(pill('觉醒', 'diy-tag--awakened'));
       }
       if (unit.derivative) meta.push(pill('衍生', 'diy-tag--derivative'));
-      // 力量/生命/护盾：加成类统一 +x/+x（含 0），固定类显示 x/x
+      // 力量/生命/护甲：加成类统一 +x/+x（含 0），固定类显示 x/x
       if (unit.type === 'battle') meta.push(pill(signed(unit.atkBonus != null ? unit.atkBonus : 0) + '/' + signed(unit.shieldBonus != null ? unit.shieldBonus : 0)));
       if (unit.type === 'form') meta.push(pill((unit.attack != null ? unit.attack : 0) + '/' + (unit.hp != null ? unit.hp : 0)));
       if (unit.type === 'realm') meta.push(pill('耐久 ' + (unit.durability != null ? unit.durability : 1)));

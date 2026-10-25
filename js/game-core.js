@@ -1733,4 +1733,9 @@
 
       // 11) 牌库按钮计数刷新
       if (typeof updateAllDeckButtons === 'function') updateAllDeckButtons();
+
+      // 12) 加护/蚀印：新对局恢复官方规则与官方效果池
+      if (typeof BlessSeal !== 'undefined' && BlessSeal.resetConfig) {
+        try { BlessSeal.resetConfig(); } catch (e) { /* ignore */ }
+      }
     }

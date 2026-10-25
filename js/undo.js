@@ -365,6 +365,21 @@
       if (cnt(a.deck) !== cnt(b.deck)) out.push(pname(pid) + ' 牌库 ' + cnt(a.deck) + ' → ' + cnt(b.deck));
       if (cnt(a.hand) !== cnt(b.hand)) out.push(pname(pid) + ' 手牌 ' + cnt(a.hand) + ' → ' + cnt(b.hand));
       if (cnt(a.grave) !== cnt(b.grave)) out.push(pname(pid) + ' 坟场 ' + cnt(a.grave) + ' → ' + cnt(b.grave));
+      // 手牌上的加护/蚀印变化（张数不变也要能说明改了什么）
+      (function () {
+        var sig = function (c) { try { return JSON.stringify((c && c.marks) || []); } catch (e) { return '[]'; } };
+        var num = function (s) { try { return (JSON.parse(s) || []).length; } catch (e) { return 0; } };
+        var before = {};
+        (a.hand || []).forEach(function (c) { if (c && c.id != null) before[c.id] = sig(c); });
+        (b.hand || []).forEach(function (c) {
+          if (!c || c.id == null) return;
+          var prev = before[c.id];
+          if (prev === undefined) return;          // 新抽到的牌不算标记变化
+          var now = sig(c);
+          if (prev === now) return;
+          out.push(pname(pid) + ' 的「' + (c.name || '手牌') + '」加护/蚀印变化（' + num(prev) + ' → ' + num(now) + ' 条）');
+        });
+      })();
       // ---- 玩家 / 其它 ----
       if (String(a.name || '') !== String(b.name || '')) out.push('玩家名 ' + val(a.name) + ' → ' + val(b.name));
       if (String(a.hp) !== String(b.hp)) out.push(pname(pid) + ' 生命 ' + val(a.hp) + ' → ' + val(b.hp));

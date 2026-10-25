@@ -13,6 +13,7 @@
       let currentCard = null;
       let currentSlot = null;
       let currentCardCurses = null;
+      let currentCardMarks = null;   // 手牌/牌库上的加护 / 蚀印标记
       let hoveredEl = null;
       let _swallowNextClick = false;   // 点击悬浮窗关闭时，吞掉紧随的点击，防止穿透到下层按键
       let termsEl = null;              // 描述中灵咒/关键词的解释小窗容器（PC：悬浮窗旁）
@@ -112,6 +113,16 @@
         return String(text == null ? '' : text).replace(/^协战\*/, '');
       }
 
+      /** 是否属于「牌名」元素（决定查不到时要不要给「未录入」悬浮窗） */
+      const CARD_NAME_CLASSES = ['card-list-item__name', 'deck-group__name', 'divine-card-item__name', 'breakdown-card-row__name', 'charge-card-name', 'chat-card-name', 'preset-item__name'];
+      function _isCardNameEl(target) {
+        if (!target || !target.classList) return false;
+        for (let i = 0; i < CARD_NAME_CLASSES.length; i += 1) {
+          if (target.classList.contains(CARD_NAME_CLASSES[i])) return true;
+        }
+        return !!(target.closest && target.closest('.bs-cand'));
+      }
+
       function _findCardName(target) {
         if (!target) return null;
         // 食材牌/佳肴：通过 data-food 属性获取
@@ -149,6 +160,12 @@
         if (target.classList.contains('effect-name')) return target.value;
         // 蓄力管理面板中的卡牌名
         if (target.classList.contains('charge-card-name')) return target.dataset.cardName || target.textContent;
+        // 加护 / 蚀印候选牌
+        const candEl = target.closest ? target.closest('.bs-cand') : null;
+        if (candEl) {
+          const nm = candEl.querySelector('.bs-cand__name');
+          if (nm) return _stripBondPrefix(nm.textContent);
+        }
         // 手牌/牌库灵咒标签
         if (target.classList.contains('card-list-curse-tag')) {
           return target.dataset.curseName || '';
@@ -209,15 +226,22 @@
             card = _buildSlotCardInfo(slot, typeof name === 'string' ? name : '');
           }
         }
+        // 库里查不到的牌（DIY / 未录入）：也给一个「未录入卡牌」悬浮窗
+        // 只对真正的「牌名」元素生效，避免幻境名/效果名等自由文本也弹窗
+        if (!card && _isCardNameEl(target)) {
+          const nm = (typeof name === 'string') ? String(name).trim() : '';
+          if (nm && nm !== '未知') card = { name: nm, type: '', _unknownCard: true, effect: '' };
+        }
         if (!card) { hide(); return; }
         currentCard = card;
         hoveredEl = target;
         // 记录卡牌槽引用（战场，悬停灵咒徽章本身时跳过）
         const isCurseEl = target.closest('.curse-badge, .card-list-curse-tag');
         currentSlot = isCurseEl ? null : (target.closest('.card-slot') || null);
-        // 记录手牌/牌库卡牌数据
-        const info = target.closest('.card-list-item__info');
+        // 记录手牌/牌库卡牌数据（加护蚀印候选牌也挂了同名 dataset）
+        const info = target.closest('.card-list-item__info') || target.closest('.bs-cand');
         currentCardCurses = (!isCurseEl && info && info.dataset.cardCurses) ? JSON.parse(info.dataset.cardCurses) : null;
+        currentCardMarks = (!isCurseEl && info && info.dataset.cardMarks) ? JSON.parse(info.dataset.cardMarks) : null;
         clearTimeout(timer);
         const mx = e.clientX;
         const my = e.clientY;
@@ -425,6 +449,7 @@
         currentCard = null;
         currentSlot = null;
         currentCardCurses = null;
+        currentCardMarks = null;
         hoveredEl = null;
         if (el) el.hidden = true;
         if (termsEl) termsEl.hidden = true;
@@ -456,6 +481,71 @@
         if (aV !== 0) segs.push(`<span style="color:#48c0e0;"><img src="images/属性/攻击.png" class="tip-stat-icon" alt="力量">${aV > 0 ? '+' : ''}${aV}</span>`);
         if (hV !== 0) segs.push(`<span style="color:#e04848;"><img src="images/属性/生命.png" class="tip-stat-icon" alt="生命">${hV > 0 ? '+' : ''}${hV}</span>`);
         return segs.length ? segs.join('<span class="card-tooltip__stat-gap"></span>') : '<span style="color:#8a8a8a;">—</span>';
+      }
+
+      /** 灵咒区 + 加护/蚀印区（_render 与未录入牌分支共用） */
+      function _renderCursesAndMarks(cardType) {
+        let cursesHTML = '';
+        let curses = null;
+        if (currentSlot && (cardType === 'shikigami' || cardType === 'summon' || cardType === 'transform')) {
+          curses = getSlotCurses(currentSlot);
+        }
+        if (!curses || !curses.length) {
+          curses = currentCardCurses;
+        }
+        if (curses && curses.length) {
+          cursesHTML = '<div class="card-tooltip__curses">';
+          curses.forEach(c => {
+            const dbCurse = CardDB.lookupExact ? CardDB.lookupExact(c.name) : CardDB.lookup(c.name);
+            const eff = dbCurse ? (dbCurse.effect || '') : '';
+            cursesHTML += '<div class="card-tooltip__curse-item">';
+            cursesHTML += '<div class="card-tooltip__curse-head">⛓️ <span class="curse-name">' + escapeHTML(c.name) + '</span> <span class="curse-layers">×' + c.layers + '</span></div>';
+            if (eff) cursesHTML += '<div class="card-tooltip__curse-eff">' + _highlightKeywords(escapeHTML(eff)) + '</div>';
+            cursesHTML += '</div>';
+          });
+          cursesHTML += '</div>';
+        }
+        let cursesEl = el.querySelector('.card-tooltip__curses');
+        if (cursesHTML) {
+          if (!cursesEl) {
+            cursesEl = document.createElement('div');
+            el.appendChild(cursesEl);
+          }
+          cursesEl.outerHTML = cursesHTML;
+        } else if (cursesEl) {
+          cursesEl.remove();
+        }
+
+        let marksHTML = '';
+        if (currentCardMarks && currentCardMarks.length) {
+          const MK = { bless: { icon: '🛡️', label: '加护' }, seal: { icon: '🗡️', label: '蚀印' } };
+          marksHTML = '<div class="card-tooltip__marks">';
+          ['bless', 'seal'].forEach(function (kind) {
+            const list = currentCardMarks.filter(function (m) { return m && m.kind === kind; });
+            if (!list.length) return;
+            const info = MK[kind];
+            const total = list.reduce(function (s, g) { return s + (g.count || 1); }, 0);
+            marksHTML += '<div class="card-tooltip__mark-group card-tooltip__mark-group--' + kind + '">';
+            marksHTML += '<div class="card-tooltip__mark-head">' + info.icon + ' ' + info.label + ' <span class="card-tooltip__mark-count">×' + total + '</span></div>';
+            list.forEach(function (m) {
+              const withIcons = (typeof BlessSeal !== 'undefined' && BlessSeal.fxHTML) ? BlessSeal.fxHTML(m.text || '') : escapeHTML(m.text || '');
+              const times = (m.count > 1) ? ' <span class="card-tooltip__mark-count">×' + m.count + '</span>' : '';
+              marksHTML += '<div class="card-tooltip__mark-eff">· ' + withIcons + times + '</div>';
+            });
+            marksHTML += '</div>';
+          });
+          marksHTML += '</div>';
+        }
+        let marksEl = el.querySelector('.card-tooltip__marks');
+        if (marksHTML) {
+          if (!marksEl) {
+            marksEl = document.createElement('div');
+            el.appendChild(marksEl);
+          }
+          marksEl.outerHTML = marksHTML;
+        } else if (marksEl) {
+          marksEl.remove();
+        }
       }
 
       function _render(card) {
@@ -512,6 +602,28 @@
           if (permElF) permElF.remove();
           const summaryElF = el.querySelector('.card-tooltip__summary');
           if (summaryElF) summaryElF.remove();
+          const marksElF = el.querySelector('.card-tooltip__marks');
+          if (marksElF) marksElF.remove();
+          return;
+        }
+
+        // 未录入卡牌：只知道牌名，其它字段留空（灵咒/加护蚀印有就照常显示）
+        if (card._unknownCard) {
+          const ub = el.querySelector('.card-tooltip__badge');
+          ub.textContent = '未录入';
+          ub.className = 'card-tooltip__badge';
+          el.querySelector('.card-tooltip__name').textContent = card.name;
+          el.querySelector('.card-tooltip__tag').innerHTML = '';
+          el.querySelector('.card-tooltip__stats').innerHTML = '';
+          const unkEff = el.querySelector('.card-tooltip__effect');
+          unkEff.innerHTML = '这张牌还没有录入卡库，只能显示牌名。';
+          unkEff.style.display = '';
+          ['.card-tooltip__perm', '.card-tooltip__summary', '.card-tooltip__incarn'].forEach(function (sel) {
+            const old = el.querySelector(sel);
+            if (old) old.remove();
+          });
+          _renderCursesAndMarks('');
+          _renderTerms();
           return;
         }
 
@@ -594,7 +706,7 @@
             if ((card.atkBonus || 0) > 0) statsHTML += `<span class="stat stat--atk"><img src="images/属性/攻击.png" class="tip-stat-icon" alt="攻"> +${card.atkBonus}</span>`;
             else if ((card.atkBonus || 0) < 0) statsHTML += `<span class="stat stat--penalty"><img src="images/属性/乏力.png" class="tip-stat-icon" alt="乏力"> ${card.atkBonus}</span>`;
             else if (card.atkPenalty > 0) statsHTML += `<span class="stat stat--penalty"><img src="images/属性/乏力.png" class="tip-stat-icon" alt="乏力"> -${card.atkPenalty}</span>`;
-            if ((card.shieldBonus || 0) > 0) statsHTML += `<span class="stat stat--shield"><img src="images/属性/护甲.png" class="tip-stat-icon" alt="护盾"> +${card.shieldBonus}</span>`;
+            if ((card.shieldBonus || 0) > 0) statsHTML += `<span class="stat stat--shield"><img src="images/属性/护甲.png" class="tip-stat-icon" alt="护甲"> +${card.shieldBonus}</span>`;
             else if ((card.shieldBonus || 0) < 0) statsHTML += `<span class="stat stat--penalty"><img src="images/属性/破甲.png" class="tip-stat-icon" alt="破甲"> ${card.shieldBonus}</span>`;
             else if (card.shieldPenalty > 0) statsHTML += `<span class="stat stat--penalty"><img src="images/属性/破甲.png" class="tip-stat-icon" alt="破甲"> -${card.shieldPenalty}</span>`;
             break;
@@ -615,7 +727,7 @@
             if ((card.atkBonus || 0) > 0) statsHTML += `<span class="stat stat--atk"><img src="images/属性/攻击.png" class="tip-stat-icon" alt="攻"> +${card.atkBonus}</span>`;
             else if ((card.atkBonus || 0) < 0) statsHTML += `<span class="stat stat--penalty"><img src="images/属性/乏力.png" class="tip-stat-icon" alt="乏力"> ${card.atkBonus}</span>`;
             else if (card.atkPenalty > 0) statsHTML += `<span class="stat stat--penalty"><img src="images/属性/乏力.png" class="tip-stat-icon" alt="乏力"> -${card.atkPenalty}</span>`;
-            if ((card.shieldBonus || 0) > 0) statsHTML += `<span class="stat stat--shield"><img src="images/属性/护甲.png" class="tip-stat-icon" alt="护盾"> +${card.shieldBonus}</span>`;
+            if ((card.shieldBonus || 0) > 0) statsHTML += `<span class="stat stat--shield"><img src="images/属性/护甲.png" class="tip-stat-icon" alt="护甲"> +${card.shieldBonus}</span>`;
             else if ((card.shieldBonus || 0) < 0) statsHTML += `<span class="stat stat--penalty"><img src="images/属性/破甲.png" class="tip-stat-icon" alt="破甲"> ${card.shieldBonus}</span>`;
             else if (card.shieldPenalty > 0) statsHTML += `<span class="stat stat--penalty"><img src="images/属性/破甲.png" class="tip-stat-icon" alt="破甲"> -${card.shieldPenalty}</span>`;
             break;
@@ -726,38 +838,8 @@
           permEl.remove();
         }
 
-        // 结附灵咒（从战场卡牌槽或手牌/牌库数据读取）
-        let cursesHTML = '';
-        let curses = null;
-        if (currentSlot && (card.type === 'shikigami' || card.type === 'summon' || card.type === 'transform')) {
-          curses = getSlotCurses(currentSlot);
-        }
-        if (!curses || !curses.length) {
-          curses = currentCardCurses;
-        }
-        if (curses && curses.length) {
-          cursesHTML = '<div class="card-tooltip__curses">';
-          curses.forEach(c => {
-            const dbCurse = CardDB.lookupExact ? CardDB.lookupExact(c.name) : CardDB.lookup(c.name);
-            const eff = dbCurse ? (dbCurse.effect || '') : '';
-            cursesHTML += '<div class="card-tooltip__curse-item">';
-            cursesHTML += '<div class="card-tooltip__curse-head">⛓️ <span class="curse-name">' + escapeHTML(c.name) + '</span> <span class="curse-layers">×' + c.layers + '</span></div>';
-            if (eff) cursesHTML += '<div class="card-tooltip__curse-eff">' + _highlightKeywords(escapeHTML(eff)) + '</div>';
-            cursesHTML += '</div>';
-          });
-          cursesHTML += '</div>';
-        }
-        // 插入或更新灵咒区
-        let cursesEl = el.querySelector('.card-tooltip__curses');
-        if (cursesHTML) {
-          if (!cursesEl) {
-            cursesEl = document.createElement('div');
-            el.appendChild(cursesEl);
-          }
-          cursesEl.outerHTML = cursesHTML;
-        } else if (cursesEl) {
-          cursesEl.remove();
-        }
+        // 结附灵咒 + 加护/蚀印标记（抽成公共函数，未录入牌也会用）
+        _renderCursesAndMarks(card.type);
 
         // 化身（从战场卡牌槽读取；详情统一放在悬浮窗里，徽章本身不再自带提示）
         let incarnHTML = '';
@@ -834,7 +916,27 @@
         _renderTerms();   // 解释区：PC 小窗 / 手机端内联（放最后，保证插在描述正下方）
       }
 
-      return { init, hide };
+      /** 主动弹出某张牌的悬浮窗（手机端二次点击看牌用） */
+      function showForName(name, marks) {
+        if (!el) return;
+        const nm = String(name == null ? '' : name).trim();
+        if (!nm) return;
+        let card = (CardDB.lookupExact ? CardDB.lookupExact(nm) : CardDB.lookup(nm));
+        if (!card) card = { name: nm, type: '', _unknownCard: true, effect: '' };
+        currentCard = card;
+        currentSlot = null;
+        currentCardCurses = null;
+        currentCardMarks = (marks && marks.length) ? marks : null;
+        hoveredEl = null;
+        clearTimeout(timer);
+        _render(card);
+        el.hidden = false;
+        requestAnimationFrame(() => {
+          _position(window.innerWidth / 2, window.innerHeight / 2);
+        });
+      }
+
+      return { init, hide, showForName };
     })();
 
     // ================================================================

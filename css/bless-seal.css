@@ -1,0 +1,935 @@
+/* ================================================================
+   css/bless-seal.css — 加护 / 蚀印（🛡️ / 🗡️）
+   主弹窗 + 高级设置副窗 + 效果池编辑窗
+   层级：遮罩 5200 / 覆盖式副窗 5300 / 提示条 9800
+   ================================================================ */
+
+/* ---------- 遮罩与舞台 ---------- */
+.bs-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 5200;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  background: rgba(6, 10, 20, 0.74);
+  overflow: auto;
+}
+
+.bs-stage {
+  display: flex;
+  gap: 14px;
+  align-items: flex-start;
+  justify-content: center;
+  flex-wrap: wrap;      /* 宽度不够时副窗换到下一行，而不是被压窄 */
+  max-width: 100%;
+}
+
+/* hidden 必须压过上面的 display:flex，否则弹窗一进页面就显示 */
+.bs-overlay[hidden],
+.bs-side[hidden],
+.bs-form-overlay[hidden] {
+  display: none !important;
+}
+
+/* ---------- 通用窗体外壳 ---------- */
+.bs-modal,
+.bs-side,
+.bs-form {
+  display: flex;
+  flex-direction: column;
+  background: linear-gradient(160deg, #243050, #1a2540);
+  border: 2px solid rgba(150, 180, 220, 0.5);
+  border-radius: 14px;
+  box-shadow: 0 18px 60px rgba(0, 0, 0, 0.62);
+  color: #e8eefc;
+  font-size: 1.06rem;
+}
+
+.bs-modal { width: min(760px, 94vw); max-height: 92vh; min-height: 420px; }
+.bs-side  { flex: 0 0 auto; width: 360px; max-height: 88vh; }
+.bs-adv   { flex: 0 0 auto; width: 400px; max-width: 100%; }
+.bs-pool  { flex: 0 0 auto; width: 460px; max-width: 100%; }
+
+/* ---------- 标题栏 ---------- */
+.bs-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 12px 14px;
+  border-bottom: 1px solid rgba(150, 180, 220, 0.28);
+  flex: 0 0 auto;
+}
+
+.bs-title {
+  font-size: 1.22rem;
+  font-weight: 800;
+  color: rgba(255, 215, 0, 0.95);
+  letter-spacing: 0.5px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.bs-head-right { display: inline-flex; align-items: center; gap: 8px; }
+
+.bs-adv-btn {
+  position: relative;
+  padding: 7px 14px;
+  font-size: 1rem;
+  font-family: inherit;
+  color: #d8e4f8;
+  background: rgba(60, 70, 90, 0.75);
+  border: 1px solid rgba(150, 180, 220, 0.45);
+  border-radius: 9px;
+  cursor: pointer;
+}
+
+.bs-adv-btn:hover { background: rgba(80, 95, 120, 0.85); }
+
+/* 有非官方设置时：只做高亮，不加会勾人去点的小黄点 */
+.bs-adv-btn.is-custom {
+  border-color: rgba(255, 200, 80, 0.9);
+  color: #ffe9a8;
+  background: rgba(120, 95, 40, 0.5);
+}
+
+.bs-close {
+  width: 34px;
+  height: 34px;
+  font-size: 1.1rem;
+  font-family: inherit;
+  color: #cfd8ea;
+  background: rgba(60, 70, 90, 0.7);
+  border: 1px solid rgba(150, 180, 220, 0.35);
+  border-radius: 9px;
+  cursor: pointer;
+  line-height: 1;
+}
+
+.bs-close:hover { background: rgba(120, 60, 60, 0.8); color: #fff; }
+
+.bs-badge-inline {
+  margin-left: 6px;
+  padding: 1px 6px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: #ffe9a8;
+  background: rgba(255, 200, 80, 0.16);
+  border: 1px solid rgba(255, 200, 80, 0.5);
+  border-radius: 6px;
+}
+
+/* ---------- 顶部一行：为 [自己][对手] 进行 [加护][蚀印] ---------- */
+.bs-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 12px 14px 8px;
+  flex: 0 0 auto;
+}
+
+.bs-row-label { color: #a9b6cf; font-size: 1.02rem; }
+
+.bs-seg,
+.bs-kind {
+  display: inline-flex;
+  gap: 6px;
+}
+
+.bs-kind-btn__ico { margin-right: 5px; }
+
+.bs-seg-btn,
+.bs-kind-btn {
+  padding: 8px 16px;
+  font-size: 1.06rem;
+  font-family: inherit;
+  color: #cbd6e9;
+  background: rgba(40, 50, 70, 0.85);
+  border: 1px solid rgba(150, 180, 220, 0.35);
+  border-radius: 10px;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+}
+
+.bs-seg-btn:hover,
+.bs-kind-btn:hover { background: rgba(70, 90, 120, 0.9); color: #fff; }
+
+.bs-seg-btn.is-on {
+  color: #1a2436;
+  background: linear-gradient(180deg, #ffd964, #e0a92b);
+  border-color: #ffe9a8;
+  font-weight: 800;
+}
+
+.bs-kind-btn--bless.is-on {
+  color: #16281c;
+  background: linear-gradient(180deg, #9ee69a, #4fae64);
+  border-color: #c6f5c0;
+  font-weight: 800;
+}
+
+.bs-kind-btn--seal.is-on {
+  color: #f0e0ff;
+  background: linear-gradient(180deg, #8f5ad8, #5a2f96);
+  border-color: #c8a6f5;
+  font-weight: 800;
+  box-shadow: 0 0 14px rgba(160, 100, 240, 0.35);
+}
+
+/* ---------- 提示行 ---------- */
+.bs-hint {
+  padding: 6px 14px 10px;
+  font-size: 1.04rem;
+  color: #b9c6dd;
+  flex: 0 0 auto;
+}
+
+.bs-hint__main { line-height: 1.5; }
+.bs-hint__sub { margin-top: 4px; color: #8b9bb7; font-size: 1rem; }
+.bs-hint__dim { color: #8b9bb7; }
+.bs-hint__round { color: #ffd964; }
+
+/* ---------- 候选区 ---------- */
+.bs-cands {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  padding: 4px 14px 12px;
+  overflow: auto;
+  flex: 1 1 auto;
+  min-height: 190px;
+  align-content: start;
+}
+
+.bs-cand {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px;
+  background: rgba(18, 26, 42, 0.9);
+  border: 2px solid rgba(120, 150, 190, 0.42);
+  border-radius: 12px;
+  cursor: pointer;
+  transition: border-color 0.15s, box-shadow 0.15s, transform 0.12s;
+}
+
+.bs-cand:hover { border-color: rgba(200, 220, 255, 0.75); transform: translateY(-1px); }
+
+.bs-cand.is-sel {
+  border-color: #ffd964;
+  box-shadow: 0 0 0 2px rgba(255, 217, 100, 0.35), 0 6px 20px rgba(0, 0, 0, 0.45);
+}
+
+.bs-cand__head { display: flex; align-items: center; gap: 6px; }
+
+.bs-cand__name {
+  flex: 1 1 auto;
+  font-size: 1.12rem;
+  font-weight: 700;
+  color: #eef4ff;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.bs-cand__flag {
+  flex: 0 0 auto;
+  padding: 1px 6px;
+  font-size: 0.8rem;
+  color: #ffd0d0;
+  background: rgba(200, 60, 60, 0.25);
+  border: 1px solid rgba(230, 120, 120, 0.6);
+  border-radius: 6px;
+}
+
+.bs-cand__sub {
+  font-size: 0.96rem;
+  color: #8b9bb7;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.bs-cand__fx {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  max-height: 34vh;
+  overflow: auto;
+  padding-top: 4px;
+  border-top: 1px dashed rgba(140, 170, 210, 0.3);
+}
+
+.bs-fx {
+  font-size: 1rem;
+  line-height: 1.45;
+  color: #c9ecff;
+}
+
+.bs-fx.is-cancel { color: #ffc9c9; }
+.bs-fx--empty { color: #8b9bb7; }
+
+.bs-cand__tick {
+  position: absolute;
+  top: 6px;
+  right: 8px;
+  width: 22px;
+  height: 22px;
+  line-height: 22px;
+  text-align: center;
+  font-size: 0.95rem;
+  font-weight: 900;
+  color: #16281c;
+  background: #ffd964;
+  border-radius: 50%;
+  opacity: 0;
+  transform: scale(0.6);
+  transition: opacity 0.15s, transform 0.15s;
+}
+
+.bs-cand.is-sel .bs-cand__tick { opacity: 1; transform: scale(1); }
+
+/* 未录入牌的现场选型 */
+.bs-cand__setup { display: flex; flex-direction: column; gap: 7px; }
+.bs-cand__setup-tip { font-size: 0.96rem; color: #ffd964; }
+
+.bs-setup-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+}
+
+.bs-setup-label {
+  flex: 0 0 auto;
+  padding-top: 5px;
+  font-size: 0.96rem;
+  color: #a9b6cf;
+  white-space: nowrap;
+}
+
+.bs-cat-row,
+.bs-kw-row { display: flex; flex-wrap: wrap; gap: 5px; flex: 1 1 auto; }
+
+/* 「就这样」：动作按钮（蓝底），故意不用金色，避开「已被选中」的观感 */
+.bs-kw-done {
+  padding: 5px 12px;
+  font-size: 0.98rem;
+  font-family: inherit;
+  font-weight: 700;
+  color: #eaf3ff;
+  background: linear-gradient(180deg, #5a7fb5, #3d5a80);
+  border: 1px solid rgba(160, 200, 240, 0.6);
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.bs-kw-done:hover { background: linear-gradient(180deg, #6c93cc, #4a6a95); }
+
+/* 重抽：做成明确的按钮（不要像标签），跟在它自己的那条效果后面 */
+.bs-fx-item {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 5px;
+}
+
+.bs-redraw {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 5px 12px;
+  font-size: 0.92rem;
+  font-family: inherit;
+  font-weight: 700;
+  color: #fff2e0;
+  background: linear-gradient(180deg, #c9762f, #9a4f18);
+  border: 1px solid #ffb46b;
+  border-radius: 8px;
+  cursor: pointer;
+  box-shadow: 0 2px 10px rgba(200, 120, 40, 0.32);
+  transition: transform 0.1s, background 0.15s;
+}
+
+.bs-redraw:hover {
+  background: linear-gradient(180deg, #e08a3c, #b25c1e);
+  transform: translateY(-1px);
+}
+
+.bs-redraw:active { transform: translateY(0); }
+
+/* 效果文本里的力量 / 生命图标 */
+.bs-stat-icon {
+  width: 14px;
+  height: 14px;
+  vertical-align: -2px;
+  margin: 0 1px;
+}
+
+/* 效果文本里的关键词高亮（贯通/迅捷/瞬发等） */
+.bs-kw-hl {
+  color: #ffd964;
+  font-weight: 700;
+}
+
+.bs-cat-btn,
+.bs-kw-chip {
+  padding: 5px 10px;
+  font-size: 0.98rem;
+  font-family: inherit;
+  color: #cbd6e9;
+  background: rgba(40, 52, 74, 0.9);
+  border: 1px solid rgba(140, 170, 210, 0.4);
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.bs-cat-btn:hover,
+.bs-kw-chip:hover { background: rgba(70, 92, 124, 0.95); color: #fff; }
+
+.bs-cat-btn.is-on,
+.bs-kw-chip.is-on {
+  color: #1a2436;
+  background: linear-gradient(180deg, #ffd964, #e0a92b);
+  border-color: #ffe9a8;
+  font-weight: 700;
+}
+
+/* ---------- 独立浮层（效果池编辑窗）：与手机端一致的居中弹窗 ---------- */
+.bs-float-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 5350;
+  background: rgba(4, 8, 16, 0.62);
+}
+
+.bs-side--float {
+  position: fixed;
+  inset: 0;
+  z-index: 5400;
+  width: min(520px, 94vw);
+  height: fit-content;
+  max-height: 86vh;
+  margin: auto;
+  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.8);
+}
+
+.bs-kw-row { display: flex; flex-wrap: wrap; gap: 5px; }
+
+.bs-empty {
+  padding: 26px 10px;
+  text-align: center;
+  color: #8b9bb7;
+  font-size: 1.06rem;
+}
+
+/* ---------- 底部按钮 ---------- */
+.bs-foot,
+.bs-side-foot,
+.bs-form-foot {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  padding: 12px 14px;
+  border-top: 1px solid rgba(150, 180, 220, 0.28);
+  flex: 0 0 auto;
+}
+
+.bs-btn {
+  padding: 10px 22px;
+  font-size: 1.08rem;
+  font-family: inherit;
+  font-weight: 700;
+  border-radius: 10px;
+  cursor: pointer;
+  border: 1px solid transparent;
+}
+
+.bs-btn--cancel {
+  color: #d8e4f8;
+  background: rgba(60, 70, 90, 0.8);
+  border-color: rgba(150, 180, 220, 0.4);
+}
+
+.bs-btn--cancel:hover { background: rgba(85, 98, 122, 0.9); }
+
+.bs-btn--ok {
+  color: #f5fff8;
+  background: linear-gradient(180deg, #5a7fb5, #3d5a80);
+  border-color: rgba(160, 200, 240, 0.55);
+}
+
+.bs-btn--ok:hover { background: linear-gradient(180deg, #6c93cc, #4a6a95); }
+
+.bs-btn:disabled,
+.bs-btn[disabled] {
+  opacity: 0.42;
+  cursor: not-allowed;
+  filter: grayscale(0.5);
+}
+
+/* ---------- 侧栏（高级 / 效果池） ---------- */
+.bs-side-body {
+  padding: 10px 12px 14px;
+  overflow: auto;
+  flex: 1 1 auto;
+}
+
+.bs-adv-sec {
+  padding: 10px 10px 12px;
+  margin-bottom: 10px;
+  background: rgba(16, 24, 40, 0.6);
+  border: 1px solid rgba(140, 170, 210, 0.28);
+  border-radius: 10px;
+}
+
+.bs-adv-sec__title {
+  margin-bottom: 8px;
+  font-size: 1.02rem;
+  font-weight: 800;
+  color: #ffd964;
+}
+
+.bs-adv-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.bs-adv-row__label { font-size: 1rem; color: #c2cee2; }
+
+.bs-adv-num {
+  width: 76px;
+  padding: 7px 8px;
+  font-size: 1.02rem;
+  font-family: inherit;
+  text-align: center;
+  color: #eef4ff;
+  background: rgba(10, 16, 28, 0.9);
+  border: 1px solid rgba(150, 180, 220, 0.4);
+  border-radius: 8px;
+}
+
+.bs-opt-group { display: inline-flex; flex-wrap: wrap; gap: 5px; }
+
+.bs-opt {
+  padding: 6px 11px;
+  font-size: 0.98rem;
+  font-family: inherit;
+  color: #cbd6e9;
+  background: rgba(40, 52, 74, 0.9);
+  border: 1px solid rgba(140, 170, 210, 0.4);
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.bs-opt:hover { background: rgba(70, 92, 124, 0.95); color: #fff; }
+
+.bs-opt.is-on {
+  color: #1a2436;
+  background: linear-gradient(180deg, #ffd964, #e0a92b);
+  border-color: #ffe9a8;
+  font-weight: 700;
+}
+
+.bs-adv-link {
+  width: 100%;
+  margin-top: 4px;
+  padding: 9px 12px;
+  font-size: 1rem;
+  font-family: inherit;
+  text-align: left;
+  color: #d8e4f8;
+  background: rgba(50, 64, 88, 0.9);
+  border: 1px solid rgba(150, 180, 220, 0.45);
+  border-radius: 9px;
+  cursor: pointer;
+}
+
+.bs-adv-link:hover { background: rgba(74, 92, 120, 0.95); }
+
+.bs-adv-check {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin-top: 8px;
+  font-size: 1rem;
+  line-height: 1.45;
+  color: #c2cee2;
+  cursor: pointer;
+}
+
+.bs-adv-check input { margin-top: 4px; transform: scale(1.15); }
+
+/* 效果池编辑 */
+.bs-pool-filter {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 10px 12px 8px;
+  border-bottom: 1px solid rgba(150, 180, 220, 0.22);
+  flex: 0 0 auto;
+}
+
+.bs-pool-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 8px 6px;
+  border-bottom: 1px dashed rgba(140, 170, 210, 0.22);
+}
+
+.bs-pool-item__main { flex: 1 1 auto; display: flex; flex-direction: column; gap: 4px; }
+
+.bs-pool-item__head {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.bs-pool-item__cat {
+  align-self: flex-start;
+  padding: 1px 7px;
+  font-size: 0.86rem;
+  color: #a9d8ff;
+  background: rgba(60, 120, 190, 0.28);
+  border: 1px solid rgba(120, 180, 240, 0.5);
+  border-radius: 6px;
+}
+
+.bs-pool-item__text { font-size: 1rem; line-height: 1.45; color: #e2ebf9; }
+
+.bs-pool-item__flags { display: flex; flex-wrap: wrap; gap: 5px; }
+
+/* 效果条目上的小标签 */
+.bs-tag {
+  display: inline-block;
+  padding: 1px 7px;
+  font-size: 0.86rem;
+  line-height: 1.6;
+  border-radius: 6px;
+  border: 1px solid transparent;
+}
+
+.bs-tag--custom {
+  color: #ffe9a8;
+  background: rgba(255, 200, 80, 0.18);
+  border-color: rgba(255, 200, 80, 0.6);
+  font-weight: 700;
+}
+
+.bs-tag--req {
+  color: #cbd6e9;
+  background: rgba(70, 85, 110, 0.55);
+  border-color: rgba(140, 170, 210, 0.4);
+}
+
+.bs-tag--reroll {
+  color: #ffd9b0;
+  background: rgba(200, 120, 40, 0.22);
+  border-color: rgba(255, 180, 107, 0.6);
+  font-weight: 700;
+}
+
+.bs-pool-item__ops { display: inline-flex; gap: 4px; flex: 0 0 auto; }
+
+.bs-pool-op {
+  width: 32px;
+  height: 32px;
+  font-size: 1rem;
+  font-family: inherit;
+  color: #d8e4f8;
+  background: rgba(50, 64, 88, 0.9);
+  border: 1px solid rgba(150, 180, 220, 0.4);
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.bs-pool-op:hover { background: rgba(90, 70, 70, 0.95); }
+
+/* ---------- 小表单（新增/编辑效果） ---------- */
+.bs-form-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 5500;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  background: rgba(4, 8, 16, 0.7);
+}
+
+.bs-form { width: min(460px, 94vw); max-height: 88vh; }
+
+.bs-form-body { padding: 12px 14px; overflow: auto; display: flex; flex-direction: column; gap: 10px; }
+
+.bs-form-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 1rem;
+  color: #c2cee2;
+}
+
+.bs-form-row--col { flex-direction: column; align-items: stretch; gap: 6px; }
+
+/* ---------- 主题化勾选框（效果池表单 / 高级 DIY 规则） ---------- */
+.bs-check {
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  margin-top: 2px;
+  padding: 9px 11px;
+  background: rgba(16, 24, 40, 0.6);
+  border: 1px solid rgba(140, 170, 210, 0.32);
+  border-radius: 9px;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+}
+
+.bs-check:hover {
+  border-color: rgba(200, 220, 255, 0.55);
+  background: rgba(30, 42, 64, 0.72);
+}
+
+.bs-check input {
+  position: absolute;
+  opacity: 0;
+  width: 1px;
+  height: 1px;
+  pointer-events: none;
+}
+
+.bs-check__box {
+  position: relative;
+  flex: 0 0 auto;
+  width: 20px;
+  height: 20px;
+  margin-top: 1px;
+  border: 2px solid rgba(150, 180, 220, 0.55);
+  border-radius: 6px;
+  background: rgba(10, 16, 28, 0.92);
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.bs-check__box::after {
+  content: '';
+  position: absolute;
+  left: 5px;
+  top: 1px;
+  width: 6px;
+  height: 11px;
+  border: solid #1a2436;
+  border-width: 0 2.5px 2.5px 0;
+  transform: rotate(45deg) scale(0);
+  transition: transform 0.15s ease;
+}
+
+.bs-check input:checked + .bs-check__box {
+  background: linear-gradient(180deg, #ffd964, #e0a92b);
+  border-color: #ffe9a8;
+}
+
+.bs-check input:checked + .bs-check__box::after { transform: rotate(45deg) scale(1); }
+
+.bs-check input:focus-visible + .bs-check__box {
+  box-shadow: 0 0 0 3px rgba(255, 217, 100, 0.32);
+}
+
+.bs-check__text {
+  font-size: 1rem;
+  line-height: 1.45;
+  color: #cbd6e9;
+}
+
+.bs-check__hint {
+  display: block;
+  margin-top: 2px;
+  font-size: 0.88rem;
+  color: #8b9bb7;
+}
+
+.bs-form-row textarea,
+.bs-form-row select {
+  padding: 8px 10px;
+  font-family: inherit;
+  font-size: 1.02rem;
+  color: #eef4ff;
+  background: rgba(10, 16, 28, 0.9);
+  border: 1px solid rgba(150, 180, 220, 0.4);
+  border-radius: 8px;
+  resize: vertical;
+}
+
+.bs-form-err { min-height: 18px; font-size: 0.96rem; color: #ff9a9a; }
+
+/* ---------- 提示条 ---------- */
+.bs-toast {
+  position: fixed;
+  left: 50%;
+  bottom: 12%;
+  z-index: 9800;
+  transform: translate(-50%, 20px);
+  padding: 10px 18px;
+  font-size: 1.04rem;
+  color: #1a2436;
+  background: linear-gradient(180deg, #ffd964, #e0a92b);
+  border-radius: 10px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.18s, transform 0.18s;
+}
+
+.bs-toast.is-on { opacity: 1; transform: translate(-50%, 0); }
+
+/* ================================================================
+   手牌列表上的标记标签 + 悬浮窗里的标记小节
+   ================================================================ */
+
+.card-list-mark-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  max-width: 100%;
+  padding: 1px 6px;
+  font-size: 0.86rem;
+  border-radius: 6px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  vertical-align: middle;
+}
+
+.card-list-mark-tag--bless {
+  color: #b8f0b0;
+  background: rgba(60, 140, 80, 0.3);
+  border: 1px solid rgba(120, 220, 140, 0.55);
+}
+
+.card-list-mark-tag--seal {
+  color: #e3c6ff;
+  background: rgba(110, 60, 180, 0.32);
+  border: 1px solid rgba(180, 140, 240, 0.6);
+}
+
+.card-tooltip__marks {
+  margin-top: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.card-tooltip__mark-group {
+  padding: 4px 7px;
+  border-radius: 6px;
+}
+
+.card-tooltip__mark-group--bless {
+  background: rgba(60, 140, 80, 0.16);
+  border-left: 3px solid rgba(120, 220, 140, 0.8);
+}
+
+.card-tooltip__mark-group--seal {
+  background: rgba(110, 60, 180, 0.18);
+  border-left: 3px solid rgba(180, 140, 240, 0.85);
+}
+
+.card-tooltip__mark-head {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: #e8eefc;
+}
+
+.card-tooltip__mark-count { color: #ffd964; font-weight: 800; }
+
+.card-tooltip__mark-eff {
+  padding-left: 4px;
+  font-size: 0.95rem;
+  line-height: 1.45;
+  color: #cfe0f5;
+}
+
+/* ================================================================
+   手机：主弹窗全宽；高级 / 效果池 改为覆盖式
+   ================================================================ */
+@media (max-width: 900px) {
+  .bs-overlay { padding: 8px; align-items: flex-start; }
+
+  .bs-stage { flex-direction: column; align-items: stretch; width: 100%; }
+
+  .bs-modal { width: 100%; min-height: 0; max-height: 92vh; }
+
+  .bs-cands { grid-template-columns: 1fr; }
+
+  .bs-side--mobile {
+    position: fixed;
+    inset: 5% 3%;
+    width: auto;
+    max-height: 90vh;
+    z-index: 5300;
+    box-shadow: 0 20px 70px rgba(0, 0, 0, 0.8);
+  }
+
+  .bs-row { gap: 6px; flex-wrap: nowrap; }
+  .bs-row-label { flex: 0 0 auto; font-size: 0.95rem; }
+  /* 两段按钮都均分剩余宽度，保证一行放得下 */
+  .bs-seg,
+  .bs-kind {
+    flex: 1 1 0;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 4px;
+    min-width: 0;
+  }
+  .bs-seg-btn,
+  .bs-kind-btn {
+    padding: 7px 3px;
+    font-size: 0.96rem;
+    min-width: 0;
+    text-align: center;
+    white-space: nowrap;
+  }
+  .bs-kind-btn__ico { display: none; }
+
+  /* 高级里的「单牌抽取效果时 / 取池范围」：标签不缩，按钮均分且不换行 */
+  .bs-adv-row { flex-wrap: nowrap; gap: 6px; }
+  .bs-adv-row__label { flex: 0 0 auto; font-size: 0.9rem; white-space: nowrap; }
+  .bs-adv-row .bs-opt-group {
+    flex: 1 1 0;
+    display: grid;
+    grid-auto-flow: column;
+    grid-auto-columns: 1fr;
+    gap: 4px;
+    min-width: 0;
+  }
+  .bs-adv-row .bs-opt {
+    padding: 6px 3px;
+    font-size: 0.88rem;
+    min-width: 0;
+    text-align: center;
+    white-space: nowrap;
+  }
+ 
+  .bs-title { font-size: 1.14rem; }
+  .bs-btn { padding: 10px 16px; }
+}
+
+/* 更窄的屏幕（320~380）：再收紧一点，保证主行仍是一排 */
+@media (max-width: 380px) {
+  .bs-row { gap: 4px; padding: 10px 10px 6px; }
+  .bs-row-label { font-size: 0.88rem; }
+  .bs-seg-btn,
+  .bs-kind-btn { padding: 6px 2px; font-size: 0.92rem; }
+  .bs-adv-row { gap: 4px; }
+  .bs-adv-row__label { font-size: 0.84rem; }
+  .bs-adv-row .bs-opt { padding: 6px 2px; font-size: 0.84rem; }
+}

@@ -23,10 +23,17 @@ const Renyin = (() => {
   /** 英→中 卡牌类型 */
   function cnType(t) { return TYPE_MAP[t] || t || ''; }
 
-  /** 灵咒后缀文本 */
+  /** 灵咒后缀文本（含加护/蚀印提示） */
   function curseSuffix(card) {
-    if (!card || !card.curses || !card.curses.length) return '';
-    return '（结附灵咒：' + card.curses.map(c => c.name + '×' + c.layers).join('、') + '）';
+    if (!card) return '';
+    const curse = (card.curses && card.curses.length)
+      ? '（结附灵咒：' + card.curses.map(c => c.name + '×' + c.layers).join('、') + '）'
+      : '';
+    // 加护/蚀印：优先用离手前缓存的文本，否则现算
+    let mark = card._markInfoText || '';
+    if (card._markInfoText) delete card._markInfoText;   // 只用一次，避免残留在数据里
+    if (!mark && typeof BlessSeal !== 'undefined' && BlessSeal.markSuffix) mark = BlessSeal.markSuffix(card);
+    return curse + mark;
   }
 
   /** 获取己方战场上已方所有式神名称 */
@@ -792,7 +799,15 @@ const Renyin = (() => {
     const state = getPlayerCardState(playerId);
 
     const handIdx = state.hand.findIndex(c => c.id === usedCard.id);
-    if (handIdx >= 0) state.hand.splice(handIdx, 1);
+    if (handIdx >= 0) {
+      // 加护/蚀印：离手（使用或洗回牌库）前先把文本记下，然后清标记
+      if (typeof BlessSeal !== 'undefined' && BlessSeal.markSuffix) {
+        const t = BlessSeal.markSuffix(usedCard);
+        if (t) usedCard._markInfoText = t;
+      }
+      if (typeof BlessSeal !== 'undefined' && BlessSeal.clearMarks) BlessSeal.clearMarks(usedCard);
+      state.hand.splice(handIdx, 1);
+    }
 
     const playerName = getPlayerName(playerId);
     const isOwnView = typeof isViewingOwnCards === 'function' ? isViewingOwnCards(playerId) : true;
