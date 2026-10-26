@@ -31,6 +31,20 @@ var MyLib = (function () {
     return (window._gameSocket && window._gameSocket.connected) ? window._gameSocket : null;
   }
 
+  // ── 随机池：权重归一 / 合计（与 RandomPool 规则一致） ──
+  function poolWeight(v) {
+    if (typeof RandomPool !== 'undefined' && RandomPool.clampWeight) return RandomPool.clampWeight(v);
+    var n = parseInt(v, 10);
+    if (!isFinite(n) || n < 0) return 0;
+    return Math.min(1000, n);
+  }
+
+  function poolTotal(items) {
+    var t = 0;
+    (Array.isArray(items) ? items : []).forEach(function (it) { t += poolWeight(it && it.weight); });
+    return t;
+  }
+
   // ── 卡图上传 ──
   function _kbText(bytes) { return Math.max(1, Math.round(bytes / 1024)) + ' KB'; }
 
@@ -662,37 +676,83 @@ var MyLib = (function () {
     });
   }
 
-  // ═══════════════ 其他（关键词 / 灵咒） ═══════════════
+  // ═══════════════ 其他（关键词 / 灵咒 / 随机池） ═══════════════
   function openOtherEdit(idx) {
     var unit = cache.others[idx];
+    var isPool = !!(unit && unit.type === 'pool');
+    var rp = (typeof RandomPool !== 'undefined') ? RandomPool : null;
+    var poolItems = isPool ? (unit.items || []) : [{ text: '', weight: 1 }];
     var m = openModal('其他' + (idx >= 0 ? '编辑' : '新增'), [
-      fieldHTML('类型', 'diy-f-otype', '<select id="diy-f-otype"><option value="keyword">关键词</option><option value="curse">灵咒</option></select>', true),
-      fieldHTML('名称', 'diy-f-name', inputHTML('diy-f-name', '必填', 'text', 'maxlength="40"'), true),
-      '<label class="diy-field"><span class="diy-field__head">效果（≤300字）<span class="diy-char-count" id="diy-f-count">(0/300)</span></span><textarea id="diy-f-text" maxlength="300" rows="3" placeholder="关键词/灵咒的效果说明"></textarea></label>',
-      fieldHTML('所属式神', 'diy-f-owner', inputHTML('diy-f-owner', '选填', 'text', 'maxlength="40"')),
+      fieldHTML('类型', 'diy-f-otype', '<select id="diy-f-otype"><option value="keyword">关键词</option><option value="curse">灵咒</option><option value="pool">随机池</option></select>', true),
+      '<div class="diy-two">' +
+        fieldHTML('名称', 'diy-f-name', inputHTML('diy-f-name', '必填', 'text', 'maxlength="40"'), true) +
+        fieldHTML('所属式神', 'diy-f-owner', inputHTML('diy-f-owner', '选填', 'text', 'maxlength="40"')) +
+      '</div>',
+      '<label class="diy-field" id="diy-f-effect-wrap"><span class="diy-field__head">效果（≤300字）<span class="diy-char-count" id="diy-f-count">(0/300)</span></span><textarea id="diy-f-text" maxlength="300" rows="3" placeholder="关键词/灵咒的效果说明"></textarea></label>',
+      '<div id="diy-f-pool-wrap" hidden>' +
+        '<label class="diy-field"><span>备注</span>' + inputHTML('diy-f-note', '选填', 'text', 'maxlength="300"') + '</label>' +
+        '<div class="diy-pool-label">随机项（最多 100 条，每条最多 100 字）</div>' +
+        (rp ? rp.itemsHTML(poolItems) : '') +
+      '</div>',
     ].join(''));
-    $('diy-f-otype').value = (unit && unit.type === 'curse') ? 'curse' : 'keyword';
+    $('diy-f-otype').value = unit ? (unit.type === 'curse' ? 'curse' : (unit.type === 'pool' ? 'pool' : 'keyword')) : 'keyword';
     $('diy-f-name').value = unit ? (unit.name || '') : '';
-    $('diy-f-text').value = (unit && unit.effect) || '';
+    $('diy-f-text').value = (unit && unit.type !== 'pool' && unit.effect) || '';
+    $('diy-f-note').value = (unit && unit.type === 'pool' && unit.effect) || '';
     $('diy-f-owner').value = (unit && unit.owner) || '';
     bindCharCount($('diy-f-text'), $('diy-f-count'), MAX_TEXT);
 
+    // 类型切换：随机池 → 备注 + 随机项列表；否则单个效果框
+    function syncType() {
+      var t = $('diy-f-otype').value;
+      $('diy-f-effect-wrap').hidden = (t === 'pool');
+      $('diy-f-pool-wrap').hidden = (t !== 'pool');
+      var dlg = m.ov.querySelector('.diy-modal');
+      if (dlg) {
+        dlg.classList.toggle('diy-modal-wide', t === 'pool');
+        dlg.classList.toggle('diy-modal--pool', t === 'pool');
+      }
+    }
+    $('diy-f-otype').addEventListener('change', syncType);
+    syncType();
+    if (rp) rp.bindItems(m.ov, null);
+
     m.onOk(function () {
       var type = $('diy-f-otype').value;
-      var kind = type === 'keyword' ? '关键词' : '灵咒';
+      var kind = type === 'keyword' ? '关键词' : (type === 'pool' ? '随机池' : '灵咒');
       var name = $('diy-f-name').value.trim();
       var err = validateName(kind, name, unit && unit.name);
-      if (!err) err = validateText(kind, name, $('diy-f-text').value);
+      var items = null;
+      if (!err && type === 'pool') {
+        items = rp ? rp.readItems(m.ov) : [];
+        err = rp ? rp.validateItems(items) : null;
+        if (!err) {
+          var dupIdx = localIndex('other', name);
+          if (dupIdx >= 0 && dupIdx !== idx) err = '已经有一个叫「' + name + '」的内容了，换个名字';
+        }
+      }
+      if (!err && type !== 'pool') err = validateText(kind, name, $('diy-f-text').value);
       if (!err && type === 'keyword' && name !== ((unit && unit.name) || '') && typeof CardDB !== 'undefined' && CardDB.lookupKeyword && CardDB.lookupKeyword(name)) {
         err = '关键词「' + name + '」与官方关键词同名，请换个名字';
       }
       if (err) { m.err.textContent = err; return; }
-      var saved = {
-        type: type,
-        name: name,
-        effect: $('diy-f-text').value.trim(),
-        owner: $('diy-f-owner').value.trim()
-      };
+      var saved;
+      if (type === 'pool') {
+        saved = {
+          type: 'pool',
+          name: name,
+          effect: $('diy-f-note').value.trim(),
+          owner: $('diy-f-owner').value.trim(),
+          items: items
+        };
+      } else {
+        saved = {
+          type: type,
+          name: name,
+          effect: $('diy-f-text').value.trim(),
+          owner: $('diy-f-owner').value.trim()
+        };
+      }
       if (idx >= 0) cache.others[idx] = keepAuthor('other', idx, saved); else cache.others.push(saved);
       m.ov.remove();
       render();
@@ -709,7 +769,12 @@ var MyLib = (function () {
     var q = _search.toLowerCase();
     var name = String(unit.name || '').toLowerCase();
     var owner = String(unit.owner || '').toLowerCase();
-    return name.indexOf(q) !== -1 || owner.indexOf(q) !== -1;
+    if (name.indexOf(q) !== -1 || owner.indexOf(q) !== -1) return true;
+    // 随机池：随机项文本也参与搜索
+    if (unit.type === 'pool' && Array.isArray(unit.items)) {
+      return unit.items.some(function (it) { return String((it && it.text) || '').toLowerCase().indexOf(q) !== -1; });
+    }
+    return false;
   }
 
   /** 派系标签图标：无相用 🌐，其余用派系图（images/派系/xx.png，constants 会自动补服务器前缀） */
@@ -747,6 +812,11 @@ var MyLib = (function () {
       if (unit.awakened) tags += '<span class="diy-tag diy-tag--awakened">觉醒</span>';
       if (unit.derivative) tags += '<span class="diy-tag diy-tag--derivative">衍生</span>';
       if (unit.maxStack > 0) tags += '<span class="diy-tag diy-tag--stack">堆叠' + esc(unit.maxStack) + '</span>';
+    } else if (unit.type === 'pool') {
+      tags = '<span class="diy-tag diy-tag--pool">随机池</span>' +
+        '<span class="diy-tag">' + (Array.isArray(unit.items) ? unit.items.length : 0) + ' 条随机项</span>' +
+        '<span class="diy-tag">权重 ' + poolTotal(unit.items) + '</span>';
+      if (unit.owner) tags += '<span class="diy-tag">' + esc(unit.owner) + '</span>';
     } else {
       tags = '<span class="diy-tag">' + (unit.type === 'curse' ? '灵咒' : '关键词') + '</span>';
       if (unit.owner) tags += '<span class="diy-tag">' + esc(unit.owner) + '</span>';
@@ -767,7 +837,7 @@ var MyLib = (function () {
       checkHTML +
       toggleHTML +
       thumbHTML +
-      '<div class="diy-item-name">' + esc(unit.name) + '</div>' +
+      '<div class="diy-item-name">' + (unit.type === 'pool' ? '🎰 ' : '') + esc(unit.name) + '</div>' +
       '<div class="diy-item-actions">' +
       '<button type="button" class="diy-btn diy-btn-edit" data-kind="' + kind + '" data-idx="' + idx + '">✏️</button>' +
       '<button type="button" class="diy-btn diy-btn-del" data-kind="' + kind + '" data-idx="' + idx + '">🗑</button>' +
@@ -927,6 +997,7 @@ var MyLib = (function () {
     function signed(v) { return (v >= 0 ? '+' : '') + v; }
     var meta = [];
     var effect = '';
+    var poolItemsHtml = '';
     if (kind === 'shikigami') {
       if (unit.type === 'summon') meta.push(pill('召唤物', 'diy-tag--summon'));
       else if (unit.type === 'transform') meta.push(pill('变身', 'diy-tag--transform'));
@@ -959,6 +1030,26 @@ var MyLib = (function () {
       if (unit.type === 'form') meta.push(pill((unit.attack != null ? unit.attack : 0) + '/' + (unit.hp != null ? unit.hp : 0)));
       if (unit.type === 'realm') meta.push(pill('耐久 ' + (unit.durability != null ? unit.durability : 1)));
       effect = unit.effect || '';
+    } else if (unit.type === 'pool') {
+      var pItems = Array.isArray(unit.items) ? unit.items : [];
+      var pTotal = poolTotal(pItems);
+      meta.push(pill('随机池', 'diy-tag--pool'));
+      meta.push(pill('权重 ' + pTotal));
+      if (unit.owner) meta.push(pill('所属：' + unit.owner));
+      effect = unit.effect || '';
+      poolItemsHtml = '<div class="diy-pool-preview">' +
+        '<div class="diy-pool-preview__sub">' + pItems.length + ' 条随机项</div>' +
+        pItems.map(function (it) {
+          var w = poolWeight(it && it.weight);
+          var pct = pTotal > 0 ? Math.round(w / pTotal * 1000) / 10 : 0;
+          return '<div class="diy-prow">' +
+            '<span class="diy-prow__txt">' + esc(it && it.text) + '</span>' +
+            '<span class="diy-prow__bar"><i style="width:' + pct + '%"></i></span>' +
+            '<span class="diy-prow__pct">' + pct + '%</span>' +
+            '</div>';
+        }).join('') +
+        '<div class="diy-pool-preview__sum">' + pItems.length + ' 条随机项 · 合计权重 ' + pTotal + '</div>' +
+        '</div>';
     } else {
       meta.push(pill(unit.type === 'curse' ? '灵咒' : '关键词'));
       if (unit.owner) meta.push(pill('所属：' + unit.owner));
@@ -972,6 +1063,7 @@ var MyLib = (function () {
       '<div class="diy-preview__meta">' + meta.join('') + '</div>';
     if (unit.author) html += '<div class="diy-preview__kws">作者：' + esc(unit.author) + '</div>';
     if (effect) html += '<div class="diy-preview__effect">' + esc(effect) + '</div>';
+    if (poolItemsHtml) html += poolItemsHtml;
     if (kind !== 'shikigami' && unit.type === 'bond' && Array.isArray(unit.bondVersions) && unit.bondVersions.length) {
       html += '<div class="diy-preview__kws">协战分化：' + esc(unit.bondVersions.map(function (v) { return v.name; }).join(' / ')) + '</div>';
     }

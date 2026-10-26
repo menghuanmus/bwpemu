@@ -267,11 +267,6 @@
   /** 先把游戏界面亮出来（此时板上什么都没有），遮罩盖在上面 */
   function preEnterRoomView() {
     showView(GAME_VIEW);
-    ROOM_OVERLAY.hidden = true;
-    ROOM_HOME.hidden = true;
-    ROOM_WAITING.hidden = true;
-    var joining = $('room-joining');
-    if (joining) joining.hidden = true;
   }
   function showEnterLoading() {
     _clearEnterTimers();
@@ -752,15 +747,12 @@
     if (res.solo) {
       isHost = true; isSpectator = false; localPlayerId = '1'; isSoloMode = true;
       lastRoomCode = res.solo;
-      ROOM_ID_CODE.textContent = res.solo;
-      ROOM_OVERLAY.hidden = true; $('room-joining').hidden = true; ROOM_HOME.hidden = true; ROOM_WAITING.hidden = true;
       updateSysChatTitle(); resetPermissionLock();
       if (res.rejoined) { setConnStatus(true, '已重连'); setPlayerConnStatus('2', true, '单人模式'); addSystemChatMessage('【系统】已重连，单人模式'); }
       else { setConnStatus(true, '单人模式'); setPlayerConnStatus('2', true, '单人模式'); addSystemChatMessage('【系统】单人模式 —— 所有区域均可操作'); }
     } else if (res.joined) {
       isHost = false; isSpectator = false; localPlayerId = res.slot || '2'; isSoloMode = false;
       lastRoomCode = res.joined;
-      ROOM_OVERLAY.hidden = true; ROOM_HOME.hidden = true; ROOM_WAITING.hidden = true; $('room-joining').hidden = true;
       updateSysChatTitle(); applyPermissionLock();
       var peerId = (res.slot === '1') ? '2' : '1';
       if (res.rejoined && !res.otherOnline) { setConnStatus(true, '已连接'); setPlayerConnStatus(peerId, false, '等待重连'); addSystemChatMessage('【系统】已重连，等待对手重连…'); }
@@ -768,7 +760,6 @@
     } else if (res.spectating) {
       isHost = false; isSpectator = true; localPlayerId = '0'; isSoloMode = false;
       lastRoomCode = res.spectating;
-      ROOM_OVERLAY.hidden = true; ROOM_HOME.hidden = true; ROOM_WAITING.hidden = true; $('room-joining').hidden = true;
       updateSysChatTitle(); applyPermissionLock();
       // 观众视角：两位玩家的连接状态都显示"已连接"（观战身份由中间栏观众行体现）
       setPlayerConnStatus('1', true, '已连接');
@@ -781,8 +772,6 @@
     } else if (res.ok || res.room) {
       isHost = true; isSpectator = false; localPlayerId = '1'; isSoloMode = false;
       lastRoomCode = res.room;
-      ROOM_ID_CODE.textContent = res.room;
-      ROOM_OVERLAY.hidden = true; $('room-joining').hidden = true; ROOM_HOME.hidden = true; ROOM_WAITING.hidden = false;
       updateSysChatTitle(); setConnStatus(true, '已连接'); setPlayerConnStatus('2', false, '等待加入');
     }
     applyPermissionLock();

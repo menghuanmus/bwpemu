@@ -4,11 +4,6 @@
 // ================================================================
 
     /* DOM 元素 */
-    const ROOM_OVERLAY = document.getElementById('room-overlay');
-    const ROOM_HOME = document.getElementById('room-home');
-    const ROOM_WAITING = document.getElementById('room-waiting');
-    const ROOM_ID_CODE = document.getElementById('room-id-code');
-    const ROOM_JOIN_INPUT = document.getElementById('room-join-input');
     const CONN_STATUS_BAR = document.getElementById('conn-status-bar');
     const CONN_DOT = document.getElementById('conn-dot');
     const CONN_STATUS_TEXT = document.getElementById('conn-status-text');
@@ -138,6 +133,25 @@
           // 文字已由 sysmsg（broadcastSystemMsg）同步给对方，这里只播远端骰子动画
           playRemoteDiceAnim(data.result);
           break;
+        case 'dice-pool':
+          // 随机池结果：文字已由 sysmsg 同步，这里只播动画（骰子→中间→浮层）
+          (function () {
+            var btn = document.getElementById('btn-dice-roll');
+            var showResult = function () {
+              if (typeof RandomPool !== 'undefined' && RandomPool.playResult) {
+                RandomPool.playResult({
+                  poolName: data.poolName,
+                  text: data.text,
+                  weight: data.weight,
+                  total: data.total,
+                  pct: data.pct
+                });
+              }
+            };
+            if (btn && typeof playDiceAnim === 'function') playDiceAnim('', btn, { flyCenter: true, onLand: showResult });
+            else showResult();
+          })();
+          break;
         case 'effects-update':
           applyRemoteEffectsState(data.playerId, data.effects);
           break;
@@ -145,7 +159,7 @@
           applyRemotePlayerInfo(data.playerId, data.name, data.hp);
           break;
         case 'sysmsg':
-          addSystemChatMessage(data.text, data.food);
+          addSystemChatMessage(data.text, data.food, data.poolInfo);
           // noUndo：只是过程提示（如「正在进行加护…」），不产生撤销步骤
           if (!data.noUndo && window.Undo && Undo.noteMessage && data.text && data.text.indexOf('【系统提示】') !== 0) Undo.noteMessage(data.text);
           break;
@@ -240,7 +254,10 @@
     }
 
     // ---- 远端动画 ----
-    function playDiceAnim(result, btnEl) {
+    //  opts.flyCenter = true：骰子落下后不显示数字，而是快速移到屏幕中间渐出（随机池用）
+    //  opts.onLand：骰子消失的瞬间回调（用来弹出结果浮层）
+    function playDiceAnim(result, btnEl, opts) {
+      opts = opts || {};
       var r = btnEl.getBoundingClientRect();
       var x = r.left + r.width/2, y = r.top;
       var el = document.createElement('div');
@@ -248,18 +265,42 @@
       el.style.cssText = 'position:fixed;z-index:9999;font-size:2rem;pointer-events:none;left:'+(x-20)+'px;top:'+(y-10)+'px;';
       document.body.appendChild(el);
       var start = performance.now(), dur = 1000, peakY = -170;
+      var toCenter = opts.flyCenter
+        ? { dx: (window.innerWidth / 2) - x, dy: (window.innerHeight * 0.46) - y }
+        : null;
+      // 兜底：后台标签页里 requestAnimationFrame 会被节流，这里保证结果还是能弹出来
+      var landed = false;
+      function land() {
+        if (landed) return;
+        landed = true;
+        if (opts.onLand) opts.onLand();
+      }
+      if (toCenter) setTimeout(land, dur + 600);
       function anim(ts) {
-        var t = Math.min((ts - start) / dur, 1), dy, rot, sc;
+        var t = Math.min((ts - start) / dur, 1), dy, rot, sc, dx = 0;
         if (t < 0.42) { var p = t / 0.42; dy = peakY * (1 - Math.pow(1-p,3)); rot = 540*p; sc = 1+0.6*p; }
         else if (t < 0.75) { var p = (t-0.42)/0.33; dy = peakY + (-peakY+20)*Math.pow(p,2); rot = 540+300*p; sc = 1.6-0.4*p; }
+        else if (toCenter) {
+          // 池模式后半段：不显示数字，快速飞到屏幕中间
+          var p = (t-0.75)/0.25, e = 1 - Math.pow(1-p, 3);
+          dy = 20 + (toCenter.dy - 20) * e;
+          dx = toCenter.dx * e;
+          rot = 0; sc = 1.2 + 0.7*e;
+        }
         else { var p = (t-0.75)/0.25; dy=20; rot=0; sc=1.2+2*p;
           if(!el.querySelector('span')){el.textContent='';el.style.display='flex';el.style.alignItems='center';el.style.justifyContent='center';
-            var sp=document.createElement('span');sp.textContent=result;sp.style.cssText='font-size:1.8rem;font-weight:900;color:#fff;text-shadow:0 0 14px #7C83FF,0 0 28px #5B5FEF;';el.appendChild(sp);}
-        }
-        el.style.transform = 'translateY('+dy+'px) rotate('+rot+'deg) scale('+sc+')';
+            var sp=document.createElement('span');sp.textContent=result;sp.style.cssText='font-size:1.8rem;font-weight:900;color:#fff;text-shadow:0 0 14px #7C83FF,0 0 28px #5B5FEF;';el.appendChild(sp);} }
+        el.style.transform = 'translate('+dx+'px,'+dy+'px) rotate('+rot+'deg) scale('+sc+')';
         if (t < 1) requestAnimationFrame(anim);
-        else { el.style.transform='translateY(20px) rotate(0deg) scale(3.2)'; el.style.transition='transform 2s ease-out, opacity 0.6s ease-out';
-          requestAnimationFrame(function(){el.style.transform='translateY(20px) rotate(0deg) scale(5)';});
+        else if (toCenter) {
+          // 淡出，同时把结果浮层弹出来
+          el.style.transition = 'opacity 0.18s ease-out';
+          requestAnimationFrame(function () { el.style.opacity = '0'; });
+          setTimeout(function(){ if (el.parentNode) el.remove(); }, 220);
+          land();
+        }
+        else { el.style.transform='translate(0px,20px) rotate(0deg) scale(3.2)'; el.style.transition='transform 2s ease-out, opacity 0.6s ease-out';
+          requestAnimationFrame(function(){el.style.transform='translate(0px,20px) rotate(0deg) scale(5)';});
           setTimeout(function(){el.style.opacity='0';},2000); setTimeout(function(){el.remove();},2600); }
       }
       requestAnimationFrame(anim);
@@ -446,8 +487,6 @@
     // ================================================================
 
     function onPeerConnected() {
-      ROOM_OVERLAY.hidden = true; ROOM_HOME.hidden = false; ROOM_WAITING.hidden = true;
-      document.getElementById('room-joining').hidden = true;
       applyPermissionLock();
       setConnStatus(true, '已连接');
       addSystemChatMessage('【系统】连接成功，游戏开始！');

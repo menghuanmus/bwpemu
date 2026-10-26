@@ -829,6 +829,72 @@
 			"type": "shell",
 			"command": "node --check js/bless-seal.js; node --check js/card-tooltip.js; node --check js/my-lib.js; node --check js/shop.js; Write-Host DONE",
 			"args": []
+		},
+		{
+			"label": "check-server",
+			"type": "shell",
+			"command": "node",
+			"args": [
+				"--check",
+				"server/server.js"
+			]
+		},
+		{
+			"label": "check-rp",
+			"type": "shell",
+			"command": "node",
+			"args": [
+				"--check",
+				"js/random-pool.js"
+			]
+		},
+		{
+			"label": "check-rp2",
+			"type": "shell",
+			"command": "node",
+			"args": [
+				"--check",
+				"js/random-pool.js"
+			]
+		},
+		{
+			"label": "check-dice",
+			"type": "shell",
+			"command": "node",
+			"args": [
+				"--check",
+				"js/dice.js"
+			]
+		},
+		{
+			"label": "check-all-rp",
+			"type": "shell",
+			"command": "node --check js/random-pool.js; node --check js/my-lib.js; node --check js/dice.js; node --check js/network.js; node --check js/card-db.js; Write-Host ALL-OK",
+			"args": []
+		},
+		{
+			"label": "check-all-2",
+			"type": "shell",
+			"command": "node --check js/my-lib.js; node --check js/random-pool.js; node --check js/game-core.js; node --check js/dice.js; Write-Host OK2",
+			"args": []
+		},
+		{
+			"label": "check-rp-round2",
+			"type": "shell",
+			"command": "node --check js/random-pool.js; node --check js/my-lib.js; node --check js/dice.js; node --check js/auth.js; node --check js/network.js; node --check js/constants.js; Write-Host CHECK-OK",
+			"args": []
+		},
+		{
+			"label": "check-rp-round3",
+			"type": "shell",
+			"command": "node --check js/random-pool.js; node --check js/my-lib.js; node --check js/dice.js; node --check js/auth.js; node --check js/network.js; node --check js/constants.js; Write-Host CHECK-OK",
+			"args": []
+		},
+		{
+			"label": "check-round3",
+			"type": "shell",
+			"command": "node --check js/chat.js; node --check js/network.js; node --check js/dice.js; node --check js/card-tooltip.js; Write-Host OK-R3",
+			"args": []
 		}
 	]
 }

@@ -1738,4 +1738,9 @@
       if (typeof BlessSeal !== 'undefined' && BlessSeal.resetConfig) {
         try { BlessSeal.resetConfig(); } catch (e) { /* ignore */ }
       }
+
+      // 13) 随机池：新对局丢掉「本局改动」，回到服务器卡库里的版本
+      if (typeof RandomPool !== 'undefined' && RandomPool.resetLocal) {
+        try { RandomPool.resetLocal(); } catch (e) { /* ignore */ }
+      }
     }

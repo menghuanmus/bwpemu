@@ -36,7 +36,7 @@
       chatPlayerLog.scrollTop = chatPlayerLog.scrollHeight;
     }
 
-    function addSystemChatMessage(text, food) {
+    function addSystemChatMessage(text, food, poolInfo) {
       if (!chatSystemLog) return;
       try {
         const bubble = document.createElement('div');
@@ -49,6 +49,31 @@
           bubble.querySelectorAll('.chat-card-name').forEach(sp => {
             if (sp.textContent === food.name) sp.dataset.food = foodJson;
           });
+        }
+        // 随机池：名字单独标记，悬浮时展示池内随机项而不是卡牌
+        if (poolInfo && poolInfo.name) {
+          const poolJson = JSON.stringify(poolInfo);
+          bubble.querySelectorAll('.chat-card-name').forEach(sp => {
+            if (sp.textContent === poolInfo.name) { sp.dataset.rpPool = poolJson; sp.classList.add('chat-card-name--pool'); }
+          });
+          // 骰到的随机项：也单独标记，悬浮时显示「随机项」+ 它在池里的权重与概率
+          if (poolInfo.result) {
+            const itemJson = JSON.stringify({
+              pool: poolInfo.name,
+              text: poolInfo.result,
+              weight: poolInfo.weight,
+              total: poolInfo.total,
+              pct: poolInfo.pct,
+              items: poolInfo.items || []
+            });
+            bubble.querySelectorAll('.chat-card-name').forEach(sp => {
+              if (sp.dataset.rpPool || sp.dataset.rpItem) return;
+              if (sp.textContent === poolInfo.result) {
+                sp.dataset.rpItem = itemJson;
+                sp.classList.add('chat-card-name--rp-item');
+              }
+            });
+          }
         }
         chatSystemLog.appendChild(bubble);
         chatSystemLog.scrollTop = chatSystemLog.scrollHeight;
@@ -176,7 +201,7 @@
     }
 
     /* 系统消息：本地显示 + 同步给对方（单人模式仅本地） */
-    function broadcastSystemMsg(msg, food) {
+    function broadcastSystemMsg(msg, food, extra) {
       console.log('[SysMsg]', msg);
       // 如果处于消息分组中，收集为子消息（由 endMessageGroup 统一同步，不单独发送）
       if (_msgGroup) {
@@ -184,13 +209,14 @@
         _msgGroup.subMsgs.push(String(msg).replace(/^【系统】\s*/, ''));
         return;
       }
+      var poolInfo = extra && extra.poolInfo;
       // 联机：同步给对方
       if (!isSoloMode && typeof isConnected === 'function' && isConnected() && typeof sendToPeer === 'function') {
-        sendToPeer({ type: 'sysmsg', text: msg, food: food || undefined });
+        sendToPeer({ type: 'sysmsg', text: msg, food: food || undefined, poolInfo: poolInfo || undefined });
       }
       // 撤销功能：登记本步的描述
       if (window.Undo && Undo.noteMessage) Undo.noteMessage(msg);
-      addSystemChatMessage(msg, food);
+      addSystemChatMessage(msg, food, poolInfo);
     }
 
     function openSpeakDialog(playerId) {

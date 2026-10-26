@@ -1,0 +1,1097 @@
+/* ================================================================
+   css/random-pool.css — 随机池（🎰）
+   1) 骰子栏旁的随机池下拉      .rp-pop
+   2) 随机池编辑弹窗            .rp-overlay / .rp-modal
+   3) 返回值列表（DIY 与对局共用）.rp-block
+   4) 投掷结果浮层              .rp-result
+   层级：下拉 5300 / 编辑弹窗 5400 / 结果浮层 5600
+   ================================================================ */
+
+/* ---------- 通用 ---------- */
+.rp-pop,
+.rp-modal {
+  font-family: inherit;
+  color: #e8eefc;
+}
+
+.rp-pop[hidden],
+.rp-overlay[hidden] {
+  display: none !important;
+}
+
+/* ---------- 1) 随机池选择弹窗 ---------- */
+.rp-pop {
+  position: fixed;
+  z-index: 5300;
+  width: min(364px, 92vw);
+  padding: 10px;
+  border-radius: 14px;
+  border: 1px solid rgba(150, 180, 220, 0.42);
+  background: linear-gradient(170deg, #22304e, #151f36);
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.66), 0 0 0 1px rgba(255, 217, 100, 0.05);
+  animation: rpPopIn 0.15s ease-out;
+}
+
+@keyframes rpPopIn {
+  from { opacity: 0; transform: translateY(-5px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.rp-pop__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 2px 4px 10px;
+}
+
+.rp-pop__title {
+  font-size: 0.76rem;
+  font-weight: 700;
+  letter-spacing: 3px;
+  color: #8ea0bf;
+}
+
+/* sheet 型（手机）：一行标题 + ✕，下接列表，不留空白 */
+.rp-pop__head--sheet {
+  padding: 0 2px 9px;
+  margin-bottom: 9px;
+  border-bottom: 1px solid rgba(150, 180, 220, 0.16);
+}
+
+.rp-pop__head--sheet .rp-pop__title {
+  font-size: 1rem;
+  font-weight: 800;
+  letter-spacing: 0.5px;
+  color: #ffe9a8;
+}
+
+.rp-pop__x {
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  font-size: 0.82rem;
+  font-family: inherit;
+  line-height: 1;
+  color: #9fb0cc;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 7px;
+  cursor: pointer;
+}
+
+.rp-pop__x:hover {
+  color: #fff;
+  background: rgba(120, 60, 60, 0.7);
+}
+
+.rp-pop__opt,
+.rp-pop__item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 10px;
+  border-radius: 10px;
+  border: 1px solid transparent;
+  cursor: pointer;
+  min-width: 0;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.rp-pop__opt {
+  background: rgba(255, 255, 255, 0.03);
+  border-color: rgba(150, 180, 220, 0.16);
+}
+
+.rp-pop__opt:hover,
+.rp-pop__item:hover {
+  background: rgba(90, 110, 160, 0.24);
+  border-color: rgba(150, 180, 220, 0.32);
+}
+
+.rp-pop__opt.is-on,
+.rp-pop__item.is-on {
+  background: rgba(255, 217, 100, 0.1);
+  border-color: rgba(255, 217, 100, 0.55);
+}
+
+.rp-pop__ico {
+  flex: 0 0 30px;
+  width: 30px;
+  height: 30px;
+  display: grid;
+  place-items: center;
+  font-size: 1rem;
+  border-radius: 9px;
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.rp-pop__opt.is-on .rp-pop__ico,
+.rp-pop__item.is-on .rp-pop__ico {
+  background: rgba(255, 217, 100, 0.18);
+}
+
+.rp-pop__body {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.rp-pop__body b {
+  font-size: 0.98rem;
+  font-weight: 700;
+  color: #e8eefc;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.rp-pop__opt.is-on .rp-pop__body b,
+.rp-pop__item.is-on .rp-pop__body b {
+  color: #ffe9a8;
+}
+
+.rp-pop__body i {
+  font-style: normal;
+  font-size: 0.78rem;
+  color: #9faec8;
+  font-variant-numeric: tabular-nums;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.rp-pop__acts {
+  flex: 0 0 auto;
+  display: flex;
+  gap: 4px;
+}
+
+.rp-pop__act {
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  font-size: 0.82rem;
+  font-family: inherit;
+  line-height: 1;
+  color: #cfd8ea;
+  background: rgba(60, 70, 90, 0.6);
+  border: 1px solid rgba(150, 180, 220, 0.3);
+  border-radius: 7px;
+  cursor: pointer;
+}
+
+.rp-pop__act:hover {
+  background: rgba(90, 110, 160, 0.8);
+}
+
+.rp-pop__act--del:hover {
+  background: rgba(120, 60, 60, 0.85);
+  border-color: rgba(255, 140, 140, 0.5);
+  color: #fff;
+}
+
+.rp-pop__tick {
+  flex: 0 0 16px;
+  width: 16px;
+  text-align: center;
+  font-size: 0.9rem;
+  font-weight: 800;
+  color: #ffd964;
+  opacity: 0;
+}
+
+.rp-pop__opt.is-on .rp-pop__tick,
+.rp-pop__item.is-on .rp-pop__tick {
+  opacity: 1;
+}
+
+.rp-pop__divider {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  margin: 12px 4px 8px;
+  font-size: 0.74rem;
+  letter-spacing: 1px;
+  color: #8ea0bf;
+}
+
+.rp-pop__divider::before,
+.rp-pop__divider::after {
+  content: '';
+  flex: 1 1 auto;
+  height: 1px;
+  background: rgba(150, 180, 220, 0.18);
+}
+
+.rp-pop__list {
+  max-height: 44vh;
+  overflow-y: auto;
+  overflow-x: hidden;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.rp-pop__empty {
+  padding: 16px 12px;
+  font-size: 0.86rem;
+  line-height: 1.8;
+  text-align: center;
+  color: #9faec8;
+  border: 1px dashed rgba(150, 180, 220, 0.28);
+  border-radius: 10px;
+}
+
+.rp-pop__new {
+  width: 100%;
+  margin-top: 10px;
+  padding: 10px;
+  font-size: 0.94rem;
+  font-weight: 700;
+  font-family: inherit;
+  text-align: center;
+  color: #ffd964;
+  background: rgba(255, 217, 100, 0.08);
+  border: 1px dashed rgba(255, 217, 100, 0.42);
+  border-radius: 10px;
+  cursor: pointer;
+}
+
+.rp-pop__new:hover {
+  background: rgba(255, 217, 100, 0.16);
+}
+
+/* ---------- 2) 编辑弹窗 ---------- */
+.rp-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 5400;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 14px;
+  background: rgba(6, 10, 20, 0.74);
+  overflow: auto;
+}
+
+.rp-modal {
+  display: flex;
+  flex-direction: column;
+  width: min(720px, 96vw);
+  max-height: 92vh;
+  background: linear-gradient(160deg, #243050, #1a2540);
+  border: 2px solid rgba(150, 180, 220, 0.5);
+  border-radius: 14px;
+  box-shadow: 0 18px 60px rgba(0, 0, 0, 0.62);
+}
+
+.rp-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 12px 14px;
+  border-bottom: 1px solid rgba(150, 180, 220, 0.28);
+}
+
+.rp-title {
+  font-size: 1.16rem;
+  font-weight: 800;
+  letter-spacing: 0.5px;
+  color: rgba(255, 215, 0, 0.95);
+}
+
+.rp-close {
+  width: 32px;
+  height: 32px;
+  font-size: 1rem;
+  font-family: inherit;
+  line-height: 1;
+  color: #cfd8ea;
+  background: rgba(60, 70, 90, 0.7);
+  border: 1px solid rgba(150, 180, 220, 0.35);
+  border-radius: 9px;
+  cursor: pointer;
+}
+
+.rp-close:hover {
+  background: rgba(120, 60, 60, 0.8);
+  color: #fff;
+}
+
+.rp-body {
+  padding: 12px 14px;
+  overflow: auto;
+}
+
+.rp-strip {
+  margin-bottom: 12px;
+  padding: 8px 12px;
+  font-size: 0.86rem;
+  color: #e7e0ff;
+  background: rgba(120, 100, 190, 0.22);
+  border: 1px solid rgba(140, 120, 210, 0.5);
+  border-radius: 9px;
+}
+
+.rp-strip b {
+  color: #fff;
+}
+
+.rp-two {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.rp-field {
+  display: block;
+  min-width: 0;
+}
+
+.rp-field > span {
+  display: block;
+  margin-bottom: 5px;
+  font-size: 0.82rem;
+  color: #9faec8;
+}
+
+.rp-field input {
+  width: 100%;
+  padding: 9px 11px;
+  font-size: 0.98rem;
+  font-family: inherit;
+  color: #e8eefc;
+  background: #13203a;
+  border: 1px solid rgba(150, 180, 220, 0.42);
+  border-radius: 8px;
+  outline: none;
+}
+
+.rp-field input:focus {
+  border-color: rgba(255, 215, 0, 0.6);
+  box-shadow: 0 0 0 2px rgba(255, 215, 0, 0.12);
+}
+
+.rp-err {
+  min-height: 1.2em;
+  font-size: 0.86rem;
+  color: #ff9a9a;
+}
+
+.rp-foot {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  padding: 12px 14px;
+  border-top: 1px solid rgba(150, 180, 220, 0.24);
+}
+
+.rp-btn {
+  padding: 9px 20px;
+  font-size: 0.96rem;
+  font-weight: 700;
+  font-family: inherit;
+  color: #d8e4f8;
+  background: rgba(60, 70, 90, 0.75);
+  border: 1px solid rgba(150, 180, 220, 0.45);
+  border-radius: 9px;
+  cursor: pointer;
+}
+
+.rp-btn:hover {
+  background: rgba(80, 95, 120, 0.85);
+}
+
+.rp-btn--go {
+  color: #12203a;
+  background: linear-gradient(180deg, #ffe487, #f0c33c);
+  border-color: rgba(255, 224, 130, 0.9);
+}
+
+.rp-btn--go:hover {
+  background: linear-gradient(180deg, #ffeaa0, #f7cd4e);
+}
+
+/* ---------- 3) 返回值列表（共用） ---------- */
+.rp-thead {
+  display: grid;
+  grid-template-columns: 26px minmax(0, 1fr) 78px 104px 30px;
+  gap: 9px;
+  padding: 0 6px 6px;
+  font-size: 0.78rem;
+  color: #9faec8;
+}
+
+.rp-thead > span:nth-child(4) {
+  text-align: right;
+}
+
+.rp-items {
+  max-height: 46vh;
+  overflow-y: auto;
+  overflow-x: hidden;
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  padding: 2px 4px 2px 2px;
+}
+
+.rp-empty {
+  padding: 14px 10px;
+  font-size: 0.9rem;
+  color: #9faec8;
+  text-align: center;
+  background: rgba(12, 22, 40, 0.5);
+  border: 1px dashed rgba(150, 180, 220, 0.3);
+  border-radius: 9px;
+}
+
+.rp-row {
+  display: grid;
+  grid-template-columns: 26px minmax(0, 1fr) 78px 104px 30px;
+  grid-template-areas: "no txt w prob del";
+  gap: 9px;
+  align-items: center;
+  padding: 7px 6px;
+  background: rgba(12, 22, 40, 0.5);
+  border: 1px solid rgba(150, 180, 220, 0.16);
+  border-radius: 9px;
+}
+
+.rp-row:hover {
+  border-color: rgba(150, 180, 220, 0.38);
+}
+
+.rp-no {
+  grid-area: no;
+  font-size: 0.82rem;
+  color: #9faec8;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+.rp-wlab {
+  display: none;
+  font-size: 0.78rem;
+  color: #9faec8;
+}
+
+.rp-txt {
+  grid-area: txt;
+  width: 100%;
+  min-width: 0;
+  padding: 7px 9px;
+  font-size: 0.94rem;
+  font-family: inherit;
+  color: #e8eefc;
+  background: #101c33;
+  border: 1px solid rgba(150, 180, 220, 0.3);
+  border-radius: 7px;
+  outline: none;
+}
+
+.rp-txt:focus {
+  border-color: rgba(255, 215, 0, 0.55);
+}
+
+.rp-w {
+  grid-area: w;
+  width: 100%;
+  min-width: 0;
+  padding: 7px 4px;
+  font-size: 0.94rem;
+  font-family: inherit;
+  text-align: center;
+  color: #fff;
+  background: #101c33;
+  border: 1px solid rgba(150, 180, 220, 0.3);
+  border-radius: 7px;
+  outline: none;
+  font-variant-numeric: tabular-nums;
+  -moz-appearance: textfield;
+  appearance: textfield;
+}
+
+.rp-w::-webkit-inner-spin-button,
+.rp-w::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+.rp-w:focus {
+  border-color: rgba(255, 215, 0, 0.55);
+}
+
+.rp-row--zero .rp-w {
+  color: #ff9a9a;
+  border-color: rgba(255, 140, 140, 0.45);
+}
+
+.rp-prob {
+  grid-area: prob;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4px;
+  min-width: 0;
+}
+
+.rp-pct {
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: #ffe9a8;
+  font-variant-numeric: tabular-nums;
+}
+
+.rp-row--zero .rp-pct {
+  color: #ff9a9a;
+}
+
+.rp-track {
+  display: block;
+  width: 100%;
+  height: 5px;
+  border-radius: 3px;
+  background: rgba(150, 180, 220, 0.16);
+  overflow: hidden;
+}
+
+.rp-fill {
+  display: block;
+  height: 100%;
+  width: 0;
+  border-radius: 3px;
+  background: linear-gradient(90deg, #c9a13a, #ffd964);
+  transition: width 0.18s ease-out;
+}
+
+.rp-row--zero .rp-fill {
+  background: linear-gradient(90deg, #7a3a3a, #c46a6a);
+}
+
+.rp-del {
+  grid-area: del;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  font-size: 0.9rem;
+  font-family: inherit;
+  line-height: 1;
+  color: #cfd8ea;
+  background: rgba(60, 70, 90, 0.6);
+  border: 1px solid rgba(150, 180, 220, 0.3);
+  border-radius: 7px;
+  cursor: pointer;
+}
+
+.rp-del:hover {
+  background: rgba(120, 60, 60, 0.85);
+  color: #fff;
+}
+
+.rp-add {
+  width: 100%;
+  margin-top: 10px;
+  padding: 9px;
+  font-size: 0.92rem;
+  font-weight: 600;
+  font-family: inherit;
+  color: #ffd964;
+  background: rgba(255, 217, 100, 0.08);
+  border: 1px dashed rgba(255, 217, 100, 0.45);
+  border-radius: 9px;
+  cursor: pointer;
+}
+
+.rp-add:hover {
+  background: rgba(255, 217, 100, 0.16);
+}
+
+.rp-sum {
+  margin-top: 10px;
+  padding: 9px 12px;
+  font-size: 0.86rem;
+  color: #c9d6ee;
+  background: rgba(10, 20, 36, 0.6);
+  border: 1px solid rgba(150, 180, 220, 0.18);
+  border-radius: 9px;
+}
+
+.rp-sum b {
+  font-size: 1rem;
+  color: #ffd964;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---------- 4) 投掷结果浮层 ---------- */
+.rp-result {
+  position: fixed;
+  left: 50%;
+  top: 46%;
+  z-index: 5600;
+  width: min(420px, 88vw);
+  padding: 22px 24px;
+  text-align: center;
+  border-radius: 16px;
+  pointer-events: none;
+  background: linear-gradient(165deg, #243050, #151f36);
+  border: 1px solid rgba(255, 217, 100, 0.45);
+  box-shadow: 0 0 0 1px rgba(255, 217, 100, 0.1), 0 20px 60px rgba(0, 0, 0, 0.65), 0 0 42px rgba(255, 217, 100, 0.12);
+  transform: translate(-50%, -50%) scale(0.8);
+  opacity: 0;
+  transition: transform 0.25s cubic-bezier(0.2, 0.9, 0.3, 1.2), opacity 0.25s ease-out;
+}
+
+.rp-result.is-in {
+  transform: translate(-50%, -50%) scale(1);
+  opacity: 1;
+}
+
+.rp-result__tag {
+  font-size: 0.86rem;
+  letter-spacing: 1px;
+  color: #ffd964;
+  opacity: 0.92;
+}
+
+.rp-result__text {
+  margin: 10px 0 8px;
+  font-size: 1.7rem;
+  font-weight: 800;
+  line-height: 1.35;
+  color: #fff;
+  text-shadow: 0 0 18px rgba(255, 217, 100, 0.35);
+  word-break: break-word;
+}
+
+.rp-result__text.is-long {
+  font-size: 1.16rem;
+  line-height: 1.55;
+}
+
+.rp-result__meta {
+  font-size: 0.8rem;
+  color: #9faec8;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---------- 5) 骰子栏：数字 / 随机池 模式按钮 ---------- */
+.dice-numbox {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.dice-numbox[hidden] {
+  display: none !important;
+}
+
+.dice-mode-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  max-width: 190px;
+  padding: 6px 12px;
+  font-size: 0.92rem;
+  font-weight: 700;
+  font-family: inherit;
+  color: #dbe6fa;
+  background: rgba(52, 64, 92, 0.92);
+  border: 1px solid rgba(150, 180, 220, 0.45);
+  border-radius: 8px;
+  cursor: pointer;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  transition: background 0.16s, border-color 0.16s, color 0.16s;
+}
+
+.dice-mode-btn:hover {
+  background: rgba(70, 86, 120, 0.95);
+}
+
+.dice-mode-btn.is-pool {
+  color: #fff;
+  border-color: rgba(255, 217, 100, 0.75);
+  background: linear-gradient(180deg, #54457a, #3b3059);
+  box-shadow: 0 0 0 1px rgba(255, 217, 100, 0.18), 0 4px 14px rgba(0, 0, 0, 0.45);
+}
+
+/* ---------- 手机 ---------- */
+@media (max-width: 760px) {
+  .rp-two {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 8px;
+  }
+
+  .rp-thead {
+    grid-template-columns: 18px minmax(0, 1fr) 44px 30px;
+    grid-template-areas: "no txt w del";
+  }
+
+  .rp-thead > span:nth-child(4) {
+    display: none;
+  }
+
+  .rp-row {
+    grid-template-columns: 18px 30px 44px minmax(0, 1fr) 30px;
+    grid-template-areas:
+      "no txt txt txt del"
+      ".  wlab w  prob del";
+    gap: 6px 7px;
+    padding: 8px;
+  }
+
+  .rp-wlab {
+    display: block;
+    grid-area: wlab;
+  }
+
+  .rp-prob {
+    flex-direction: row;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 7px;
+  }
+
+  .rp-track {
+    order: 1;
+    flex: 1 1 auto;
+    width: auto;
+    max-width: 130px;
+  }
+
+  .rp-pct {
+    order: 2;
+    min-width: 38px;
+    text-align: right;
+  }
+
+  .rp-items {
+    max-height: none;
+  }
+
+  .rp-modal {
+    width: 100%;
+    max-height: 94vh;
+  }
+
+  .rp-body {
+    padding: 10px;
+  }
+
+  .rp-result {
+    top: 42%;
+    padding: 18px 16px;
+  }
+
+  .rp-result__text {
+    font-size: 1.35rem;
+  }
+
+  .rp-result__text.is-long {
+    font-size: 1.02rem;
+  }
+}
+
+/* ---------- 6) 手机骰子面板：模式切换行 ---------- */
+.mdp-row[hidden] {
+  display: none !important;
+}
+
+.mdp-modes {
+  gap: 6px;
+}
+
+.mdp-seg {
+  flex: 1 1 0;
+  min-width: 0;
+  padding: 8px 0;
+  font-size: 0.92rem;
+  font-weight: 700;
+  font-family: inherit;
+  color: #cbd6e9;
+  background: rgba(40, 52, 76, 0.9);
+  border: 1px solid rgba(150, 180, 220, 0.35);
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.mdp-seg.is-on {
+  color: #fff;
+  border-color: rgba(255, 217, 100, 0.75);
+  background: linear-gradient(180deg, #54457a, #3b3059);
+}
+
+.mdp-pool {
+  flex: 1 1 auto;
+  min-width: 0;
+  padding: 9px 11px;
+  font-size: 0.92rem;
+  font-weight: 600;
+  font-family: inherit;
+  text-align: left;
+  color: #eaf1ff;
+  background: #13203a;
+  border: 1px solid rgba(150, 180, 220, 0.42);
+  border-radius: 8px;
+  cursor: pointer;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mdp-gear {
+  flex: 0 0 38px;
+  height: 36px;
+  font-size: 1rem;
+  font-family: inherit;
+  color: #dbe6fa;
+  background: rgba(60, 70, 90, 0.75);
+  border: 1px solid rgba(150, 180, 220, 0.4);
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.mdp-tip {
+  width: 100%;
+  margin-top: 6px;
+  font-size: 0.76rem;
+  line-height: 1.5;
+  color: #9faec8;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .rp-fill,
+  .rp-result {
+    transition: none;
+  }
+
+  .rp-pop {
+    animation: none;
+  }
+}
+
+/* ---------- 7) 手机端：骰子栏不放模式按钮（切换在展开的面板里） ---------- */
+@media (max-width: 768px) {
+  .dice-mode-btn { display: none !important; }
+
+  /* 手机：选择弹窗与骰子面板同宽；超高时可内部滚动 */
+  .rp-pop {
+    width: calc(100vw - 16px);
+    max-width: 460px;
+    max-height: calc(100vh - 20px);
+    display: flex;
+    flex-direction: column;
+    padding: 8px;
+    border-radius: 15px;
+  }
+
+  /* 头一行：🎰 我的随机池               ✕ */
+  .rp-pop__head--sheet {
+    padding: 0 2px 9px;
+    margin-bottom: 9px;
+  }
+
+  .rp-pop__x {
+    width: 28px;
+    height: 28px;
+    font-size: 0.9rem;
+  }
+
+  .rp-pop__list {
+    max-height: 54vh;
+    min-height: 0;
+    gap: 5px;
+  }
+
+  /* 左右内边距收紧，给中间腾宽度 */
+  .rp-pop__opt,
+  .rp-pop__item {
+    padding: 9px 8px;
+    gap: 8px;
+  }
+
+  /* 手机：池子项前面的图标不是必需，去掉腾宽度 */
+  .rp-pop__item .rp-pop__ico {
+    display: none;
+  }
+
+  .rp-pop__ico {
+    flex: 0 0 30px;
+    width: 30px;
+    height: 30px;
+    font-size: 1rem;
+    border-radius: 9px;
+  }
+
+  .rp-pop__body b {
+    font-size: 1.04rem;
+  }
+
+  .rp-pop__body i {
+    font-size: 0.84rem;
+  }
+
+  .rp-pop__acts {
+    gap: 3px;
+  }
+
+  .rp-pop__act {
+    width: 28px;
+    height: 28px;
+    font-size: 0.88rem;
+    border-radius: 8px;
+  }
+
+  /* 手机：选中的✓很占地，靠金色边框+金色池名已经能看出来 */
+  .rp-pop__tick {
+    display: none;
+  }
+
+  .rp-pop__new {
+    flex: 0 0 auto;
+    margin-top: 9px;
+    padding: 12px;
+    font-size: 1rem;
+  }
+
+  /* 手机：数字区间那一行（− 1 + ~ − 6 +）不许超出面板 */
+  #dice-p-numrow {
+    gap: 5px;
+    flex-wrap: nowrap;
+    overflow: hidden;
+  }
+
+  #dice-p-numrow .mdp-step {
+    width: 34px;
+    height: 36px;
+    font-size: 18px;
+  }
+
+  #dice-p-numrow .mdp-value {
+    width: 52px;
+    min-width: 0;
+    padding: 7px 2px;
+    font-size: 16px;
+  }
+}
+
+/* 窄屏（≤380px）：再挤一点，保证「N 条随机项 · 权重 W」不被省略号吃掉 */
+@media (max-width: 380px) {
+  .rp-pop {
+    padding: 7px;
+  }
+
+  .rp-pop__opt,
+  .rp-pop__item {
+    padding: 8px 6px;
+    gap: 7px;
+  }
+
+  .rp-pop__ico {
+    flex: 0 0 28px;
+    width: 28px;
+    height: 28px;
+    font-size: 0.94rem;
+  }
+
+  .rp-pop__body b {
+    font-size: 1rem;
+  }
+
+  .rp-pop__body i {
+    font-size: 0.8rem;
+  }
+
+  .rp-pop__act {
+    width: 26px;
+    height: 26px;
+    font-size: 0.82rem;
+  }
+}
+
+/* ---------- 8) 悬浮窗：随机池 ---------- */
+.chat-card-name--pool {
+  color: #ffe9a8;
+}
+
+/* 骰到的随机项（系统消息里）：做成高亮胶囊，和金色池名区分开 */
+.chat-card-name--rp-item {
+  padding: 0 5px;
+  color: #efe9ff;
+  font-weight: 700;
+  border-radius: 5px;
+  background: rgba(140, 120, 255, 0.3);
+  border-bottom-color: rgba(170, 155, 255, 0.65);
+}
+
+.chat-card-name--rp-item:hover {
+  color: #fff;
+  background: rgba(150, 130, 255, 0.46);
+}
+
+.card-tooltip__badge--pool {
+  background: rgba(255, 217, 100, 0.18);
+  color: #ffe9a8;
+  border-color: rgba(255, 217, 100, 0.5);
+}
+
+.card-tooltip__badge--rpitem {
+  background: rgba(140, 120, 255, 0.2);
+  color: #cfc4ff;
+  border-color: rgba(160, 145, 255, 0.55);
+}
+
+.card-tooltip__rp-from {
+  margin-bottom: 6px;
+  padding-bottom: 6px;
+  font-size: 0.92em;
+  color: #9faec8;
+  border-bottom: 1px solid rgba(150, 180, 220, 0.16);
+}
+
+.card-tooltip__rp-from b {
+  color: #ffe9a8;
+  font-weight: 700;
+}
+
+.card-tooltip__pool-item.is-current {
+  padding-left: 7px;
+  border-left: 3px solid #a091ff;
+  color: #efe9ff;
+}
+
+.card-tooltip__pool-item.is-current .card-tooltip__pool-text {
+  font-weight: 700;
+  color: #cfc4ff;
+}
+
+.card-tooltip__pool-item {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 3px 0;
+  border-bottom: 1px dashed rgba(150, 180, 220, 0.15);
+}
+
+.card-tooltip__pool-item:last-child {
+  border-bottom: none;
+}
+
+.card-tooltip__pool-text {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.card-tooltip__pool-num {
+  flex: 0 0 auto;
+  color: #ffd964;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}

@@ -947,6 +947,22 @@
   max-height: 86vh; overflow-y: auto;
 }
 .diy-modal-wide { width: 640px; }
+/* 名称 + 所属式神：同一排均分 */
+.diy-two { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.diy-two .diy-field { min-width: 0; }
+/* 随机池弹窗：内容随便长长，只有主弹窗滚动，底部按钮吸附住 */
+.diy-modal--pool { padding-bottom: 0; }
+.diy-modal--pool .diy-modal-actions {
+  position: sticky; bottom: 0; z-index: 3;
+  margin: 8px -24px 0; padding: 12px 24px;
+  background: #0F1420;
+  border-top: 1px solid rgba(255,255,255,0.08);
+  box-shadow: 0 -10px 20px rgba(0,0,0,0.35);
+}
+@media (max-width: 768px) {
+  .diy-two { grid-template-columns: 1fr; }
+  .diy-modal--pool .diy-modal-actions { margin-left: -24px; margin-right: -24px; }
+}
 .diy-modal h3 { font-size: 1.35rem; font-weight: 600; color: #E8EBF0; margin-bottom: 14px; }
 .diy-row { display: flex; gap: 10px; }
 .diy-row .diy-field { flex: 1; }
@@ -1156,3 +1172,34 @@
 @media (max-width: 768px) {
   .diy-preview { display: none; }
 }
+
+/* ================================================================
+   随机池（DIY 其他里的紫色皮肤；结构与游戏内共用 random-pool.css）
+   ================================================================ */
+.diy-tag--pool { background: rgba(124, 131, 255, 0.22); color: #cdd2ff; font-weight: 700; }
+.diy-pool-label { font-size: 1rem; color: #8a91ab; margin: 0 0 6px; }
+
+.diy-pool-preview { margin-top: 10px; }
+.diy-pool-preview__sub { font-size: 0.95rem; font-weight: 600; color: #7C83FF; margin-bottom: 6px; }
+.diy-prow { display: flex; align-items: center; gap: 8px; padding: 4px 0; border-bottom: 1px dashed rgba(255, 255, 255, 0.06); }
+.diy-prow__txt { flex: 1 1 auto; min-width: 0; font-size: 0.95rem; color: #cfd6ea; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.diy-prow__bar { flex: 0 0 48px; width: 48px; height: 5px; border-radius: 3px; background: rgba(150, 180, 220, 0.16); overflow: hidden; }
+.diy-prow__bar i { display: block; height: 100%; border-radius: 3px; background: linear-gradient(90deg, #5B5FEF, #A5AAFF); }
+.diy-prow__pct { flex: 0 0 40px; text-align: right; font-size: 0.85rem; font-weight: 700; color: #aab3ff; font-variant-numeric: tabular-nums; }
+.diy-pool-preview__sum { margin-top: 8px; font-size: 0.88rem; color: #8a91ab; }
+
+/* 共用编辑器在 DIY 里的配色覆盖 */
+#diy-f-pool-wrap .rp-fill { background: linear-gradient(90deg, #5B5FEF, #A5AAFF); }
+#diy-f-pool-wrap .rp-row--zero .rp-fill { background: linear-gradient(90deg, #7a3a3a, #c46a6a); }
+#diy-f-pool-wrap .rp-pct { color: #cdd2ff; }
+#diy-f-pool-wrap .rp-row--zero .rp-pct { color: #FB7185; }
+#diy-f-pool-wrap .rp-add { color: #aab3ff; background: rgba(124, 131, 255, 0.08); border-color: rgba(124, 131, 255, 0.45); }
+#diy-f-pool-wrap .rp-add:hover { background: rgba(124, 131, 255, 0.16); }
+#diy-f-pool-wrap .rp-sum b { color: #cdd2ff; }
+#diy-f-pool-wrap .rp-txt:focus,
+#diy-f-pool-wrap .rp-w:focus { border-color: #7C83FF; box-shadow: none; }
+#diy-f-pool-wrap .rp-items { max-height: none; overflow: visible; }
+
+/* hidden 属性要压过 .diy-field 的 display:block（随机池类型下隐藏效果框） */
+#diy-f-effect-wrap[hidden],
+#diy-f-pool-wrap[hidden] { display: none !important; }

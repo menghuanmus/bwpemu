@@ -148,6 +148,20 @@
         // 占卜界面中的卡牌名
         if (target.classList.contains('divine-card-item__name')) return _stripBondPrefix(target.textContent);
         if (target.classList.contains('chat-card-name')) {
+          // 系统消息中的随机池：展示池内随机项，不要当卡牌
+          if (target.dataset.rpPool) {
+            try {
+              const pd = JSON.parse(target.dataset.rpPool);
+              if (pd && pd.name) return { name: pd.name, _poolData: pd };
+            } catch (e) { /* fall through */ }
+          }
+          // 系统消息中骰到的随机项：显示为「随机项」+ 所属池的权重/概率
+          if (target.dataset.rpItem) {
+            try {
+              const rd = JSON.parse(target.dataset.rpItem);
+              if (rd && rd.text) return { name: rd.text, _rpItemData: rd };
+            } catch (e) { /* fall through */ }
+          }
           // 系统消息中的食材/佳肴：通过隐藏备注实时生成真实效果
           if (target.dataset.food) {
             try {
@@ -217,7 +231,11 @@
         if (!name && !_slotHasContent(slot)) { hide(); return; }
         // 食材牌/佳肴：用内嵌的食物数据
         let card;
-        if (name && typeof name === 'object' && name._foodData) {
+        if (name && typeof name === 'object' && name._rpItemData) {
+          card = _buildRpItemCardInfo(name._rpItemData);
+        } else if (name && typeof name === 'object' && name._poolData) {
+          card = _buildPoolCardInfo(name._poolData);
+        } else if (name && typeof name === 'object' && name._foodData) {
           card = _buildFoodCardInfo(name._foodData);
         } else {
           card = name ? (CardDB.lookupExact ? CardDB.lookupExact(name) : CardDB.lookup(name)) : null;
@@ -308,6 +326,65 @@
           info.effect = foodData._foodEffects.join('、');
         }
         return info;
+      }
+
+      /** 随机池：把消息里带的池信息包成可渲染对象 */
+      function _buildPoolCardInfo(poolData) {
+        var items = Array.isArray(poolData.items) ? poolData.items : [];
+        var clampW = function (v) {
+          var n = parseInt(v, 10);
+          if (!isFinite(n) || n < 0) return 0;
+          return Math.min(1000, n);
+        };
+        var total = 0;
+        items.forEach(function (it) { total += clampW(it && it.weight); });
+        return {
+          type: 'pool',
+          name: String(poolData.name || '随机池'),
+          _pool: true,
+          _poolItems: items.map(function (it) {
+            var w = clampW(it && it.weight);
+            var pct = total > 0 ? Math.round(w / total * 1000) / 10 : 0;
+            return { text: String((it && it.text) || ''), weight: w, pct: pct };
+          }),
+          _poolTotal: total
+        };
+      }
+
+      /** 系统消息里的随机项（骰到的结果）：显示它在随机池里的权重与概率 */
+      function _buildRpItemCardInfo(itemData) {
+        var clampW = function (v) {
+          var n = parseInt(v, 10);
+          if (!isFinite(n) || n < 0) return 0;
+          return Math.min(1000, n);
+        };
+        var items = Array.isArray(itemData.items) ? itemData.items : [];
+        var total = 0;
+        var list = items.map(function (it) {
+          var w = clampW(it && it.weight);
+          total += w;
+          return { text: String((it && it.text) || ''), weight: w, pct: 0 };
+        });
+        list.forEach(function (it) { it.pct = total > 0 ? Math.round(it.weight / total * 1000) / 10 : 0; });
+        var text = String(itemData.text || '随机项');
+        var cur = null;
+        for (var i = 0; i < list.length; i += 1) {
+          if (list[i].text === text) { cur = list[i]; break; }
+        }
+        var weight = cur ? cur.weight : clampW(itemData.weight);
+        var tot = total || clampW(itemData.total);
+        var pct = cur ? cur.pct
+          : (isFinite(itemData.pct) ? Number(itemData.pct) : (tot > 0 ? Math.round(weight / tot * 1000) / 10 : 0));
+        return {
+          type: 'rpitem',
+          name: text,
+          _rpItem: true,
+          _rpPoolName: String(itemData.pool || ''),
+          _rpWeight: weight,
+          _rpTotal: tot,
+          _rpPct: pct,
+          _rpList: list
+        };
       }
 
       /** 描述文本高亮（金黄）：关键词/灵咒 + 特殊标记「内容」（保留符号）、[[内容]] 与 [内容]（隐藏方括号），长词优先 */
@@ -604,6 +681,57 @@
           if (summaryElF) summaryElF.remove();
           const marksElF = el.querySelector('.card-tooltip__marks');
           if (marksElF) marksElF.remove();
+          return;
+        }
+
+        // 随机项（骰到的结果）：显示它属于哪个池、权重、概率，并列出整池（当前项高亮）
+        if (card._rpItem) {
+          const ib = el.querySelector('.card-tooltip__badge');
+          ib.textContent = '随机项';
+          ib.className = 'card-tooltip__badge card-tooltip__badge--rpitem';
+          el.querySelector('.card-tooltip__name').textContent = card.name;
+          el.querySelector('.card-tooltip__tag').innerHTML = '';
+          el.querySelector('.card-tooltip__stats').innerHTML =
+            '<span class="stat">权重 ' + card._rpWeight + ' / ' + card._rpTotal + '</span>' +
+            '<span class="stat">概率 ' + card._rpPct + '%</span>';
+          const ieff = el.querySelector('.card-tooltip__effect');
+          let ihtml = '';
+          if (card._rpPoolName) {
+            ihtml += '<div class="card-tooltip__rp-from">来自随机池「<b>' + escapeHTML(card._rpPoolName) + '</b>」</div>';
+          }
+          ieff.innerHTML = ihtml;
+          ieff.style.display = '';
+          ['.card-tooltip__perm', '.card-tooltip__summary', '.card-tooltip__incarn', '.card-tooltip__curses', '.card-tooltip__marks', '.card-tooltip__terms'].forEach(function (sel) {
+            const n = el.querySelector(sel);
+            if (n) n.remove();
+          });
+          _renderTerms();
+          return;
+        }
+
+        // 随机池：展示池内的随机项 + 权重 + 概率（不当卡牌）
+        if (card._pool) {
+          const badgeEl = el.querySelector('.card-tooltip__badge');
+          badgeEl.textContent = '随机池';
+          badgeEl.className = 'card-tooltip__badge card-tooltip__badge--pool';
+          el.querySelector('.card-tooltip__name').textContent = card.name;
+          el.querySelector('.card-tooltip__tag').innerHTML = '';
+          const items = card._poolItems || [];
+          el.querySelector('.card-tooltip__stats').innerHTML =
+            `<span class="stat">${items.length} 条随机项</span><span class="stat">合计权重 ${card._poolTotal}</span>`;
+          const effEl = el.querySelector('.card-tooltip__effect');
+          effEl.innerHTML = items.map(function (it) {
+            return '<div class="card-tooltip__pool-item">' +
+              '<span class="card-tooltip__pool-text">' + escapeHTML(it.text) + '</span>' +
+              '<span class="card-tooltip__pool-num">权重 ' + it.weight + ' · ' + it.pct + '%</span>' +
+              '</div>';
+          }).join('') || '<div class="card-tooltip__pool-item">（这个池子还没有随机项）</div>';
+          effEl.style.display = '';
+          ['.card-tooltip__perm', '.card-tooltip__summary', '.card-tooltip__incarn', '.card-tooltip__curses', '.card-tooltip__marks', '.card-tooltip__terms'].forEach(function (sel) {
+            const n = el.querySelector(sel);
+            if (n) n.remove();
+          });
+          _renderTerms();
           return;
         }
 

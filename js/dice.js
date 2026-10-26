@@ -5,11 +5,119 @@
 // ================================================================
 
     //  JS-4：骰子系统
+    //    两种模式：数字区间（原有）+ 随机池（🎰，玩家自定义权重表）
     // ================================================================
     const diceMinInput = document.getElementById('dice-min');
     const diceMaxInput = document.getElementById('dice-max');
+    const dicePanelEl = document.querySelector('.center-dice-bar .dice-panel');
+
+    // ---- 模式与选中的池（按账号记在本机，不进对局状态、不广播） ----
+    let diceMode = 'number';        // 'number' | 'pool'
+    let dicePoolName = '';
+
+    function _dicePrefKey() { return 'bwpemu_dice_mode_' + (window._gameUsername || 'anon'); }
+    function _loadDicePref() {
+      try {
+        const raw = localStorage.getItem(_dicePrefKey());
+        if (!raw) return;
+        const o = JSON.parse(raw);
+        if (o && o.mode === 'pool') diceMode = 'pool';
+        if (o && typeof o.pool === 'string') dicePoolName = o.pool;
+      } catch (e) { /* 忽略 */ }
+    }
+    function _saveDicePref() {
+      try {
+        localStorage.setItem(_dicePrefKey(), JSON.stringify({ mode: diceMode, pool: dicePoolName }));
+      } catch (e) { /* 忽略 */ }
+    }
+
+    /** 过程提示（不进撤销、不广播） */
+    function _diceWarn(msg) {
+      if (!msg) return;
+      if (typeof addSystemChatMessage === 'function') addSystemChatMessage('【系统提示】' + msg);
+    }
+
+    function _rp() { return (typeof RandomPool !== 'undefined') ? RandomPool : null; }
+
+    /** 打开随机池下拉（选择 / 编辑 / 新建 / 切回数字） */
+    function openPoolPicker(anchorEl) {
+      const rp = _rp();
+      if (!rp) return;
+      const anchor = anchorEl || document.getElementById('dice-mode-btn');
+      if (!anchor) return;
+      rp.openPicker(anchor, {
+        // 只有池子模式才高亮某个池子，否则会同时出现两个「已选」
+        current: diceMode === 'pool' ? dicePoolName : '',
+        inGame: true,
+        // 手机面板顶部已经有「数字 / 随机池」切换，列表里不再重复放「数字区间」
+        numberModeRow: !MOBILE_MQ.matches,
+        numberModeActive: diceMode === 'number',
+        onNumberMode: function () { setDiceMode('number'); },
+        onPick: function (name) {
+          dicePoolName = name;
+          setDiceMode('pool');
+        },
+        onChange: function () {
+          // 池列表变化（新建/删除）：当前选中的没了就退回数字模式
+          if (dicePoolName && !rp.findPool(dicePoolName)) {
+            dicePoolName = '';
+            if (!rp.getPools().length) setDiceMode('number');
+          }
+          _updateDiceModeUI();
+        }
+      });
+    }
+
+    function setDiceMode(mode) {
+      diceMode = (mode === 'pool') ? 'pool' : 'number';
+      _saveDicePref();
+      _updateDiceModeUI();
+    }
+
+    /** 刷新所有「模式」相关的显示（电脑 + 手机） */
+    function _updateDiceModeUI() {
+      const rp = _rp();
+      const isPool = diceMode === 'pool';
+      // 电脑：模式按钮文字 + 数字框显隐
+      const modeBtn = document.getElementById('dice-mode-btn');
+      if (modeBtn) {
+        if (isPool) {
+          modeBtn.textContent = '🎰 ' + (dicePoolName || '选择随机池') + ' ▾';
+          modeBtn.title = '点一下选择数字或随机池';
+        } else {
+          modeBtn.textContent = '🎲 数字';
+          modeBtn.title = '点一下选择数字或随机池';
+        }
+        modeBtn.classList.toggle('is-pool', isPool);
+      }
+      const numbox = document.querySelector('.center-dice-bar .dice-numbox');
+      if (numbox) numbox.hidden = isPool;
+      // 手机：分段按钮 + 数字行 / 池子行
+      const segNum = _mdpEl('dice-p-mode-num');
+      const segPool = _mdpEl('dice-p-mode-pool');
+      if (segNum) segNum.classList.toggle('is-on', !isPool);
+      if (segPool) segPool.classList.toggle('is-on', isPool);
+      const numRow = _mdpEl('dice-p-numrow');
+      if (numRow) numRow.hidden = isPool;
+      const poolRow = _mdpEl('dice-p-poolrow');
+      if (poolRow) poolRow.hidden = !isPool;
+      const poolBtn = _mdpEl('dice-p-pool');
+      if (poolBtn) poolBtn.textContent = (dicePoolName || '选择随机池') + ' ▾';
+      const tip = _mdpEl('dice-p-tip');
+      if (tip && rp) {
+        if (!isPool) {
+          tip.textContent = '';
+        } else {
+          const p = dicePoolName ? rp.findPool(dicePoolName) : null;
+          tip.textContent = p
+            ? '当前池：' + (p.items ? p.items.length : 0) + ' 条随机项 · 合计权重 ' + rp.weightTotal(p.items)
+            : '还没有选池子，点上面的名字选一个';
+        }
+      }
+    }
 
     function _doRollDice() {
+      if (diceMode === 'pool') { _doRollPool(); return; }
       const min = parseInt(diceMinInput.value, 10);
       const max = parseInt(diceMaxInput.value, 10);
       if (Number.isNaN(min) || Number.isNaN(max)) return;
@@ -26,6 +134,43 @@
       if (btn && typeof playDiceAnim === 'function') playDiceAnim(result, btn);
     }
 
+    /** 随机池投掷：抽一条 → 播报 → 同步给对手/观众 → 骰子动画 → 弹结果浮层 */
+    function _doRollPool() {
+      const rp = _rp();
+      if (!rp) { _diceWarn('随机池模块没加载'); return; }
+      if (!dicePoolName) { _diceWarn('还没有选随机池，先点 🎰 选一个'); return; }
+      const res = rp.roll(dicePoolName);
+      if (!res.ok) { _diceWarn(res.msg); return; }
+      const rollerName = localPlayerId ? getPlayerName(localPlayerId) : '玩家';
+      // 系统消息：写清「在哪个池里、骰出什么、权重多少、概率多少」
+      const msg = `【系统】${rollerName} 在随机池「${res.pool.name}」中骰出了「${res.item.text}」（权重 ${res.weight}/${res.total}，概率 ${res.pct}）`;
+      const poolInfo = {
+        name: res.pool.name,
+        // 骰到的随机项：消息里这条也要能悬浮看「随机项」而不是当卡牌
+        result: res.item.text,
+        weight: res.weight,
+        total: res.total,
+        pct: res.pct,
+        items: (res.pool.items || []).map(function (it) { return { text: it.text, weight: it.weight }; })
+      };
+      broadcastSystemMsg(msg, null, { poolInfo: poolInfo });
+      const payload = {
+        poolName: res.pool.name,
+        text: res.item.text,
+        weight: res.weight,
+        total: res.total,
+        pct: res.pct
+      };
+      sendToPeer(Object.assign({ type: 'dice-pool', rollerName: rollerName }, payload));
+      // 动画：前半段和数字骰一模一样，后半段飞到中间淡出后弹结果
+      const btn = document.getElementById('btn-dice-roll');
+      if (btn && typeof playDiceAnim === 'function') {
+        playDiceAnim('', btn, { flyCenter: true, onLand: function () { rp.playResult(payload); } });
+      } else {
+        rp.playResult(payload);
+      }
+    }
+
     function rollDice() {
       if (typeof isSpectator !== 'undefined' && isSpectator) return;
       // 手机端：点击打开骰子面板（面板里投掷）
@@ -34,6 +179,28 @@
     }
 
     document.getElementById('btn-dice-roll').addEventListener('click', rollDice);
+
+    // ---- 电脑端：把「模式按钮」插到数字框左边，数字框整体包一层便于隐藏 ----
+    (function buildDiceModeBtn() {
+      if (!dicePanelEl || !diceMinInput || !diceMaxInput) return;
+      const sep = dicePanelEl.querySelector('.dice-panel__sep');
+      const numbox = document.createElement('span');
+      numbox.className = 'dice-numbox';
+      diceMinInput.parentNode.insertBefore(numbox, diceMinInput);
+      numbox.appendChild(diceMinInput);
+      if (sep) numbox.appendChild(sep);
+      numbox.appendChild(diceMaxInput);
+
+      const modeBtn = document.createElement('button');
+      modeBtn.type = 'button';
+      modeBtn.className = 'dice-mode-btn';
+      modeBtn.id = 'dice-mode-btn';
+      // 无论当前是什么模式，点一下都弹出选择列表（数字 / 各个随机池），由玩家选
+      modeBtn.addEventListener('click', function () { openPoolPicker(modeBtn); });
+      numbox.parentNode.insertBefore(modeBtn, numbox);
+      _loadDicePref();
+      _updateDiceModeUI();
+    })();
 
     // ---- JS-4.1：伤害/恢复/倒计时/能量系统（统一瞄准） ----
     const damageValueInput = document.getElementById('damage-value');
@@ -376,6 +543,7 @@
       var mx = parseInt(diceMaxInput.value, 10); if (Number.isNaN(mx)) mx = 6;
       var a = _mdpEl('dice-p-min'), b = _mdpEl('dice-p-max');
       if (a) a.value = mn; if (b) b.value = mx;
+      _updateDiceModeUI();
     }
     (function() {
       var bar = document.querySelector('.center-dice-bar');
@@ -385,7 +553,11 @@
       panel.className = 'mobile-sub-panel';
       panel.hidden = true;
       panel.innerHTML =
-        '<div class="mdp-row">' +
+        '<div class="mdp-row mdp-modes">' +
+          '<button type="button" class="mdp-seg is-on" id="dice-p-mode-num">🎲 数字</button>' +
+          '<button type="button" class="mdp-seg" id="dice-p-mode-pool">🎰 随机池</button>' +
+        '</div>' +
+        '<div class="mdp-row" id="dice-p-numrow">' +
           '<button type="button" class="mdp-step" id="dice-p-min-minus">−</button>' +
           '<input type="number" class="mdp-value" id="dice-p-min" value="1">' +
           '<button type="button" class="mdp-step" id="dice-p-min-plus">+</button>' +
@@ -394,9 +566,13 @@
           '<input type="number" class="mdp-value" id="dice-p-max" value="6">' +
           '<button type="button" class="mdp-step" id="dice-p-max-plus">+</button>' +
         '</div>' +
+        '<div class="mdp-row" id="dice-p-poolrow" hidden>' +
+          '<button type="button" class="mdp-pool" id="dice-p-pool">选择随机池 ▾</button>' +
+        '</div>' +
         '<div class="mdp-row">' +
           '<button type="button" class="mdp-go" id="dice-p-go">🎲 投掷</button>' +
-        '</div>';
+        '</div>' +
+        '<div class="mdp-tip" id="dice-p-tip"></div>';
       bar.appendChild(panel);
       panel.addEventListener('click', function(e) { e.stopPropagation(); });
       function step(id, delta) {
@@ -409,9 +585,22 @@
       _mdpEl('dice-p-min-plus').addEventListener('click', function() { step('dice-p-min', 1); });
       _mdpEl('dice-p-max-minus').addEventListener('click', function() { step('dice-p-max', -1); });
       _mdpEl('dice-p-max-plus').addEventListener('click', function() { step('dice-p-max', 1); });
+      // 模式切换
+      var segNum = _mdpEl('dice-p-mode-num');
+      if (segNum) segNum.addEventListener('click', function() { setDiceMode('number'); });
+      var segPool = _mdpEl('dice-p-mode-pool');
+      if (segPool) segPool.addEventListener('click', function() {
+        setDiceMode('pool');
+        var rp = _rp();
+        if (rp && !rp.getPools().length) openPoolPicker(_mdpEl('dice-p-pool'));
+      });
+      var poolBtn = _mdpEl('dice-p-pool');
+      if (poolBtn) poolBtn.addEventListener('click', function() { openPoolPicker(poolBtn); });
       _mdpEl('dice-p-go').addEventListener('click', function() {
-        diceMinInput.value = _mdpEl('dice-p-min').value;
-        diceMaxInput.value = _mdpEl('dice-p-max').value;
+        if (diceMode !== 'pool') {
+          diceMinInput.value = _mdpEl('dice-p-min').value;
+          diceMaxInput.value = _mdpEl('dice-p-max').value;
+        }
         _closeMobileDicePanel();
         _doRollDice();
       });

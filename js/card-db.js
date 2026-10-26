@@ -180,6 +180,7 @@
         const cards = new Map();
         const curses = new Map();
         const keywords = new Map();   // 本玩家的关键词（式神录「我的」用）
+        const pools = new Map();      // 随机池（大厅 DIY「其他」里的 type=pool）
         if (lib && typeof lib === 'object') {
           const shiArr = Array.isArray(lib.shikigami) ? lib.shikigami : [];
           const cardArr = Array.isArray(lib.cards) ? lib.cards : [];
@@ -218,12 +219,16 @@
               const cc = Object.assign({}, o);
               cc.type = 'curse'; cc._lib = true; cc._libOwner = playerId;
               curses.set(cc.name, cc);
+            } else if (o.type === 'pool') {
+              const pp = Object.assign({}, o);
+              pp._lib = true; pp._libOwner = playerId;
+              pools.set(pp.name, pp);
             }
           });
         }
-        _playerLibs[playerId] = { shikigami: shikigami, cards: cards, curses: curses, keywords: keywords };
+        _playerLibs[playerId] = { shikigami: shikigami, cards: cards, curses: curses, keywords: keywords, pools: pools };
         _normalizeBonds();
-        console.log('[CardDB] 玩家 ' + playerId + ' 卡库已加载：' + shikigami.size + ' 式神 / ' + cards.size + ' 卡牌 / ' + curses.size + ' 灵咒 / ' + keywords.size + ' 关键词');
+        console.log('[CardDB] 玩家 ' + playerId + ' 卡库已加载：' + shikigami.size + ' 式神 / ' + cards.size + ' 卡牌 / ' + curses.size + ' 灵咒 / ' + keywords.size + ' 关键词 / ' + pools.size + ' 随机池');
       }
 
       /** 在玩家库中查找：支持按归属式神优先（同名多张时） */
@@ -273,6 +278,13 @@
         const lib = _playerLibs[playerId];
         if (!lib || !lib.keywords) return [];
         return [...lib.keywords.values()];
+      }
+
+      /** 某位玩家的全部随机池（我的卡库 → 其他 → 随机池） */
+      function getPlayerPools(playerId) {
+        const lib = _playerLibs[playerId];
+        if (!lib || !lib.pools) return [];
+        return [...lib.pools.values()];
       }
 
       /** 是否为官方卡牌名（DIY 保存时拦截同名用） */
@@ -384,6 +396,6 @@
         return _keywords.get(name) || null;
       }
 
-      return { init, lookup, lookupExact, addCustom, removeCustom, exportCustom, importCustom, isReady, size, getAll, lookupKeyword, loadPlayerCardLib, findInPlayerLib, getPlayerShikigami, getPlayerLibCards, getPlayerLibCurses, getPlayerLibKeywords, isOfficialName, isOfficialShikigami, getPlayerKeywords, getAllKeywords, getAllCurses };
+      return { init, lookup, lookupExact, addCustom, removeCustom, exportCustom, importCustom, isReady, size, getAll, lookupKeyword, loadPlayerCardLib, findInPlayerLib, getPlayerShikigami, getPlayerLibCards, getPlayerLibCurses, getPlayerLibKeywords, getPlayerLibPools: getPlayerPools, getPlayerPools, isOfficialName, isOfficialShikigami, getPlayerKeywords, getAllKeywords, getAllCurses };
     })();
 
