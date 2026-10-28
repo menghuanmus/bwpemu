@@ -31,6 +31,23 @@
       } catch (e) { /* 忽略 */ }
     }
 
+    /**
+     * 进房/重连后重新读一次偏好：
+     * 页面刚加载时账号可能还没就绪（key 会退化成 anon），所以身份确定后要再读一次
+     */
+    function reloadDicePref() {
+      diceMode = 'number';
+      dicePoolName = '';
+      _loadDicePref();
+      // 选中的池子可能已经被删了 → 退回数字模式
+      var rp = _rp();
+      if (diceMode === 'pool' && (!dicePoolName || (rp && !rp.findPool(dicePoolName)))) {
+        diceMode = 'number';
+        dicePoolName = '';
+      }
+      _updateDiceModeUI();
+    }
+
     /** 过程提示（不进撤销、不广播） */
     function _diceWarn(msg) {
       if (!msg) return;
@@ -151,7 +168,8 @@
         weight: res.weight,
         total: res.total,
         pct: res.pct,
-        items: (res.pool.items || []).map(function (it) { return { text: it.text, weight: it.weight }; })
+        // 用抽取前的快照：不放手池子的这一条已经被清零，但消息语境要看抽取当时的样子
+        items: (res.itemsBefore || res.pool.items || []).map(function (it) { return { text: it.text, weight: it.weight }; })
       };
       broadcastSystemMsg(msg, null, { poolInfo: poolInfo });
       const payload = {

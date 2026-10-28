@@ -181,6 +181,8 @@
         item.querySelector('.effect-value').value = eff.value;
         panel.appendChild(item);
       });
+      // 幻境面板是整块重建的，秘密选择的置顶入口要补回来
+      if (typeof Secret !== 'undefined' && Secret.renderAll) Secret.renderAll();
     }
 
     // ---- JS-1.7：状态同步 —— 玩家名称/生命值 ----
@@ -1742,5 +1744,10 @@
       // 13) 随机池：新对局丢掉「本局改动」，回到服务器卡库里的版本
       if (typeof RandomPool !== 'undefined' && RandomPool.resetLocal) {
         try { RandomPool.resetLocal(); } catch (e) { /* ignore */ }
+      }
+
+      // 14) 秘密选择：新对局清空（本地内容 + 对面的锁）
+      if (typeof Secret !== 'undefined' && Secret.resetAll) {
+        try { Secret.resetAll(); } catch (e) { /* ignore */ }
       }
     }

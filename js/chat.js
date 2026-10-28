@@ -21,6 +21,77 @@
       return name || (playerId === '1' ? '玩家一' : '玩家二');
     }
 
+    // ================================================================
+    //  新消息提示：用户往上翻着看时不要抢滚动，改为提示「N 条新消息」
+    // ================================================================
+    const NEAR_BOTTOM_PX = 48;
+
+    function _nearBottom(el) {
+      if (!el) return true;
+      return el.scrollHeight - el.scrollTop - el.clientHeight <= NEAR_BOTTOM_PX;
+    }
+
+    /** 未读提示按钮（悬浮在消息列表下沿，不占标题栏） */
+    function _unreadBtn(container) {
+      if (!container) return null;
+      if (container._unreadBtn) return container._unreadBtn;
+      const section = container.closest('.chat-section');
+      if (!section) return null;
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'chat-unread';
+      btn.hidden = true;
+      btn.innerHTML = '<span class="chat-unread__arrow">↓</span><b>0</b> 条新消息';
+      btn.title = '点击查看最新消息';
+      btn.addEventListener('click', function () {
+        container.scrollTop = container.scrollHeight;
+        _clearUnread(container);
+      });
+      section.appendChild(btn);
+      container._unreadBtn = btn;
+      // 用户自己拉到底 → 清零
+      if (!container._unreadBound) {
+        container._unreadBound = true;
+        container.addEventListener('scroll', function () {
+          if (_nearBottom(container)) _clearUnread(container);
+        });
+      }
+      return btn;
+    }
+
+    function _clearUnread(container) {
+      if (!container) return;
+      container._unread = 0;
+      const btn = container._unreadBtn;
+      if (btn) btn.hidden = true;
+    }
+
+    function _bumpUnread(container) {
+      const btn = _unreadBtn(container);
+      if (!btn) return;
+      container._unread = (container._unread || 0) + 1;
+      const num = btn.querySelector('b');
+      if (num) num.textContent = String(container._unread);
+      btn.hidden = false;
+    }
+
+    /** 追加消息：贴底时自动滚到底，否则只累计「新消息」条数 */
+    function _appendToLog(container, node) {
+      if (!container) return;
+      const stick = _nearBottom(container);
+      container.appendChild(node);
+      if (stick) {
+        container.scrollTop = container.scrollHeight;
+        _clearUnread(container);
+      } else {
+        _bumpUnread(container);
+      }
+    }
+
+    // 两个消息区各预建一个「N 条新消息」按钮（默认隐藏）
+    _unreadBtn(chatSystemLog);
+    _unreadBtn(chatPlayerLog);
+
     function addChatMessage(playerId, text, senderName) {
       const trimmed = text.trim();
       if (!trimmed) return;
@@ -32,15 +103,20 @@
       speaker.textContent = `${senderName || getPlayerName(playerId)}：`;
       bubble.appendChild(speaker);
       bubble.appendChild(document.createTextNode(trimmed));
-      chatPlayerLog.appendChild(bubble);
-      chatPlayerLog.scrollTop = chatPlayerLog.scrollHeight;
+      _appendToLog(chatPlayerLog, bubble);
     }
 
-    function addSystemChatMessage(text, food, poolInfo) {
+    function addSystemChatMessage(text, food, poolInfo, opts) {
       if (!chatSystemLog) return;
       try {
         const bubble = document.createElement('div');
         bubble.className = 'chat-bubble chat-bubble--system';
+        // 「展示的秘密」：整条换个底色，一眼能看出是被揭晓的秘密
+        if (opts && opts.secret) bubble.classList.add('chat-bubble--secret');
+        // 展示动画：锁打开 → 弹一张卡 → 2 秒后消失
+        if (opts && opts.secretInfo && typeof Secret !== 'undefined' && Secret.playRevealAnim) {
+          Secret.playRevealAnim(opts.secretInfo);
+        }
         // 将「卡牌名」包裹为可悬浮的高亮标签，其余文本做 HTML 转义
         bubble.innerHTML = escapeHTML(text).replace(/「(.+?)」/g, '<span class="chat-card-name">$1</span>');
         // 隐藏备注（食材/佳肴的真实效果）：挂到同名卡牌标签上，不展示内容
@@ -75,8 +151,7 @@
             });
           }
         }
-        chatSystemLog.appendChild(bubble);
-        chatSystemLog.scrollTop = chatSystemLog.scrollHeight;
+        _appendToLog(chatSystemLog, bubble);
       } catch (e) {
         console.error('[SysMsg] 添加系统消息失败:', e);
       }
@@ -162,8 +237,7 @@
           chatSystemLog.scrollTop = chatSystemLog.scrollHeight;
         });
 
-        chatSystemLog.appendChild(wrapper);
-        chatSystemLog.scrollTop = chatSystemLog.scrollHeight;
+        _appendToLog(chatSystemLog, wrapper);
       } catch (e) {
         console.error('[SysMsg] 渲染分组消息失败:', e);
       }
@@ -210,13 +284,15 @@
         return;
       }
       var poolInfo = extra && extra.poolInfo;
+      var secretFlag = !!(extra && extra.secret);
+      var secretInfo = (extra && extra.secretInfo) || null;
       // 联机：同步给对方
       if (!isSoloMode && typeof isConnected === 'function' && isConnected() && typeof sendToPeer === 'function') {
-        sendToPeer({ type: 'sysmsg', text: msg, food: food || undefined, poolInfo: poolInfo || undefined });
+        sendToPeer({ type: 'sysmsg', text: msg, food: food || undefined, poolInfo: poolInfo || undefined, secret: secretFlag || undefined, secretInfo: secretInfo || undefined });
       }
       // 撤销功能：登记本步的描述
       if (window.Undo && Undo.noteMessage) Undo.noteMessage(msg);
-      addSystemChatMessage(msg, food, poolInfo);
+      addSystemChatMessage(msg, food, poolInfo, secretFlag ? { secret: true, secretInfo: secretInfo } : null);
     }
 
     function openSpeakDialog(playerId) {

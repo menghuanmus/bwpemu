@@ -155,11 +155,28 @@
         case 'effects-update':
           applyRemoteEffectsState(data.playerId, data.effects);
           break;
+        case 'pool-state':
+          // 本局随机池副本（含「抽取不放回」的消耗）——只认自己的
+          if (typeof RandomPool !== 'undefined' && RandomPool.setLocal) {
+            var _myPid = (typeof localPlayerId !== 'undefined' && localPlayerId) ? localPlayerId : '';
+            if (data.playerId && String(data.playerId) === String(_myPid)) {
+              RandomPool.setLocal(Array.isArray(data.pools) ? data.pools : null);
+            }
+          }
+          break;
+        case 'secret-state':
+          // 服务端存好后回执：自己拿全部（mine），对手/观众只拿数量（count）
+          if (typeof Secret !== 'undefined' && Secret.applyState) Secret.applyState(data.playerId, data.count);
+          break;
+        case 'secret-reveal':
+          // 对面展示了其中一份 → 置顶数量由服务端给准数
+          if (typeof Secret !== 'undefined' && Secret.applyReveal) Secret.applyReveal(data.owner || data.playerId, data.count);
+          break;
         case 'player-info':
           applyRemotePlayerInfo(data.playerId, data.name, data.hp);
           break;
         case 'sysmsg':
-          addSystemChatMessage(data.text, data.food, data.poolInfo);
+          addSystemChatMessage(data.text, data.food, data.poolInfo, data.secret ? { secret: true, secretInfo: data.secretInfo || null } : null);
           // noUndo：只是过程提示（如「正在进行加护…」），不产生撤销步骤
           if (!data.noUndo && window.Undo && Undo.noteMessage && data.text && data.text.indexOf('【系统提示】') !== 0) Undo.noteMessage(data.text);
           break;
@@ -490,11 +507,56 @@
       applyPermissionLock();
       setConnStatus(true, '已连接');
       addSystemChatMessage('【系统】连接成功，游戏开始！');
+      // 把「我封了几份秘密」再告诉对方一次（对方/观众刚连上时要知道）
+      if (typeof Secret !== 'undefined' && Secret.pushState) Secret.pushState();
     }
 
     // ================================================================
     //  applyFullState（由 auth.js 在收到 room-state 时调用）
     // ================================================================
+
+    // 进房时 applyFullState 比 localPlayerId 赋值先执行 → 先存着，等身份确定（enterGame 里）再应用
+    var _pendingPoolState = null;
+    var _pendingSecretState = null;
+
+    /**
+     * 应用房间里的秘密选择：
+     *   自己的 → 完整内容（mine）；对手的 → 只有数量（count）
+     * 返回 true 表示已应用（可以清缓存）
+     */
+    function applySecretsFromState(secrets, mySlot) {
+      if (!secrets || typeof Secret === 'undefined') return false;
+      var pid = String(mySlot || ((typeof localPlayerId !== 'undefined' && localPlayerId) ? localPlayerId : '') || '');
+      if (!pid || pid === '0') return false;   // 观众：两边都只有数量
+      var applied = false;
+      ['1', '2'].forEach(function (p) {
+        var s = secrets[p];
+        if (!s) return;
+        if (p === pid) {
+          if (Array.isArray(s.mine) && Secret.setItems) { Secret.setItems(s.mine); applied = true; }
+        } else if (Secret.setRemoteCount) {
+          Secret.setRemoteCount(p, Number(s.count) || 0);
+          applied = true;
+        }
+      });
+      return applied;
+    }
+
+    function applyPendingPoolState(mySlot) {
+      var pid = mySlot || ((typeof localPlayerId !== 'undefined' && localPlayerId) ? localPlayerId : '');
+      if (_pendingPoolState) {
+        if (pid && typeof _pendingPoolState[pid] !== 'undefined') {
+          if (typeof RandomPool !== 'undefined' && RandomPool.setLocal) {
+            RandomPool.setLocal(_pendingPoolState[pid]);
+          }
+          _pendingPoolState = null;
+        }
+      }
+      // 秘密选择同随机池：身份没确定前先存着
+      if (_pendingSecretState) {
+        if (applySecretsFromState(_pendingSecretState, pid)) _pendingSecretState = null;
+      }
+    }
 
     function applyFullState(state) {
       if (!state) return;
@@ -568,6 +630,17 @@
       if (state.fateRevealedCards && typeof playerFateRevealedCards !== 'undefined') { ['1', '2'].forEach(function(pid) { if (state.fateRevealedCards[pid]) playerFateRevealedCards[pid] = new Set(state.fateRevealedCards[pid]); }); }
       if (state.handShows && typeof playerHandShows !== 'undefined') { ['1', '2'].forEach(function(pid) { if (state.handShows[pid]) playerHandShows[pid] = new Set(state.handShows[pid]); }); }
       if (state.graveTargets && typeof window.applyGraveTargets === 'function') window.applyGraveTargets(state.graveTargets);
+      // 本局随机池副本（含「抽取不放回」的消耗）：断线重连/刷新后恢复。
+      // 注意：进房时 applyFullState 比 localPlayerId 赋值先跑，这里先存下来，等身份确定再应用
+      if (state.playerPools) {
+        _pendingPoolState = state.playerPools;
+        applyPendingPoolState();
+      }
+      // 秘密选择（服务端房间信息里）：自己的拿完整内容，对手只有数量
+      if (state.secrets) {
+        _pendingSecretState = state.secrets;
+        applyPendingPoolState();
+      }
 
       // 恢复聊天记录
       if (state.chatLog && Array.isArray(state.chatLog)) {
@@ -583,6 +656,10 @@
 
       if (typeof slotSyncSuppress !== 'undefined') slotSyncSuppress = false;
       updateAllDeckButtons();
+      // 秘密选择：重连/进房后按当前房间号重新加载（刷新时房间号还未知），再重画
+      // 但如果服务端带了 secrets 且身份还没确定（还在缓存里），就别用旧房间的本地数据覆盖，
+      // 等 enterGame 里 applyPendingPoolState → Secret.setItems 一次性覆盖
+      if (typeof Secret !== 'undefined' && Secret.reload && !_pendingSecretState) Secret.reload();
       // 撤销功能：进房/重连收到全量状态 → 重新作基线
       if (window.Undo && Undo.reset) Undo.reset('收到房间全量状态');
     }

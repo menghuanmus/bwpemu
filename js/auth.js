@@ -776,6 +776,10 @@
     }
     applyPermissionLock();
 
+    // 房间状态可能比身份先到：身份确定后再补一次（本局随机池、骰子模式偏好）
+    if (typeof applyPendingPoolState === 'function') applyPendingPoolState(localPlayerId);
+    if (typeof reloadDicePref === 'function') setTimeout(function () { reloadDicePref(); }, 0);
+
     socket.off('room-state').off('update').off('player-joined').off('player-left').off('error-msg').off('room-update').off('room-closed').off('room-chat').off('cardlibs');
     socket.on('room-state', function(s) { if (typeof applyFullState === 'function') applyFullState(s); });
     socket.on('cardlibs', function(libs) { if (typeof window.loadCardLibs === 'function') window.loadCardLibs(libs); });

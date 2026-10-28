@@ -60,6 +60,8 @@ window.RandomPool = (function () {
       name: String((p && p.name) || '').slice(0, MAX_NAME),
       effect: String((p && p.effect) || ''),
       items: items,
+      // 抽取不放回：骰中的那条权重归零
+      noReplace: !!(p && p.noReplace),
       author: (p && p.author) || ''
     };
   }
@@ -78,6 +80,28 @@ window.RandomPool = (function () {
     return localPools || fromCardDB();
   }
 
+  /**
+   * 把本局副本同步给服务端（断线重连/刷新后才能恢复：尤其是「抽取不放回」的消耗）
+   * 传 null = 回到卡库版本（新开一局）
+   */
+  function syncToServer() {
+    try {
+      if (typeof sendToPeer !== 'function') return;
+      if (typeof localPlayerId === 'undefined' || !localPlayerId) return;
+      sendToPeer({ type: 'pool-state', playerId: localPlayerId, pools: localPools });
+    } catch (e) { /* 未联机时忽略 */ }
+  }
+
+  /** 从房间状态恢复本局副本（null = 跟随卡库；数组 = 本局改过） */
+  function setLocal(pools) {
+    if (pools === undefined) return;
+    if (Array.isArray(pools)) {
+      localPools = pools.map(normalizePool);
+    } else {
+      localPools = null;
+    }
+  }
+
   function ensureLocal() {
     if (!localPools) localPools = fromCardDB();
     return localPools;
@@ -94,15 +118,16 @@ window.RandomPool = (function () {
   function upsertPool(pool) {
     var arr = ensureLocal();
     for (var i = 0; i < arr.length; i++) {
-      if (arr[i].name === pool.name) { arr[i] = pool; return; }
+      if (arr[i].name === pool.name) { arr[i] = pool; syncToServer(); return; }
     }
     arr.push(pool);
+    syncToServer();
   }
 
   function removePool(name) {
     var arr = ensureLocal();
     for (var i = 0; i < arr.length; i++) {
-      if (arr[i].name === name) { arr.splice(i, 1); return true; }
+      if (arr[i].name === name) { arr.splice(i, 1); syncToServer(); return true; }
     }
     return false;
   }
@@ -110,6 +135,7 @@ window.RandomPool = (function () {
   /** 新开一局：丢掉本局改动，回到服务器版本 */
   function resetLocal() {
     localPools = null;
+    syncToServer();
   }
 
   // ================================================================
@@ -132,8 +158,8 @@ window.RandomPool = (function () {
   }
 
   /**
-   * 抽一次。返回 {ok:true, pool, item, index, weight, total, pct} 或 {ok:false, msg}
-   * 只做计算，不播报、不写状态（播报由调用方做）
+   * 抽一次。返回 {ok:true, pool, item, index, weight, total, pct, itemsBefore, consumed} 或 {ok:false, msg}
+   * 只做计算，不播报；「抽取不放回」的池子会把这条权重归零（写在本局副本里）
    */
   function roll(name) {
     var pool = findPool(name);
@@ -141,18 +167,43 @@ window.RandomPool = (function () {
     var items = pool.items || [];
     if (!items.length) return { ok: false, msg: '这个池子还没有随机项，点骰子旁的池名，编辑它加几条' };
     var total = weightTotal(items);
-    if (total <= 0) return { ok: false, msg: '所有随机项的权重都是 0，改一下再投' };
+    if (total <= 0) {
+      return {
+        ok: false,
+        msg: pool.noReplace
+          ? '该随机池属于抽取不放回，所有随机项已全部抽取完毕。若需继续，请修改权重或新增随机项。'
+          : '该随机池所有随机项权重均为 0，请修改再使用。'
+      };
+    }
     var idx = pickIndex(items);
     if (idx < 0) return { ok: false, msg: '抽取失败，请检查权重' };
-    return {
+    // 抽取前的快照：消息/悬浮窗要展示「当时」的整池，而不是被清零后的
+    var before = items.map(function (it) { return { text: it.text, weight: clampWeight(it.weight) }; });
+    var res = {
       ok: true,
       pool: pool,
       item: items[idx],
       index: idx,
       weight: clampWeight(items[idx].weight),
       total: total,
-      pct: fmtPct(items[idx].weight, total)
+      pct: fmtPct(items[idx].weight, total),
+      itemsBefore: before,
+      consumed: false
     };
+    // 抽取不放回：骰中的那条权重归零（只改本局副本，不动「我的卡库」）
+    if (pool.noReplace) {
+      var arr = ensureLocal();
+      var local = null;
+      for (var k = 0; k < arr.length; k++) { if (arr[k].name === name) { local = arr[k]; break; } }
+      if (local && local.items && local.items[idx]) {
+        local.items[idx].weight = 0;
+        res.pool = local;
+        res.consumed = true;
+        // 消耗也要进房间状态，否则断线重连/刷新会回到完整池子
+        syncToServer();
+      }
+    }
+    return res;
   }
 
   // ================================================================
@@ -289,6 +340,23 @@ window.RandomPool = (function () {
     return out;
   }
 
+  /** 勾选项：抽取不放回（对局编辑器与 DIY 共用） */
+  function checkHTML(checked) {
+    return '<label class="rp-check">' +
+      '<input type="checkbox" data-rp-noreplace' + (checked ? ' checked' : '') + '>' +
+      '<span class="rp-check__box"></span>' +
+      '<span class="rp-check__text">抽取不放回' +
+        '<span class="rp-check__hint">随机项被抽到后权重变成 0，本次对局不会再抽到它</span>' +
+      '</span>' +
+    '</label>';
+  }
+
+  /** 读勾选状态 */
+  function readNoReplace(root) {
+    var el = (root && root.querySelector) ? root.querySelector('[data-rp-noreplace]') : null;
+    return !!(el && el.checked);
+  }
+
   /** 只校验返回值列表（DIY 里名字重复由调用方自己查） */
   function validateItems(items) {
     var list = Array.isArray(items) ? items : [];
@@ -355,7 +423,7 @@ window.RandomPool = (function () {
     var n = (p.items ? p.items.length : 0);
     return '<div class="rp-pop__item' + (p.name === cur ? ' is-on' : '') + '" data-rp-pick="' + esc(p.name) + '">' +
       '<span class="rp-pop__ico">' + ICON + '</span>' +
-      '<span class="rp-pop__body"><b>' + esc(p.name) + '</b><i>' + n + ' 条随机项 · 权重 ' + total + '</i></span>' +
+      '<span class="rp-pop__body"><b>' + esc(p.name) + '</b><i>' + n + ' 条随机项 · 权重 ' + total + (p.noReplace ? ' · 不放回' : '') + '</i></span>' +
       '<span class="rp-pop__acts">' +
         '<button type="button" class="rp-pop__act" data-rp-edit="' + esc(p.name) + '" title="编辑">✏️</button>' +
         '<button type="button" class="rp-pop__act rp-pop__act--del" data-rp-del="' + esc(p.name) + '" title="删除">🗑</button>' +
@@ -507,11 +575,12 @@ window.RandomPool = (function () {
           '<button type="button" class="rp-close" data-rp-close>✕</button>' +
         '</div>' +
         '<div class="rp-body">' +
-          (opts.inGame ? '<div class="rp-strip">🎲 <b>只在本次对局生效</b>，不会改动「我的卡库」里保存的版本。</div>' : '') +
+          (opts.inGame ? '<div class="rp-strip">🎲 <b>此页面改动只在本次对局生效</b>，不会改动「DIY」里保存的版本。</div>' : '') +
           '<div class="rp-two">' +
             '<label class="rp-field"><span>名称</span><input type="text" id="rp-name" maxlength="' + MAX_NAME + '" placeholder="比如：酒馆事件" value="' + esc(pool.name) + '"></label>' +
             '<label class="rp-field"><span>备注</span><input type="text" id="rp-note" maxlength="300" placeholder="选填" value="' + esc(pool.effect) + '"></label>' +
           '</div>' +
+          checkHTML(pool.noReplace) +
           itemsHTML(pool.items) +
           '<div class="rp-err" id="rp-err"></div>' +
         '</div>' +
@@ -534,6 +603,7 @@ window.RandomPool = (function () {
           name: String(nameInput ? nameInput.value : '').trim(),
           effect: String(noteInput ? noteInput.value : '').trim(),
           items: readItems(overlay),
+          noReplace: readNoReplace(overlay),
           author: pool.author || ''
         };
         var err = validatePool(next, isNew ? '' : name);
@@ -603,6 +673,8 @@ window.RandomPool = (function () {
     weightTotal: weightTotal,
     fmtPct: fmtPct,
     getPools: getPools,
+    setLocal: setLocal,
+    syncToServer: syncToServer,
     findPool: findPool,
     upsertPool: upsertPool,
     removePool: removePool,
@@ -611,6 +683,8 @@ window.RandomPool = (function () {
     pickIndex: pickIndex,
     roll: roll,
     itemsHTML: itemsHTML,
+    checkHTML: checkHTML,
+    readNoReplace: readNoReplace,
     bindItems: bindItems,
     readItems: readItems,
     recalc: recalc,

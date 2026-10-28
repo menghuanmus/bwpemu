@@ -1177,6 +1177,7 @@
    随机池（DIY 其他里的紫色皮肤；结构与游戏内共用 random-pool.css）
    ================================================================ */
 .diy-tag--pool { background: rgba(124, 131, 255, 0.22); color: #cdd2ff; font-weight: 700; }
+.diy-tag--noreplace { background: rgba(255, 217, 100, 0.18); color: #ffe9a8; font-weight: 700; }
 .diy-pool-label { font-size: 1rem; color: #8a91ab; margin: 0 0 6px; }
 
 .diy-pool-preview { margin-top: 10px; }

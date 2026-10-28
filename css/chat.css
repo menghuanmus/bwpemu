@@ -19,6 +19,7 @@
     }
 
     .chat-section {
+      position: relative;
       display: flex;
       flex-direction: column;
       min-height: 0;
@@ -40,6 +41,7 @@
     }
 
     .chat-section-title {
+      position: relative;
       flex-shrink: 0;
       padding: 6px 12px;
       font-size: 12px;
@@ -47,6 +49,83 @@
       letter-spacing: 1px;
       text-align: center;
       border-bottom: 1px solid rgba(150, 180, 220, 0.3);
+    }
+
+    /* 「N 条新消息」提示：悬浮在消息列表下沿正中，不抢标题栏；
+       深色玻璃底 + 金字，箭头轻轻下浮，暗示下面还有新内容 */
+    .chat-unread {
+      position: absolute;
+      left: 50%;
+      bottom: 10px;
+      transform: translateX(-50%);
+      z-index: 2;
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 5px 13px 5px 11px;
+      font-family: inherit;
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 0.3px;
+      line-height: 1.4;
+      color: #ffe9a8;
+      background: rgba(24, 20, 44, 0.94);
+      border: 1px solid rgba(255, 217, 100, 0.5);
+      border-radius: 999px;
+      box-shadow: 0 6px 18px rgba(0, 0, 0, 0.55);
+      cursor: pointer;
+      animation: chatUnreadIn 0.18s ease-out;
+    }
+
+    .chat-unread:hover {
+      color: #fff3c4;
+      background: rgba(44, 36, 78, 0.96);
+      border-color: rgba(255, 233, 168, 0.9);
+    }
+
+    .chat-unread b {
+      font-weight: 900;
+      color: #ffd964;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .chat-unread__arrow {
+      display: inline-block;
+      font-size: 13px;
+      line-height: 1;
+      color: #ffd964;
+      animation: chatUnreadBob 1.6s ease-in-out infinite;
+    }
+
+    .chat-unread[hidden] {
+      display: none !important;
+    }
+
+    /* 聊天大厅底部有输入行，提示要浮在输入行上方 */
+    .chat-section--player .chat-unread {
+      bottom: 56px;
+    }
+
+    @keyframes chatUnreadIn {
+      from { opacity: 0; transform: translate(-50%, 4px); }
+      to   { opacity: 1; transform: translate(-50%, 0); }
+    }
+
+    @keyframes chatUnreadBob {
+      0%, 100% { transform: translateY(0); }
+      50%      { transform: translateY(2px); }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      .chat-unread { animation: none; }
+      .chat-unread__arrow { animation: none; }
+    }
+
+    /* 手机端：聊天大厅没有底部输入行（用标题栏的「发言」），提示贴底 */
+    @media (max-width: 768px) {
+      .chat-section--player .chat-unread {
+        bottom: 10px;
+      }
     }
 
     .chat-section--system .chat-section-title {

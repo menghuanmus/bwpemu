@@ -263,6 +263,83 @@
   background: rgba(255, 217, 100, 0.16);
 }
 
+/* ---------- 抽取不放回：勾选项（编辑器与 DIY 共用） ---------- */
+.rp-check {
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  margin: 2px 0 10px;
+  padding: 9px 11px;
+  background: rgba(16, 24, 40, 0.6);
+  border: 1px solid rgba(140, 170, 210, 0.32);
+  border-radius: 9px;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+}
+
+.rp-check:hover {
+  border-color: rgba(200, 220, 255, 0.55);
+  background: rgba(30, 42, 64, 0.72);
+}
+
+.rp-check input {
+  position: absolute;
+  opacity: 0;
+  width: 1px;
+  height: 1px;
+  pointer-events: none;
+}
+
+.rp-check__box {
+  position: relative;
+  flex: 0 0 auto;
+  width: 20px;
+  height: 20px;
+  margin-top: 1px;
+  border: 2px solid rgba(150, 180, 220, 0.55);
+  border-radius: 6px;
+  background: rgba(10, 16, 28, 0.92);
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.rp-check__box::after {
+  content: '';
+  position: absolute;
+  left: 5px;
+  top: 1px;
+  width: 6px;
+  height: 11px;
+  border: solid #1a2436;
+  border-width: 0 2.5px 2.5px 0;
+  transform: rotate(45deg) scale(0);
+  transition: transform 0.15s ease;
+}
+
+.rp-check input:checked + .rp-check__box {
+  background: linear-gradient(180deg, #ffd964, #e0a92b);
+  border-color: #ffe9a8;
+}
+
+.rp-check input:checked + .rp-check__box::after { transform: rotate(45deg) scale(1); }
+
+.rp-check input:focus-visible + .rp-check__box {
+  box-shadow: 0 0 0 3px rgba(255, 217, 100, 0.32);
+}
+
+.rp-check__text {
+  font-size: 1rem;
+  line-height: 1.45;
+  color: #cbd6e9;
+}
+
+.rp-check__hint {
+  display: block;
+  margin-top: 2px;
+  font-size: 0.86rem;
+  color: #8b9bb7;
+}
+
 /* ---------- 2) 编辑弹窗 ---------- */
 .rp-overlay {
   position: fixed;

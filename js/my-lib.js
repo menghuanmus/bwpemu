@@ -691,6 +691,7 @@ var MyLib = (function () {
       '<label class="diy-field" id="diy-f-effect-wrap"><span class="diy-field__head">效果（≤300字）<span class="diy-char-count" id="diy-f-count">(0/300)</span></span><textarea id="diy-f-text" maxlength="300" rows="3" placeholder="关键词/灵咒的效果说明"></textarea></label>',
       '<div id="diy-f-pool-wrap" hidden>' +
         '<label class="diy-field"><span>备注</span>' + inputHTML('diy-f-note', '选填', 'text', 'maxlength="300"') + '</label>' +
+        (rp ? rp.checkHTML(isPool ? !!unit.noReplace : false) : '') +
         '<div class="diy-pool-label">随机项（最多 100 条，每条最多 100 字）</div>' +
         (rp ? rp.itemsHTML(poolItems) : '') +
       '</div>',
@@ -743,7 +744,8 @@ var MyLib = (function () {
           name: name,
           effect: $('diy-f-note').value.trim(),
           owner: $('diy-f-owner').value.trim(),
-          items: items
+          items: items,
+          noReplace: rp ? rp.readNoReplace(m.ov) : false
         };
       } else {
         saved = {
@@ -816,6 +818,7 @@ var MyLib = (function () {
       tags = '<span class="diy-tag diy-tag--pool">随机池</span>' +
         '<span class="diy-tag">' + (Array.isArray(unit.items) ? unit.items.length : 0) + ' 条随机项</span>' +
         '<span class="diy-tag">权重 ' + poolTotal(unit.items) + '</span>';
+      if (unit.noReplace) tags += '<span class="diy-tag diy-tag--noreplace">不放回</span>';
       if (unit.owner) tags += '<span class="diy-tag">' + esc(unit.owner) + '</span>';
     } else {
       tags = '<span class="diy-tag">' + (unit.type === 'curse' ? '灵咒' : '关键词') + '</span>';
@@ -1035,6 +1038,7 @@ var MyLib = (function () {
       var pTotal = poolTotal(pItems);
       meta.push(pill('随机池', 'diy-tag--pool'));
       meta.push(pill('权重 ' + pTotal));
+      if (unit.noReplace) meta.push(pill('抽取不放回', 'diy-tag--noreplace'));
       if (unit.owner) meta.push(pill('所属：' + unit.owner));
       effect = unit.effect || '';
       poolItemsHtml = '<div class="diy-pool-preview">' +
