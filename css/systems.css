@@ -2982,12 +2982,21 @@
       display: flex;
       flex-direction: column;
       align-items: center;
+      /* 高度上限：两张牌的效果文字再多也不会撑出屏幕（overlay 有 16px 内边距） */
+      max-height: calc(100vh - 32px);
+      max-height: calc(100dvh - 32px);
+      /* 极矮屏（横屏手机）仍然塞不下时，整个弹窗可滚，至少能滚到按钮 */
+      overflow-y: auto;
+      overflow-x: hidden;
+      overscroll-behavior: contain;
     }
     .fate-dialog h3 { color: #ffd700; }
 
     .fate-card-slot {
       width: 180px;
-      min-height: 260px;
+      /* 两张卡平分弹窗剩余高度；空间不够时允许收缩（min-height 兼底） */
+      flex: 1 1 260px;
+      min-height: 150px;
       border: 2px dashed rgba(200, 160, 60, 0.35);
       border-radius: 10px;
       background: linear-gradient(160deg, #1a2440 0%, #101c30 100%);
@@ -3045,25 +3054,46 @@
 
     /* 命运抉择卡牌内容 */
     .fate-card-title {
+      flex: 0 0 auto;
       font-size: 15px;
       color: #8098b8;
       margin-bottom: 4px;
       letter-spacing: 1px;
     }
     .fate-card-name {
+      flex: 0 0 auto;
       font-size: 21px;
       font-weight: 600;
       color: #e0d8c8;
     }
+    /* 效果描述是唯一可伸缩的部分：放不下就在卡内滑动 */
     .fate-card-effect {
+      flex: 1 1 auto;
+      min-height: 40px; /* 再挤也留两行可见，否则高度被压成 0 根本没法滚 */
+      width: 100%;
       font-size: 15px;
       color: #b0a890;
       line-height: 1.4;
       margin-top: 6px;
-      flex: 1;
-      overflow: hidden;
+      padding-right: 2px;
+      overflow-y: auto;
+      overflow-x: hidden;
+      overscroll-behavior: contain;
+      -webkit-overflow-scrolling: touch;
+      scrollbar-width: thin;
+      scrollbar-color: rgba(200, 175, 110, 0.45) transparent;
+    }
+    .fate-card-effect::-webkit-scrollbar { width: 6px; }
+    .fate-card-effect::-webkit-scrollbar-track { background: transparent; }
+    .fate-card-effect::-webkit-scrollbar-thumb {
+      background: rgba(200, 175, 110, 0.45);
+      border-radius: 3px;
+    }
+    .fate-card-effect::-webkit-scrollbar-thumb:hover {
+      background: rgba(220, 195, 130, 0.65);
     }
     .fate-card-curses {
+      flex: 0 0 auto;
       display: flex;
       flex-wrap: wrap;
       gap: 3px;
@@ -3078,6 +3108,7 @@
       white-space: nowrap;
     }
     .fate-card-footer {
+      flex: 0 0 auto;
       font-size: 17px;
       color: #8090a8;
       margin-top: auto;
@@ -3123,6 +3154,38 @@
     }
     .fate-stat--bl { left: -12px; }
     .fate-stat--br { right: -12px; }
+
+    /* 命运抉择：手机端 + 矮屏再加一档收紧，保证两张牌和按钮都在屏内 */
+    @media (max-width: 768px) {
+      .fate-dialog {
+        max-height: calc(100vh - 24px);
+        max-height: calc(100dvh - 24px);
+        padding: 16px 14px;
+      }
+      .fate-card-slot {
+        min-height: 132px;
+        padding: 10px 9px;
+      }
+      .fate-card-name { font-size: 19px; }
+      .fate-card-effect { font-size: 14px; }
+      .fate-card-footer { font-size: 15px; }
+      .fate-stat { width: 26px; height: 26px; font-size: 12px; }
+      .fate-mini-level { width: 24px; height: 24px; }
+      .fate-mini-level span { font-size: 12px; }
+    }
+
+    @media (max-height: 560px) {
+      .fate-dialog { padding: 12px 14px; }
+      .fate-dialog h3 { margin-bottom: 6px; font-size: 15px; }
+      .fate-center { padding: 6px 0; gap: 8px; }
+      .fate-btn { padding: 6px 14px; font-size: 13px; }
+      .fate-card-slot { min-height: 118px; padding: 8px 8px; }
+      .fate-card-title { font-size: 13px; margin-bottom: 2px; }
+      .fate-card-name { font-size: 17px; }
+      .fate-card-effect { font-size: 13px; margin-top: 4px; }
+      .fate-card-footer { font-size: 13px; padding-top: 2px; }
+      .fate-curse-tag { font-size: 12px; }
+    }
 
     /* ================================================================
        初始手牌对话框 (Initial Hand)

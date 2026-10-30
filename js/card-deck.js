@@ -3669,16 +3669,15 @@
       fateContext.bottomCard = bottomCard;
       fateContext.swapped = false;
 
-      // 为对手操作时，先揭示再渲染（仅命运抉择揭示，不混入占卜集）
+      // 命运抉择揭示：不管给自己还是给别人操作，都要记成「已看过」。
+      // 否则自己给自己抉择之后，牌库列表里那两张还是「未知」（和占卜的表现不一致）
       const opId = fateContext.operatorId || playerId;
-      if (opId !== playerId) {
-        if (!playerFateRevealedCards[opId]) playerFateRevealedCards[opId] = new Set();
-        playerFateRevealedCards[opId].add(topCard.id);
-        playerFateRevealedCards[opId].add(bottomCard.id);
-        // 命运抉择揭示同步到服务器（刷新重连后可恢复）
-        if (isConnected() && typeof sendToPeer === 'function') {
-          sendToPeer({ type: 'fate-revealed-cards', playerId: opId, cardIds: [...playerFateRevealedCards[opId]] });
-        }
+      if (!playerFateRevealedCards[opId]) playerFateRevealedCards[opId] = new Set();
+      playerFateRevealedCards[opId].add(topCard.id);
+      playerFateRevealedCards[opId].add(bottomCard.id);
+      // 同步到服务器（刷新 / 重连后可恢复）
+      if (typeof isConnected === 'function' && isConnected() && typeof sendToPeer === 'function') {
+        sendToPeer({ type: 'fate-revealed-cards', playerId: opId, cardIds: [...playerFateRevealedCards[opId]] });
       }
 
       _renderFateSlots(fateContext, playerId);
@@ -3779,14 +3778,15 @@
 
       slotEl.innerHTML = html;
 
-      // 自适应缩字：效果描述超出时缩小字号
+      // 自适应缩字：效果超长时先小幅缩字，还放不下就交给卡内滚动
+      // 初始字号取 CSS 计算值（手机端是 14px，不能硬编码 15 把它盖掉）
       if (eff) {
         const effEl = slotEl.querySelector('.fate-card-effect');
         if (effEl) {
-          let s = 15;
-          effEl.style.fontSize = s + 'px';
+          let s = parseFloat(getComputedStyle(effEl).fontSize) || 15;
+          const minS = Math.max(11, Math.round(s * 0.8));
           requestAnimationFrame(() => {
-            while (effEl.scrollHeight > effEl.clientHeight + 2 && s > 9) {
+            while (effEl.scrollHeight > effEl.clientHeight + 2 && s > minS) {
               s -= 1;
               effEl.style.fontSize = s + 'px';
             }
